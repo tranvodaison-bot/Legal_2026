@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   TAXONOMY_3D,
   LEGAL_CATEGORY_TREE,
@@ -180,6 +180,15 @@ function matchesDossierProjectPhase(gateRef: string, phase: ProjectPhaseFilter):
 }
 
 import type { StepContextType } from "../../App";
+import {
+  DEFAULT_NOTEBOOK_LM_URL,
+  getResolvedNotebookUrl,
+  loadNotebookLmUrlMap,
+  NOTEBOOK_LM_CATALOG,
+  NOTEBOOK_LM_COLLECTION_META,
+  NotebookLmCollectionCode,
+  saveNotebookLmUrlMap,
+} from "../../config/notebookLmConfig";
 
 export interface Step5CommandCenterProps {
   ctx: StepContextType;
@@ -355,6 +364,34 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
     isAiRunning, setIsAiRunning,
     AI_AGENTS_LIST, runMultiAgentAnalysis,
   } = ctx;
+
+  const [nblmCollectionFilter, setNblmCollectionFilter] = useState<
+    NotebookLmCollectionCode | 'ALL'
+  >('LEGAL');
+  const [nblmUrlMap, setNblmUrlMap] = useState<Record<string, string>>(() =>
+    loadNotebookLmUrlMap()
+  );
+  const [editingNblmId, setEditingNblmId] = useState<string | null>(null);
+  const [nblmUrlDraft, setNblmUrlDraft] = useState<string>('');
+
+  const handleSaveNotebookUrl = (notebookId: string, notebookCode: string) => {
+    const trimmed = nblmUrlDraft.trim();
+    const nextMap = { ...nblmUrlMap };
+    if (!trimmed || trimmed === DEFAULT_NOTEBOOK_LM_URL) {
+      delete nextMap[notebookId];
+    } else {
+      nextMap[notebookId] = trimmed;
+    }
+    setNblmUrlMap(nextMap);
+    saveNotebookLmUrlMap(nextMap);
+    setEditingNblmId(null);
+    setNblmUrlDraft('');
+    showToast(`Đã lưu URL NotebookLM cho sổ [${notebookCode}] vào localStorage!`);
+  };
+
+  const filteredNotebooks = NOTEBOOK_LM_CATALOG.filter(
+    item => nblmCollectionFilter === 'ALL' || item.collection === nblmCollectionFilter
+  );
 
   return (
     <>
@@ -1290,6 +1327,207 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     </pre>
                   </div>
                 )}
+
+                {/* BẢNG ĐIỀU KHIỂN NOTEBOOKLM GROUNDED KNOWLEDGE HUB (14 SỔ LEGAL, 5 SỔ AI, THAM KHẢO) */}
+                <div className="bg-slate-900 border border-indigo-500/40 rounded-xl p-4 space-y-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-indigo-500 text-white font-mono text-[10px] font-bold">
+                          DEEP-RAG HUB
+                        </span>
+                        <h3 className="text-xs font-bold uppercase text-white">
+                          NotebookLM Grounded Knowledge Hub (3 Bộ sưu tập · 21 Sổ Chuyên đề)
+                        </h3>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Quản lý & gắn link trực tiếp tới 14 sổ <b className="text-amber-300">LEGAL</b>, 5 sổ{' '}
+                        <b className="text-indigo-300">AI</b> và 2 sổ đệm{' '}
+                        <b className="text-emerald-300">Tham Khảo</b> (lưu tự động trong{' '}
+                        <code className="text-sky-300">localStorage</code>).
+                      </p>
+                    </div>
+
+                    {/* Bộ lọc 3 Bộ sưu tập */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {(
+                        [
+                          { id: 'LEGAL', label: '⚖️ LEGAL (14 sổ)' },
+                          { id: 'AI', label: '🤖 AI (5 sổ)' },
+                          { id: 'THAM_KHAO', label: '🗂️ Tham Khảo (2 sổ đệm)' },
+                          { id: 'ALL', label: `📚 Tất cả (${NOTEBOOK_LM_CATALOG.length})` },
+                        ] as const
+                      ).map(tab => {
+                        const active = nblmCollectionFilter === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setNblmCollectionFilter(tab.id)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border transition ${
+                              active
+                                ? 'bg-indigo-500 text-white border-indigo-300 shadow-xs'
+                                : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Thông tin tóm tắt Bộ sưu tập đang chọn */}
+                  {nblmCollectionFilter !== 'ALL' && (
+                    <div className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+                      <span className="text-slate-300">
+                        {NOTEBOOK_LM_COLLECTION_META[nblmCollectionFilter].description}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold border shrink-0 ${NOTEBOOK_LM_COLLECTION_META[nblmCollectionFilter].badgeClass}`}
+                      >
+                        {NOTEBOOK_LM_COLLECTION_META[nblmCollectionFilter].badgeCount}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Danh sách các Sổ ghi chú NotebookLM */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+                    {filteredNotebooks.map(nb => {
+                      const resolvedUrl = getResolvedNotebookUrl(nb.id, nblmUrlMap);
+                      const hasCustomUrl = Boolean(nblmUrlMap[nb.id]);
+                      const isEditingThis = editingNblmId === nb.id;
+                      const colMeta = NOTEBOOK_LM_COLLECTION_META[nb.collection];
+
+                      return (
+                        <div
+                          key={nb.id}
+                          className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition flex flex-col justify-between gap-2"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold border shrink-0 ${colMeta.badgeClass}`}
+                                >
+                                  {nb.code}
+                                </span>
+                                <span className="text-xs font-bold text-white truncate" title={nb.title}>
+                                  {nb.title}
+                                </span>
+                              </div>
+                              {hasCustomUrl ? (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[9px] shrink-0">
+                                  Đã gắn Link riêng
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-mono text-[9px] shrink-0">
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-slate-400 leading-snug">{nb.description}</p>
+
+                            {/* Tags Lĩnh vực & Stage-Gate liên kết */}
+                            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                              {nb.linkedDomains.map(dom => (
+                                <span
+                                  key={dom}
+                                  className="px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-[9px] font-mono text-sky-300"
+                                >
+                                  {dom}
+                                </span>
+                              ))}
+                              {nb.linkedGates.map(g => (
+                                <span
+                                  key={g}
+                                  className="px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-mono text-amber-300"
+                                >
+                                  {g}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Khung sửa/dán URL trực tiếp của sổ vào localStorage */}
+                          {isEditingThis ? (
+                            <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                              <input
+                                type="url"
+                                value={nblmUrlDraft}
+                                onChange={e => setNblmUrlDraft(e.target.value)}
+                                placeholder="https://notebook.google.com/notebook/..."
+                                className="w-full bg-slate-900 border border-indigo-500/60 rounded px-2.5 py-1 text-[11px] font-mono text-white focus:outline-none"
+                              />
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingNblmId(null);
+                                    setNblmUrlDraft('');
+                                  }}
+                                  className="px-2 py-1 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveNotebookUrl(nb.id, nb.code)}
+                                  className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-bold"
+                                >
+                                  💾 Lưu URL vào localStorage
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={resolvedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] transition flex items-center gap-1"
+                                  title={`Mở ${nb.title} (${resolvedUrl})`}
+                                >
+                                  <span>📓</span>
+                                  <span>Mở Sổ NotebookLM</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingNblmId(nb.id);
+                                    setNblmUrlDraft(nblmUrlMap[nb.id] || DEFAULT_NOTEBOOK_LM_URL);
+                                  }}
+                                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono transition"
+                                  title="Dán hoặc cập nhật đường dẫn URL trực tiếp tới Sổ ghi chú NotebookLM này"
+                                >
+                                  🔗 Gắn Link URL
+                                </button>
+                              </div>
+
+                              {nb.sampleKeywords[0] && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const q = `[${nb.code} - ${nb.shortTitle}] Đối với dự án [${activeProjectArchetype}] (${currentArchetypeMeta.name}): Hãy trích dẫn toàn văn và phân tích "${nb.sampleKeywords[0]}"`;
+                                    setAiPromptInput(q);
+                                    navigator.clipboard.writeText(q);
+                                    showToast(`Đã nạp & copy từ khóa tra cứu sổ [${nb.code}]!`);
+                                  }}
+                                  className="px-2 py-1 rounded bg-slate-900 hover:bg-indigo-950 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono transition"
+                                  title="Copy nhanh câu lệnh truy vấn mẫu và nạp vào ô Prompt AI phía trên"
+                                >
+                                  📋 Copy Từ khóa RAG
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}

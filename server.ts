@@ -300,6 +300,41 @@ function buildDeterministicLegalReport(params: {
   const selectedMitigations =
     projectSpecificMitigations[projectCode] || projectSpecificMitigations.KCN;
 
+  const notebookByProject: Record<string, { code: string; title: string; keywords: string }> = {
+    HTKT: {
+      code: 'LEGAL-02 & LEGAL-03',
+      title: 'Sổ 02: NĐ Quản lý dự án 209/2026 & 175/2024 | Sổ 03: Quản lý chất lượng 207/2026 & 06/2021',
+      keywords: 'nghiệm thu hạ tầng kỹ thuật, cao độ san nền, bàn giao vận hành, nhật ký thi công điện tử',
+    },
+    DAN_DUNG: {
+      code: 'LEGAL-11 & LEGAL-12',
+      title: 'Sổ 11: Đất đai 2024 & Kinh doanh BĐS 2023 | Sổ 12: PCCC NĐ 50/2024 & Môi trường ĐTM',
+      keywords: 'điều kiện mở bán nhà ở hình thành tương lai, bảo lãnh ngân hàng, nghiệm thu PCCC PC07',
+    },
+    KCN: {
+      code: 'LEGAL-08 & LEGAL-02',
+      title: 'Sổ 08: Khu công nghiệp & Cụm CN (NĐ 35/2022) | Sổ 02: Quản lý dự án 209/2026 & 175/2024',
+      keywords: 'thẩm định một cửa Ban Quản lý KCN, trạm xử lý nước thải tập trung, mật độ xây dựng KCN',
+    },
+    CCN: {
+      code: 'LEGAL-08 & LEGAL-12',
+      title: 'Sổ 08: Khu công nghiệp & Cụm CN (NĐ 32/2024) | Sổ 12: PCCC NĐ 50/2024 & Môi trường ĐTM',
+      keywords: 'chủ đầu tư hạ tầng kỹ thuật Cụm công nghiệp, thẩm quyền Sở Công Thương, PCCC CCN',
+    },
+    FTZ: {
+      code: 'LEGAL-09 & LEGAL-05',
+      title: 'Sổ 09: Khu thương mại tự do FTZ & Hải quan | Sổ 05: Hợp đồng xây dựng 210/2026 & FIDIC',
+      keywords: 'hàng rào cứng FTZ, giám sát hải quan tự động, hợp đồng EPC quốc tế, FIDIC',
+    },
+    PPP_BT: {
+      code: 'LEGAL-10 & LEGAL-04',
+      title: 'Sổ 10: Đầu tư PPP / BOT / BT (Luật PPP) | Sổ 04: Quản lý chi phí 206/2026 & 10/2021',
+      keywords: 'phương án tài chính PPP, kiểm toán nhà nước quyết toán vốn, phát sinh khối lượng VO hợp đồng BT',
+    },
+  };
+
+  const resolvedNotebook = notebookByProject[projectCode] || notebookByProject.KCN;
+
   if (gateCode || riskFlag) {
     return `[AI PHÂN TÍCH RỦI RO & BIỆN PHÁP KHẮC PHỤC THEO DỰ ÁN [${projectCode}]]
 ====================================================================
@@ -320,7 +355,11 @@ function buildDeterministicLegalReport(params: {
 3. PHÂN CÔNG TRÁCH NHIỆM RACI & HỒ SƠ ĐẦU RA BẮT BUỘC:
    - Chủ đầu tư (A - Accountable): Ký tờ trình / quyết định phê duyệt chốt chặn ${gateCode || ''} sau khi có báo cáo thẩm tra đạt yêu cầu.
    - Ban QLDA (R - Responsible): Lập checklist rà soát 100% điều kiện tiên quyết, đôn đốc Tư vấn thiết kế / Tư vấn giám sát hoàn thiện hồ sơ khắc phục trong vòng 48h.
-   - Tư vấn Giám sát & Nhà thầu (C/R): Bổ sung đầy đủ biên bản nghiệm thu, kết quả thí nghiệm LAS-XD, bản vẽ hoàn công và nhật ký thi công đúng trình tự thời gian (không ký lùi ngày).`;
+   - Tư vấn Giám sát & Nhà thầu (C/R): Bổ sung đầy đủ biên bản nghiệm thu, kết quả thí nghiệm LAS-XD, bản vẽ hoàn công và nhật ký thi công đúng trình tự thời gian (không ký lùi ngày).
+
+4. TỪ KHÓA & SỔ GHI CHÚ NOTEBOOKLM (LEGAL) CẦN TRA CỨU ĐỐI CHIẾU TOÀN VĂN (KHUYẾN NGHỊ CHO BAN QLDA / CHỦ ĐẦU TƯ):
+   - Sổ ghi chú chuyên đề: [${resolvedNotebook.code}] ${resolvedNotebook.title}
+   - Từ khóa tra cứu Deep-RAG: "${gateCode || 'Stage-Gate'}, ${stepTitle || projectCode}, ${resolvedNotebook.keywords}, điều khoản chuyển tiếp, chế tài xử phạt"`;
   }
 
   return `[PHÁN QUYẾT PHÁP LÝ & KIỂM TOÁN DỰ ÁN — LEX-PMO OS v3.0]
@@ -331,10 +370,10 @@ function buildDeterministicLegalReport(params: {
 • Tình huống phân tích: "${prompt}"
 
 1. ĐỐI SOÁT CHÉO CĂN CỨ PHÁP LÝ 3 TRỤC (TRỤC X × TRỤC Y × TRỤC Z):
-   - Nhóm Hoạt động Xây dựng [HDXD]: Áp dụng Điều 15, Điều 39 Nghị định 175/2024/NĐ-CP và Luật Xây dựng (sửa đổi 2020).
+   - Nhóm Hoạt động Xây dựng [HDXD]: Áp dụng Điều 15, Điều 39 Nghị định 175/2024/NĐ-CP và Luật Xây dựng 135/2025/QH15.
      + Đặc thù loại hình [${projectCode}]: ${specialNote}
-   - Nhóm Quản lý Chi phí [QLCP] & Hợp đồng [QLHD]: Áp dụng Điều 6 (Thứ tự ưu tiên tài liệu HĐ), Điều 19, Điều 37 Văn bản hợp nhất Nghị định 37/2015 & 50/2021/NĐ-CP kết hợp Nghị định 10/2021/NĐ-CP và Luật Đấu thầu 2023.
-   - Nhóm Quản lý Chất lượng [QLCL] & Vật liệu [VLXD]: Áp dụng Điều 12 (Chứng chỉ CO/CQ, Hợp chuẩn TCVN, Hợp quy QCVN, thí nghiệm LAS-XD), Điều 15 (Khoản 13 - Nhật ký thi công), Điều 21 Nghị định 06/2021/NĐ-CP.
+   - Nhóm Quản lý Chi phí [QLCP] & Hợp đồng [QLHD]: Áp dụng Điều 6 (Thứ tự ưu tiên tài liệu HĐ), Điều 19, Điều 37 Nghị định 210/2026/NĐ-CP (hoặc VBHN Nghị định 37/2015 & 50/2021/NĐ-CP theo mốc chuyển tiếp) kết hợp Nghị định 206/2026/NĐ-CP & Luật Đấu thầu 22/2023/QH15.
+   - Nhóm Quản lý Chất lượng [QLCL] & Vật liệu [VLXD]: Áp dụng Điều 12 (Chứng chỉ CO/CQ, Hợp chuẩn TCVN, Hợp quy QCVN 16:2023/BXD, thí nghiệm LAS-XD), Điều 15 (Khoản 13 - Nhật ký thi công), Điều 21 Nghị định 207/2026/NĐ-CP & 06/2021/NĐ-CP.
 
 2. LỘ TRÌNH KIỂM SOÁT STAGE-GATE & PHÂN QUYỀN RACI 4 BÊN:
    - [Gate G6 & G9 — Thẩm định Thiết kế & PCCC]: Nếu nội dung điều chỉnh làm thay đổi kết cấu chịu lực chính, mật độ xây dựng hoặc giải pháp PCCC → Bắt buộc trình thẩm định/thẩm duyệt lại tại ${authority} và Cục/Phòng PC07 trước khi thi công.
@@ -348,7 +387,11 @@ function buildDeterministicLegalReport(params: {
        : 'HỢP LỆ 100% (Ngày lấy mẫu ≤ Ngày kết quả LAS-XD ≤ Ngày nghiệm thu VLXD ≤ Ngày nghiệm thu công việc).'
    }
    - Chuẩn hóa tên file lưu trữ vào Kho SSOT (9 thành phần):
-     XD_PLHD_CDT_02_2026_QLHD_PhuLucHopDongDieuChinhKhoiLuongPhatSinh.pdf`;
+     XD_PLHD_CDT_02_2026_QLHD_PhuLucHopDongDieuChinhKhoiLuongPhatSinh.pdf
+
+4. TỪ KHÓA & SỔ GHI CHÚ NOTEBOOKLM (LEGAL) CẦN TRA CỨU ĐỐI CHIẾU TOÀN VĂN (KHUYẾN NGHỊ CHO BAN QLDA / CHỦ ĐẦU TƯ):
+   - Sổ ghi chú chuyên đề cần mở: [${resolvedNotebook.code}] ${resolvedNotebook.title} (kèm [LEGAL-01] Luật Xây dựng 135/2025 & [LEGAL-05] Hợp đồng 210/2026).
+   - Từ khóa truy vấn Deep-RAG: "${resolvedNotebook.keywords}, điều khoản chuyển tiếp, thẩm quyền phê duyệt ${authority}, hồ sơ thanh quyết toán IPC"`;
 }
 
 const handleAnalyzeLegalRequest = async (req: Request, res: Response): Promise<void> => {
@@ -411,16 +454,17 @@ const handleAnalyzeLegalRequest = async (req: Request, res: Response): Promise<v
   if (ai) {
     try {
       const systemInstruction = `Bạn là Tổng Công Trình Sư Pháp Lý & Quản Lý Dự Án Đầu Tư Xây Dựng (LEX-PMO OS v3.0), đóng vai trò ${agentName} (${agentId}).
-Hãy phân tích chuyên sâu, chính xác theo Hệ tọa độ Ma trận 3 Trục:
-- Trục 1 (Pháp luật): Luật Xây dựng, Luật Đấu thầu 2023, Luật Nhà ở/KDBĐS 2023, Luật PPP, Nghị định 175/2024/NĐ-CP, Nghị định 06/2021/NĐ-CP, Nghị định 10/2021/NĐ-CP, VBHN Nghị định 37/2015 & 50/2021/NĐ-CP, Nghị định 35/2022/NĐ-CP (KCN), Nghị định 32/2024/NĐ-CP (CCN).
+Hãy phân tích chuyên sâu, chính xác theo Hệ tọa độ Ma trận 3 Trục và Kho tri thức NotebookLM Deep-RAG (14 sổ LEGAL: LEGAL-01 Luật Xây dựng 135/2025, LEGAL-02 NĐ Quản lý dự án 209/2026 & 175/2024, LEGAL-03 NĐ Quản lý chất lượng 207/2026 & 06/2021, LEGAL-04 NĐ Quản lý chi phí 206/2026 & 10/2021, LEGAL-05 NĐ Hợp đồng xây dựng 210/2026 & 37/2015, LEGAL-06 Luật Đấu thầu 22/2023 & NĐ 24/2024, LEGAL-07 Hệ thống QCVN/TCVN, LEGAL-08 KCN/CCN NĐ 35/2022 & 32/2024, LEGAL-09 FTZ & Hải quan, LEGAL-10 PPP/BOT/BT, LEGAL-11 Đất đai 2024 & BĐS 2023, LEGAL-12 PCCC NĐ 50/2024 & ĐTM, LEGAL-13 Thanh quyết toán & HĐĐT NĐ 70/2025, LEGAL-14 Lộ trình BIM TT 12/2025 & CDE ISO 19650):
+- Trục 1 (Pháp luật): Luật Xây dựng 135/2025, Luật Đấu thầu 2023, Luật Nhà ở/KDBĐS 2023, Luật PPP, Nghị định 209/2026 & 175/2024/NĐ-CP, Nghị định 207/2026 & 06/2021/NĐ-CP, Nghị định 206/2026 & 10/2021/NĐ-CP, Nghị định 210/2026 & VBHN 37/2015 & 50/2021/NĐ-CP, Nghị định 35/2022/NĐ-CP (KCN), Nghị định 32/2024/NĐ-CP (CCN).
 - Trục 2 (Loại hình dự án đang chọn): [${projectCode}] ${projectName}. Cơ quan thẩm quyền đầu mối: ${authority}. Lưu ý đặc thù: ${specialNote}.
 - Trục 3 (Chức năng): QLCL, HDXD, QLHD, QLCP, VLXD, TCVN, QCVN, DTH, TQT, PCCC, QHDD, ATLD, DTU.
 
-Trình bày báo cáo rõ ràng theo 4 phần:
+Trình bày báo cáo rõ ràng theo 5 phần:
 1. Nhận diện nguyên nhân gốc rễ & Đối soát căn cứ pháp lý 3 Trục (nêu rõ điều khoản).
 2. Các biện pháp khắc phục & phòng ngừa rủi ro cụ thể dựa trên loại hình dự án [${projectCode}] và cơ quan thẩm quyền ${authority}.
 3. Phân công trách nhiệm RACI 4 bên (Chủ đầu tư, Ban QLDA, Tư vấn Giám sát, Tư vấn Thiết kế, Nhà thầu) & Hồ sơ minh chứng bắt buộc.
-4. Đề xuất tên file hồ sơ khắc phục chuẩn SSOT 9 thành phần.`;
+4. Đề xuất tên file hồ sơ khắc phục chuẩn SSOT 9 thành phần.
+5. BẮT BUỘC gợi ý mục "Từ khóa & Sổ ghi chú NotebookLM (LEGAL) cần tra cứu đối chiếu toàn văn" trong phần khuyến nghị cho Ban QLDA / Chủ đầu tư (chỉ rõ mã sổ LEGAL-01..LEGAL-14 và bộ từ khóa truy vấn Deep-RAG).`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-4-hydrogen',
@@ -640,14 +684,15 @@ Yêu cầu phân tích chặt chẽ:
 1. Chỉ rõ các chênh lệch về MỐC THỜI GIAN / THỜI HẠN (timelineDifferences: hiệu lực, thời hạn 24 giờ, số ngày nghiệm thu, thời điểm áp dụng chuyển tiếp...).
 2. Chỉ rõ các chênh lệch về CẤP THẨM QUYỀN / CHỦ THỂ (authorityDifferences: Chủ đầu tư, Ban QLDA, TVGS, TVTK, Nhà thầu, UBND, Sở Xây dựng, Ban Quản lý KCN/KKT, Bộ chuyên ngành...).
 3. Chỉ rõ các chênh lệch về YÊU CẦU KỸ THUẬT / TIÊU CHUẨN / HỒ SƠ (technicalDifferences: BIM, chữ ký số CA, nhật ký điện tử, LAS-XD, QCVN/TCVN, bản vẽ hoàn công, Phụ lục IIa, CO/CQ, nghiệm thu/thanh toán VO...).
-4. Trong highlightTargetsA và highlightTargetsB, trích xuất các cụm từ NGẮN (2-10 từ) xuất hiện CHÍNH XÁC NGUYÊN VĂN trong "Nội dung chi tiết A" và "Nội dung chi tiết B" thuộc 3 nhóm category (TIMELINE, AUTHORITY, TECHNICAL) để UI tô sáng trực tiếp lên văn bản.`;
+4. Trong highlightTargetsA và highlightTargetsB, trích xuất các cụm từ NGẮN (2-10 từ) xuất hiện CHÍNH XÁC NGUYÊN VĂN trong "Nội dung chi tiết A" và "Nội dung chi tiết B" thuộc 3 nhóm category (TIMELINE, AUTHORITY, TECHNICAL) để UI tô sáng trực tiếp lên văn bản.
+5. Trong trường recommendedAction (khuyến nghị cho Ban QLDA / Chủ đầu tư), BẮT BUỘC tự động gợi ý thêm mục "Từ khóa & Sổ ghi chú NotebookLM (LEGAL) cần tra cứu đối chiếu toàn văn" (nêu rõ mã sổ thuộc bộ 14 sổ LEGAL như LEGAL-01 Luật Xây dựng 135/2025, LEGAL-02 NĐ 209/2026 & 175/2024, LEGAL-03 NĐ 207/2026 & 06/2021, LEGAL-04 NĐ 206/2026 & 10/2021, LEGAL-05 NĐ 210/2026 & 37/2015, LEGAL-06 Đấu thầu, LEGAL-07 QCVN/TCVN, LEGAL-08 KCN/CCN... kèm từ khóa truy vấn Deep-RAG).`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-4-hydrogen',
       contents: promptText,
       config: {
         systemInstruction:
-          'Bạn là Chuyên gia Pháp chế Xây dựng & Kiểm toán Đầu tư Công Việt Nam. Luôn trả về JSON đúng schema tiếng Việt, súc tích, chính xác. Mọi phrase trong highlightTargetsA/B phải xuất hiện nguyên văn trong văn bản tương ứng.',
+          'Bạn là Chuyên gia Pháp chế Xây dựng & Kiểm toán Đầu tư Công Việt Nam. Luôn trả về JSON đúng schema tiếng Việt, súc tích, chính xác. Mọi phrase trong highlightTargetsA/B phải xuất hiện nguyên văn trong văn bản tương ứng. Trong recommendedAction, luôn đính kèm gợi ý "Từ khóa & Sổ ghi chú NotebookLM (LEGAL) cần tra cứu đối chiếu toàn văn" cho Ban QLDA / Chủ đầu tư.',
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: 'application/json',
         responseSchema: {
@@ -671,7 +716,8 @@ Yêu cầu phân tích chặt chẽ:
             },
             recommendedAction: {
               type: Type.STRING,
-              description: 'Khuyến nghị hành động cụ thể cho Ban QLDA / Chủ đầu tư / Nhà thầu.',
+              description:
+                'Khuyến nghị hành động cụ thể cho Ban QLDA / Chủ đầu tư / Nhà thầu, kèm "Từ khóa & Sổ ghi chú NotebookLM (LEGAL) cần tra cứu đối chiếu toàn văn".',
             },
             highlightTargetsA: {
               type: Type.ARRAY,

@@ -180,6 +180,11 @@ function matchesDossierProjectPhase(gateRef: string, phase: ProjectPhaseFilter):
 }
 
 import type { StepContextType } from "../../App";
+import {
+  buildNotebookLmCitationPrompt,
+  getResolvedNotebookUrl,
+  resolveLegalNotebookForContext,
+} from "../../config/notebookLmConfig";
 
 export interface Step2LegalMatrixProps {
   ctx: StepContextType;
@@ -2303,25 +2308,96 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         </div>
                       </div>
 
-                      {/* Thanh công cụ bật/tắt 'Chế độ thu gọn danh sách' ngay phía trên bảng thẻ văn bản */}
-                      <div className="pt-1.5 border-t border-slate-200/90 flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-mono text-slate-600">
-                          Hiển thị: <b className="text-[#163d5c]">{filteredLegalDocs.length}</b> văn bản
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCol2CompactMode(prev => !prev)}
-                          title="Khi bật chỉ hiển thị số hiệu văn bản và trích yếu ngắn gọn, ẩn loại hình dự án, liên kết Gate và mục lục nội tuyến"
-                          className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold flex items-center gap-1.5 transition ${
-                            isCol2CompactMode
-                              ? 'bg-[#163d5c] text-white border-[#163d5c] shadow-2xs'
-                              : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-[#163d5c] border-slate-300'
-                          }`}
-                        >
-                          <span>{isCol2CompactMode ? '≣' : '▤'}</span>
-                          <span>Chế độ thu gọn danh sách</span>
-                        </button>
-                      </div>
+                      {/* Thanh công cụ bật/tắt 'Chế độ thu gọn danh sách' & Đối chiếu NotebookLM (LEGAL) ngay phía trên bảng thẻ văn bản */}
+                      {(() => {
+                        const activeNotebook = resolveLegalNotebookForContext({
+                          doc: currentLegalDoc,
+                          domainCode: vbplDomainFilter,
+                          gateCode: vbplGateFilter,
+                          projectCode: activeProjectArchetype,
+                        });
+                        const notebookUrl = getResolvedNotebookUrl(activeNotebook.id);
+                        const activeNodeObj =
+                          currentLegalDoc?.nodes.find(n => n.id === activeNodeId) ||
+                          currentLegalDoc?.nodes[0] ||
+                          null;
+
+                        return (
+                          <div className="pt-1.5 border-t border-slate-200/90 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-mono text-slate-600">
+                                Hiển thị: <b className="text-[#163d5c]">{filteredLegalDocs.length}</b> văn bản
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsCol2CompactMode(prev => !prev)}
+                                title="Khi bật chỉ hiển thị số hiệu văn bản và trích yếu ngắn gọn, ẩn loại hình dự án, liên kết Gate và mục lục nội tuyến"
+                                className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold flex items-center gap-1.5 transition ${
+                                  isCol2CompactMode
+                                    ? 'bg-[#163d5c] text-white border-[#163d5c] shadow-2xs'
+                                    : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-[#163d5c] border-slate-300'
+                                }`}
+                              >
+                                <span>{isCol2CompactMode ? '≣' : '▤'}</span>
+                                <span>Chế độ thu gọn danh sách</span>
+                              </button>
+                            </div>
+
+                            {/* Cụm nút NotebookLM Deep-RAG (14 sổ LEGAL) */}
+                            <div className="p-1.5 rounded-lg bg-indigo-50/90 border border-indigo-200 flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="min-w-0 flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-700 text-white font-mono font-bold text-[9px] shrink-0">
+                                  {activeNotebook.code}
+                                </span>
+                                <span
+                                  className="text-[10px] font-semibold text-indigo-950 truncate"
+                                  title={activeNotebook.title}
+                                >
+                                  {activeNotebook.shortTitle}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <a
+                                  href={notebookUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() =>
+                                    showToast(`Đang mở Sổ NotebookLM: ${activeNotebook.title}`)
+                                  }
+                                  title={`Mở trực tiếp ${activeNotebook.title} trên Google NotebookLM (${notebookUrl})`}
+                                  className="px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-[10px] transition flex items-center gap-1 shadow-2xs whitespace-nowrap"
+                                >
+                                  <span>📓</span>
+                                  <span>Đối chiếu NotebookLM (LEGAL)</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const promptText = buildNotebookLmCitationPrompt({
+                                      notebook: activeNotebook,
+                                      doc: currentLegalDoc,
+                                      node: activeNodeObj,
+                                      projectCode: activeProjectArchetype,
+                                      projectName: currentArchetypeMeta.name,
+                                      authority: currentArchetypeMeta.authority,
+                                    });
+                                    navigator.clipboard.writeText(promptText);
+                                    showToast(
+                                      `📋 Đã copy Prompt truy vấn trích dẫn toàn văn cho ${
+                                        currentLegalDoc?.docNumber || activeNotebook.code
+                                      }! Dán ngay vào NotebookLM.`
+                                    );
+                                  }}
+                                  title="Copy nhanh Prompt truy vấn trích dẫn toàn văn (Số hiệu VB + Điều khoản + Loại hình dự án) để dán vào NotebookLM"
+                                  className="px-2 py-1 rounded bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-semibold text-[10px] transition whitespace-nowrap"
+                                >
+                                  📋 Copy Prompt Toàn văn
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Danh sách thẻ văn bản + Mục lục nội tuyến */}
@@ -3908,6 +3984,60 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                               : 'AI Phân tích Chênh lệch'}
                                           </span>
                                         </button>
+
+                                        {/* Nút Đối chiếu NotebookLM (LEGAL) & Copy Prompt Truy vấn Toàn văn cho cặp điều khoản đang so sánh */}
+                                        {(() => {
+                                          const compareNotebook = resolveLegalNotebookForContext({
+                                            doc: rightDoc || leftDoc,
+                                            projectCode: activeProjectArchetype,
+                                          });
+                                          const compareNotebookUrl = getResolvedNotebookUrl(
+                                            compareNotebook.id
+                                          );
+                                          return (
+                                            <>
+                                              <a
+                                                href={compareNotebookUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() =>
+                                                  showToast(
+                                                    `Đang mở ${compareNotebook.title} trên NotebookLM`
+                                                  )
+                                                }
+                                                title={`Mở ${compareNotebook.title} (${compareNotebookUrl}) để đối chiếu nguyên văn 2 điều khoản`}
+                                                className="px-2.5 py-1 rounded bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-[11px] transition flex items-center gap-1 border border-indigo-300/60 shadow-xs whitespace-nowrap"
+                                              >
+                                                <span>📓</span>
+                                                <span>Đối chiếu NotebookLM (LEGAL)</span>
+                                              </a>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const promptText = buildNotebookLmCitationPrompt({
+                                                    notebook: compareNotebook,
+                                                    doc: leftDoc,
+                                                    node: leftNode,
+                                                    secondDoc: rightDoc,
+                                                    secondNode: rightNode,
+                                                    projectCode: activeProjectArchetype,
+                                                    projectName: currentArchetypeMeta.name,
+                                                    authority: currentArchetypeMeta.authority,
+                                                  });
+                                                  navigator.clipboard.writeText(promptText);
+                                                  showToast(
+                                                    `📋 Đã copy Prompt đối chiếu toàn văn [${leftDoc.docNumber} (${leftNode.code}) ↔ ${rightDoc.docNumber} (${rightNode.code})]!`
+                                                  );
+                                                }}
+                                                title="Copy Prompt truy vấn trích dẫn toàn văn của cặp điều khoản A & B để dán ngay vào NotebookLM"
+                                                className="px-2.5 py-1 rounded bg-white/15 hover:bg-white/25 text-indigo-100 border border-indigo-300/50 font-mono font-bold text-[11px] transition whitespace-nowrap"
+                                              >
+                                                📋 Copy Prompt Toàn văn
+                                              </button>
+                                            </>
+                                          );
+                                        })()}
+
                                         <label className="inline-flex items-center gap-1.5 text-[11px] font-mono bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded cursor-pointer transition">
                                           <input
                                             type="checkbox"
