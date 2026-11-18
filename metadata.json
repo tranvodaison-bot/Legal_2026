@@ -1,0 +1,6 @@
+{
+  "name": "LEX-PMO OS v3.0 — Hệ Điều Hành Pháp Lý 3 Trục & Quản Trị Dự Án Xây Dựng",
+  "description": "Hệ thống quản trị doanh nghiệp hợp nhất & chuỗi giá trị pháp lý 3 trục (Pháp luật × Dự án × Chức năng), kiểm soát Stage-Gate G0–G16, RACI, QA/QC, VO, Tài sản & AI Pháp lý.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

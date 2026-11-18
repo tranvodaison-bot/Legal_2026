@@ -1,0 +1,2799 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEX-PMO OS v3.0 — Chuỗi Giá Trị Pháp Lý 3 Trục & Điều Hành Dự Án Xây Dựng</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Mammoth.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950 overflow-hidden">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useRef, useEffect } = React;
+
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // ============================================================================
+    // 1. HỆ TỌA ĐỘ MA TRẬN 3 TRỤC (3-AXIS TAXONOMY: PHÁP LUẬT × DỰ ÁN × CHỨC NĂNG)
+    // ============================================================================
+    const TAXONOMY_3D = {
+      // TRỤC 1: NHÓM PHÁP LUẬT & LOẠI VĂN BẢN (Legal Hierarchy)
+      legalGroups: [
+        { code: 'LUAT', name: 'Luật / Bộ luật', group: 'VBPL', badgeColor: 'bg-rose-600 text-white' },
+        { code: 'NQ',   name: 'Nghị quyết (QH / UBTVQH / CP)', group: 'VBPL', badgeColor: 'bg-pink-600 text-white' },
+        { code: 'ND',   name: 'Nghị định Chính phủ', group: 'VBPL', badgeColor: 'bg-sky-600 text-white' },
+        { code: 'TT',   name: 'Thông tư Bộ ngành', group: 'VBPL', badgeColor: 'bg-emerald-600 text-white' },
+        { code: 'VBHN', name: 'Văn bản hợp nhất', group: 'VBPL', badgeColor: 'bg-indigo-600 text-white' },
+        { code: 'QCVN', name: 'Quy chuẩn kỹ thuật Quốc gia', group: 'TC_QC', badgeColor: 'bg-amber-500 text-slate-950' },
+        { code: 'TCVN', name: 'Tiêu chuẩn Quốc gia', group: 'TC_QC', badgeColor: 'bg-teal-600 text-white' },
+        { code: 'QD',   name: 'Quyết định phê duyệt', group: 'HSDA', badgeColor: 'bg-purple-600 text-white' },
+        { code: 'CV',   name: 'Công văn hướng dẫn / Giải đáp', group: 'VBPL', badgeColor: 'bg-slate-600 text-white' },
+        { code: 'TTr',  name: 'Tờ trình thẩm định / phê duyệt', group: 'HSDA', badgeColor: 'bg-blue-600 text-white' },
+        { code: 'HD',   name: 'Hợp đồng Xây dựng / Tư vấn', group: 'HSDA', badgeColor: 'bg-orange-600 text-white' },
+        { code: 'PLHD', name: 'Phụ lục Hợp đồng / VO', group: 'HSDA', badgeColor: 'bg-amber-600 text-white' },
+        { code: 'BBNT', name: 'Biên bản nghiệm thu QA/QC', group: 'HSDA', badgeColor: 'bg-cyan-600 text-white' },
+        { code: 'NKTC', name: 'Nhật ký thi công công trình', group: 'HSDA', badgeColor: 'bg-lime-600 text-slate-950' }
+      ],
+
+      // TRỤC 2: NHÓM LOẠI HÌNH DỰ ÁN ĐẦU TƯ (Project Archetypes)
+      projectTypes: [
+        {
+          code: 'HTKT',
+          name: 'Hạ tầng kỹ thuật (Giao thông, Cấp thoát nước, Điện)',
+          authority: 'Sở Xây dựng / Sở GTVT / UBND Tỉnh',
+          specialNote: 'Kiểm soát chặt cao độ san nền, đấu nối hạ tầng vùng, GPMB tuyến và an toàn giao thông.'
+        },
+        {
+          code: 'DAN_DUNG',
+          name: 'Dân dụng & Khu đô thị (Chung cư, Thương mại, KĐT)',
+          authority: 'Sở Xây dựng / Cục QL HĐXD / Cục PCCC (PC07)',
+          specialNote: 'Bắt buộc quy hoạch 1/500, thẩm duyệt PCCC chặt chẽ, nghĩa vụ nhà ở xã hội & bảo lãnh bán nhà hình thành tương lai.'
+        },
+        {
+          code: 'KCN',
+          name: 'Khu Công Nghiệp (Đầu tư Hạ tầng & Nhà máy KCN)',
+          authority: 'Ban Quản lý KKT & các KCN (Một cửa tại chỗ)',
+          specialNote: 'Thẩm định dự án/thiết kế thông qua Ban Quản lý KCN; kiểm soát ĐTM KCN, trạm xử lý nước thải tập trung và mật độ xây dựng thuần.'
+        },
+        {
+          code: 'CCN',
+          name: 'Cụm Công Nghiệp (Hạ tầng CCN & Sản xuất)',
+          authority: 'Sở Công Thương / UBND Cấp Tỉnh & Cấp Huyện',
+          specialNote: 'Quyết định thành lập/mở rộng Cụm công nghiệp theo Nghị định 32/2024/NĐ-CP trước khi lập dự án đầu tư xây dựng hạ tầng.'
+        },
+        {
+          code: 'FTZ',
+          name: 'Khu Thương Mại Tự Do (Free Trade Zone - FTZ)',
+          authority: 'Ban Quản lý Khu CNC & các KCN / Cơ chế đặc thù Quốc hội',
+          specialNote: 'Áp dụng cơ chế đặc thù (Nghị quyết Quốc hội): Luồng xanh hải quan, ưu đãi đầu tư đặc biệt, phân khu chức năng Logistics - Sản xuất - Thương mại.'
+        },
+        {
+          code: 'PPP_BT',
+          name: 'Dự án PPP / Hợp đồng BT, BOT, BOO',
+          authority: 'Hội đồng thẩm định PPP / Cơ quan ký kết hợp đồng / Kiểm toán Nhà nước',
+          specialNote: 'Kiểm soát song hành Luật PPP + Luật Đầu tư công + Luật Xây dựng: Đấu thầu lựa chọn Nhà đầu tư, Hợp đồng dự án, Quỹ đất thanh toán BT và Kiểm toán quyết toán vốn.'
+        }
+      ],
+
+      // TRỤC 3: NHÓM CHỨC NĂNG NGHIỆP VỤ (Functional Domains - Mục 6 Tên File)
+      functionalDomains: [
+        { code: 'QLCL', name: 'Quản lý chất lượng, Thi công & Nghiệm thu' },
+        { code: 'HDXD', name: 'Hoạt động xây dựng (Dự án, Thiết kế, GPXD)' },
+        { code: 'QLHD', name: 'Quản lý Hợp đồng, Tạm ứng & Phát sinh (VO)' },
+        { code: 'QLCP', name: 'Quản lý chi phí, Dự toán & Định mức XD' },
+        { code: 'VLXD', name: 'Vật liệu xây dựng, Hợp chuẩn/Hợp quy & LAS' },
+        { code: 'TCVN', name: 'Tiêu chuẩn Quốc gia (Thi công & Nghiệm thu)' },
+        { code: 'QCVN', name: 'Quy chuẩn kỹ thuật Quốc gia (Bắt buộc)' },
+        { code: 'DTH',  name: 'Đấu thầu & Lựa chọn nhà thầu' },
+        { code: 'TQT',  name: 'Thanh quyết toán & Kiểm toán vốn đầu tư' },
+        { code: 'PCCC', name: 'Phòng cháy chữa cháy & CNCH' },
+        { code: 'QHDD', name: 'Quy hoạch, Đất đai & Giải phóng mặt bằng' },
+        { code: 'ATLD', name: 'An toàn lao động & Môi trường xây dựng' },
+        { code: 'DTU',  name: 'Chủ trương đầu tư & Pháp lý dự án (KCN/FTZ/PPP)' }
+      ],
+
+      industries: [
+        { code: 'XD',  name: 'Xây dựng (Construction)' },
+        { code: 'BDS', name: 'Bất động sản & KCN (Real Estate & IP)' },
+        { code: 'TC',  name: 'Tài chính - Kế toán (Finance)' },
+        { code: 'DN',  name: 'Quản trị Doanh nghiệp (Corporate)' }
+      ],
+
+      issuers: [
+        { code: 'QH',    name: 'Quốc hội' },
+        { code: 'CP',    name: 'Chính phủ' },
+        { code: 'BXD',   name: 'Bộ Xây dựng' },
+        { code: 'BKHDT', name: 'Bộ Kế hoạch & Đầu tư' },
+        { code: 'BTC',   name: 'Bộ Tài chính' },
+        { code: 'BCA',   name: 'Bộ Công an (Cục PCCC)' },
+        { code: 'BCT',   name: 'Bộ Công Thương (CCN)' },
+        { code: 'BKHCN', name: 'Bộ Khoa học & Công nghệ' },
+        { code: 'UBND',  name: 'UBND Tỉnh / Thành phố' },
+        { code: 'BQLKKT',name: 'Ban Quản lý KKT / KCN / FTZ' },
+        { code: 'SXD',   name: 'Sở Xây dựng' },
+        { code: 'CDT',   name: 'Chủ đầu tư (ĐẠI SƠN / SDN)' },
+        { code: 'BQLDA', name: 'Ban Quản lý dự án' },
+        { code: 'TVGS',  name: 'Tư vấn Giám sát' },
+        { code: 'TVTK',  name: 'Tư vấn Thiết kế' },
+        { code: 'NTTC',  name: 'Nhà thầu thi công' }
+      ]
+    };
+
+    const LEGAL_CATEGORY_TREE = [
+      {
+        id: 'GRP-FUNC-1',
+        name: 'Nhóm Kỹ thuật · Chất lượng · Vật liệu · Tiêu chuẩn',
+        children: [
+          { code: 'QLCL', name: 'Quản lý chất lượng & Nghiệm thu (QLCL)' },
+          { code: 'VLXD', name: 'Vật liệu XD · Hợp chuẩn · LAS (VLXD)' },
+          { code: 'TCVN', name: 'Tiêu chuẩn Quốc gia (TCVN)' },
+          { code: 'QCVN', name: 'Quy chuẩn kỹ thuật Quốc gia (QCVN)' }
+        ]
+      },
+      {
+        id: 'GRP-FUNC-2',
+        name: 'Nhóm Kinh tế · Hợp đồng · Đấu thầu · Quyết toán',
+        children: [
+          { code: 'QLCP', name: 'Quản lý chi phí · Dự toán · Định mức (QLCP)' },
+          { code: 'QLHD', name: 'Quản lý Hợp đồng · Phát sinh VO (QLHD)' },
+          { code: 'DTH',  name: 'Đấu thầu & Lựa chọn nhà thầu (DTH)' },
+          { code: 'TQT',  name: 'Thanh quyết toán & Kiểm toán vốn (TQT)' }
+        ]
+      },
+      {
+        id: 'GRP-FUNC-3',
+        name: 'Nhóm Dự án · Hoạt động XD · Quy hoạch · PCCC',
+        children: [
+          { code: 'HDXD', name: 'Hoạt động XD · Thiết kế · GPXD (HDXD)' },
+          { code: 'DTU',  name: 'Chủ trương đầu tư · KCN · FTZ · PPP (DTU)' },
+          { code: 'QHDD', name: 'Quy hoạch · Đất đai · GPMB (QHDD)' },
+          { code: 'PCCC', name: 'Phòng cháy chữa cháy & CNCH (PCCC)' },
+          { code: 'ATLD', name: 'An toàn lao động & Môi trường (ATLD)' }
+        ]
+      }
+    ];
+
+    // ============================================================================
+    // 2. KHO VĂN BẢN PHÁP LUẬT GẮN NHÃN 3 TRỤC (TRỤC PHÁP LUẬT × DỰ ÁN × CHỨC NĂNG)
+    // ============================================================================
+    const INITIAL_LEGAL_DOCS = [
+      {
+        id: 'DOC-01',
+        ssotFileName: 'XD_ND_CP_06_2021_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinh.pdf',
+        docNumber: '06/2021/NĐ-CP',
+        docType: 'ND', issuer: 'CP', year: '2021',
+        issueDate: '26/01/2021', effectiveDate: '26/01/2021',
+        primaryDomain: 'QLCL',
+        title: 'Nghị định quy định chi tiết một số nội dung về quản lý chất lượng, thi công xây dựng và bảo trì công trình xây dựng',
+        status: 'Còn hiệu lực năm 2026',
+        isAmended: true,
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: ['QLCL', 'VLXD', 'TCVN', 'QCVN', 'TQT'],
+        linkedGates: ['G12', 'G14', 'G15'],
+        linkedQAQC: ['QT-01', 'QT-03', 'QT-08', 'QT-12'],
+        lineage: 'Được sửa đổi, bổ sung bởi Nghị định 35/2023/NĐ-CP và Nghị định 175/2024/NĐ-CP (Phụ lục IIa Nhật ký thi công).',
+        nodes: [
+          {
+            id: 'N01-0', level: 'Mở đầu', code: 'Căn cứ ban hành · Lời mở đầu', title: '', clauseCount: 6,
+            content: 'Căn cứ Luật Xây dựng ngày 18 tháng 6 năm 2014; Luật sửa đổi, bổ sung một số điều của Luật Xây dựng ngày 17 tháng 6 năm 2020; Chính phủ ban hành Nghị định quy định chi tiết một số nội dung về quản lý chất lượng, thi công xây dựng và bảo trì công trình xây dựng.'
+          },
+          {
+            id: 'N01-C2', level: 'Chương', code: 'CHƯƠNG II', title: 'QUẢN LÝ THI CÔNG XÂY DỰNG CÔNG TRÌNH', clauseCount: 0, content: ''
+          },
+          {
+            id: 'N01-D12', level: 'Điều', code: 'Điều 12.', title: 'Quản lý chất lượng vật liệu, sản phẩm, cấu kiện, thiết bị (VLXD)', clauseCount: 8,
+            content: '1. Kiểm tra nguồn gốc xuất xứ (CO), chứng chỉ chất lượng (CQ), chứng nhận hợp chuẩn (TCVN) và hợp quy (QCVN).\n2. Tổ chức lấy mẫu thí nghiệm tại phòng LAS-XD hợp chuẩn dưới sự chứng kiến của Tư vấn giám sát và lập Biên bản nghiệm thu vật liệu đầu vào trước khi đưa vào thi công.'
+          },
+          {
+            id: 'N01-D15', level: 'Điều', code: 'Điều 15.', title: 'Quản lý hồ sơ chất lượng, Nhật ký thi công và Bản vẽ hoàn công (QLCL)', clauseCount: 14,
+            content: '13. Nhà thầu thi công xây dựng có trách nhiệm lập sổ nhật ký thi công xây dựng công trình đối với từng gói thầu xây dựng hoặc toàn bộ công trình xây dựng. Chủ đầu tư thỏa thuận với nhà thầu thi công xây dựng về hình thức và nội dung của nhật ký thi công xây dựng trước khi thực hiện thi công xây dựng công trình.\n14. Lập bản vẽ hoàn công theo quy định tại Phụ lục II Nghị định này.'
+          },
+          {
+            id: 'N01-D21', level: 'Điều', code: 'Điều 21.', title: 'Nghiệm thu công việc xây dựng (Chốt chặn chuyển bước & Thanh toán G14)', clauseCount: 7,
+            content: '1. Người trực tiếp giám sát thi công xây dựng công trình của Chủ đầu tư/TVGS và người trực tiếp phụ trách kỹ thuật thi công của nhà thầu thực hiện nghiệm thu công việc xây dựng để chuyển bước thi công.\n2. Thời gian nghiệm thu không quá 24 giờ kể từ khi nhận được Phiếu yêu cầu nghiệm thu (RFI) của nhà thầu.'
+          }
+        ]
+      },
+      {
+        id: 'DOC-02',
+        ssotFileName: 'XD_VBHN_BXD_37_2021_QLHD_HopNhatNghiDinh37Va50VeHopDongXayDung.pdf',
+        docNumber: '37/2015/NĐ-CP & 50/2021/NĐ-CP',
+        docType: 'VBHN', issuer: 'CP', year: '2021',
+        issueDate: '01/04/2021', effectiveDate: '01/04/2021',
+        primaryDomain: 'QLHD',
+        title: 'Văn bản hợp nhất Nghị định 37/2015/NĐ-CP và Nghị định 50/2021/NĐ-CP quy định chi tiết về Hợp đồng xây dựng',
+        status: 'Còn hiệu lực năm 2026',
+        isAmended: true,
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: ['QLHD', 'QLCP', 'TQT', 'DTH'],
+        linkedGates: ['G11', 'G14', 'G15'],
+        linkedQAQC: ['QT-12'],
+        lineage: 'Hợp nhất quy định về Bảo lãnh, Tạm ứng, Hồ sơ thanh toán, Điều chỉnh khối lượng/đơn giá (VO) và Quyết toán hợp đồng.',
+        nodes: [
+          {
+            id: 'N02-C1', level: 'Chương', code: 'CHƯƠNG I', title: 'QUY ĐỊNH CHUNG & THỨ TỰ ƯU TIÊN TÀI LIỆU HỢP ĐỒNG', clauseCount: 0, content: ''
+          },
+          {
+            id: 'N02-D6', level: 'Điều', code: 'Điều 6.', title: 'Tính pháp lý và Thứ tự ưu tiên các tài liệu kèm theo hợp đồng xây dựng', clauseCount: 5,
+            content: 'Trường hợp các bên không có thỏa thuận khác thì thứ tự ưu tiên áp dụng gồm: (1) Văn bản thông báo trúng thầu; (2) Điều kiện cụ thể của hợp đồng; (3) Điều kiện chung của hợp đồng; (4) Hồ sơ mời thầu; (5) Các bản vẽ thiết kế và chỉ dẫn kỹ thuật; (6) Hồ sơ dự thầu; (7) Biên bản thương thảo hợp đồng.'
+          },
+          {
+            id: 'N02-D19', level: 'Điều', code: 'Điều 19.', title: 'Thanh toán hợp đồng xây dựng theo từng loại hợp đồng', clauseCount: 7,
+            content: '1. Hợp đồng trọn gói: Thanh toán theo tỷ lệ % giá hợp đồng hoặc giá công trình, hạng mục hoàn thành.\n2. Hợp đồng theo đơn giá cố định và đơn giá điều chỉnh: Thanh toán trên cơ sở khối lượng thực tế hoàn thành được nghiệm thu đạt chất lượng và đơn giá trong hợp đồng.'
+          },
+          {
+            id: 'N02-D37', level: 'Điều', code: 'Điều 37.', title: 'Điều chỉnh khối lượng công việc trong hợp đồng xây dựng (Phát sinh VO)', clauseCount: 6,
+            content: '1. Hợp đồng trọn gói: Chỉ điều chỉnh khi có khối lượng bổ sung nằm ngoài phạm vi thiết kế kèm theo hợp đồng.\n2. Khối lượng phát sinh ngoài phạm vi hợp đồng chưa có đơn giá phải được các bên thống nhất đơn giá và ký Phụ lục hợp đồng trước khi thực hiện; nếu vượt Tổng mức đầu tư phải trình Người quyết định đầu tư phê duyệt.'
+          }
+        ]
+      },
+      {
+        id: 'DOC-03',
+        ssotFileName: 'XD_ND_CP_175_2024_HDXD_QuyDinhChiTietLuatXayDungVeQuanLyHoatDongXayDung.pdf',
+        docNumber: '175/2024/NĐ-CP',
+        docType: 'ND', issuer: 'CP', year: '2024',
+        issueDate: '30/12/2024', effectiveDate: '30/12/2024',
+        primaryDomain: 'HDXD',
+        title: 'Nghị định quy định chi tiết một số điều và biện pháp thi hành Luật Xây dựng về quản lý hoạt động xây dựng',
+        status: 'Còn hiệu lực năm 2026',
+        isAmended: false,
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: ['HDXD', 'QLCL', 'QHDD', 'PCCC', 'DTU'],
+        linkedGates: ['G0', 'G5', 'G6', 'G9', 'G12'],
+        linkedQAQC: ['QT-01'],
+        lineage: 'Thay thế Nghị định 15/2021/NĐ-CP về lập, thẩm định, phê duyệt dự án, thiết kế xây dựng triển khai sau TKCS và cấp GPXD.',
+        nodes: [
+          {
+            id: 'N03-C2', level: 'Chương', code: 'CHƯƠNG II', title: 'LẬP, THẨM ĐỊNH, PHÊ DUYỆT DỰ ÁN & THIẾT KẾ XÂY DỰNG', clauseCount: 0, content: ''
+          },
+          {
+            id: 'N03-D15', level: 'Điều', code: 'Điều 15.', title: 'Thẩm định Báo cáo nghiên cứu khả thi (BCNCKT) tại Cơ quan chuyên môn về xây dựng / Ban Quản lý KCN, KKT', clauseCount: 8,
+            content: 'Phân cấp thẩm quyền thẩm định Báo cáo nghiên cứu khả thi đối với dự án Dân dụng, Hạ tầng kỹ thuật và dự án đầu tư trong Khu công nghiệp (KCN), Khu kinh tế, Khu công nghệ cao, Khu thương mại tự do (FTZ).'
+          },
+          {
+            id: 'N03-D45', level: 'Điều', code: 'Điều 45.', title: 'Điều kiện cấp Giấy phép xây dựng và các trường hợp miễn GPXD (KCN / Dự án đã duyệt 1/500)', clauseCount: 6,
+            content: 'Quy định rõ hồ sơ đề nghị cấp Giấy phép xây dựng và kiểm soát điều kiện thông báo khởi công đối với công trình thuộc diện được miễn giấy phép xây dựng theo khoản 2 Điều 89 Luật Xây dựng (sửa đổi 2020).'
+          }
+        ]
+      },
+      {
+        id: 'DOC-04',
+        ssotFileName: 'XD_ND_CP_10_2021_QLCP_QuanLyChiPhiDauTuXayDung.pdf',
+        docNumber: '10/2021/NĐ-CP',
+        docType: 'ND', issuer: 'CP', year: '2021',
+        issueDate: '09/02/2021', effectiveDate: '09/02/2021',
+        primaryDomain: 'QLCP',
+        title: 'Nghị định về Quản lý chi phí đầu tư xây dựng (Tổng mức đầu tư, Dự toán, Định mức, Đơn giá, Thanh quyết toán)',
+        status: 'Còn hiệu lực năm 2026',
+        isAmended: true,
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: ['QLCP', 'HDXD', 'QLHD', 'TQT'],
+        linkedGates: ['G5', 'G9', 'G10', 'G14', 'G15'],
+        linkedQAQC: [],
+        lineage: 'Hướng dẫn bởi Thông tư 11/2021/TT-BXD, Thông tư 12/2021/TT-BXD (Định mức XD) và Thông tư 09/2024/TT-BXD.',
+        nodes: [
+          {
+            id: 'N04-D5', level: 'Điều', code: 'Điều 5 & Điều 11.', title: 'Tổng mức đầu tư xây dựng (Gate G5) và Dự toán xây dựng công trình (Gate G9)', clauseCount: 9,
+            content: 'Cấu thành Tổng mức đầu tư và Dự toán xây dựng gồm 7 khoản mục: Chi phí bồi thường GPMB; Chi phí xây dựng; Chi phí thiết bị; Chi phí QLDA; Chi phí tư vấn ĐTXD; Chi phí khác và Chi phí dự phòng (dự phòng khối lượng phát sinh + dự phòng trượt giá).'
+          }
+        ]
+      },
+      {
+        id: 'DOC-05',
+        ssotFileName: 'BDS_ND_CP_35_2022_DTU_QuanLyKhuCongNghiepVaKhuKinhTe.pdf',
+        docNumber: '35/2022/NĐ-CP & NQ-FTZ',
+        docType: 'ND', issuer: 'CP', year: '2022',
+        issueDate: '28/05/2022', effectiveDate: '15/07/2022',
+        primaryDomain: 'DTU',
+        title: 'Nghị định quy định về quản lý Khu công nghiệp (KCN), Khu kinh tế và Cơ chế đặc thù Khu thương mại tự do (FTZ) / Cụm công nghiệp (NĐ 32/2024)',
+        status: 'Còn hiệu lực năm 2026',
+        isAmended: false,
+        projectAxes: ['KCN', 'CCN', 'FTZ', 'HTKT'],
+        secondaryDomains: ['DTU', 'QHDD', 'HDXD', 'PCCC'],
+        linkedGates: ['G0', 'G1', 'G5', 'G9'],
+        linkedQAQC: [],
+        lineage: 'Kết hợp Nghị định 35/2022/NĐ-CP (KCN/KKT), Nghị định 32/2024/NĐ-CP (Cụm công nghiệp CCN) và Nghị quyết Quốc hội về Khu thương mại tự do (FTZ).',
+        nodes: [
+          {
+            id: 'N05-D1', level: 'Điều', code: 'Điều 9 & Điều 22.', title: 'Điều kiện chấp thuận chủ trương đầu tư Dự án kết cấu hạ tầng KCN / Phân khu FTZ', clauseCount: 8,
+            content: 'Quy định trình tự lập quy hoạch phân khu xây dựng KCN/FTZ, chấp thuận chủ trương đầu tư đồng thời chấp thuận nhà đầu tư hạ tầng, điều kiện phân kỳ đầu tư và tỷ lệ lấp đầy.'
+          }
+        ]
+      }
+    ];
+
+    // ============================================================================
+    // 3. MA TRẬN ĐỐI SOÁT CHÉO ĐA VĂN BẢN (CROSS-EXAMINATION MATRIX DATA)
+    // ============================================================================
+    const CROSS_EXAM_TOPICS = [
+      {
+        id: 'CX-01',
+        title: 'Đối soát 1: Quản lý & Thanh toán Khối lượng Phát sinh (VO) giữa Luật Đấu thầu – Luật Xây dựng – Nghị định Hợp đồng – Quyết toán',
+        functionalCodes: ['QLHD', 'QLCP', 'HDXD', 'DTH', 'TQT'],
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        summary: 'Đối chiếu 4 văn bản pháp luật cùng điều chỉnh một sự kiện phát sinh tại công trường để đảm bảo đủ điều kiện giải ngân tại Gate G14 và không bị xuất toán tại Gate G15.',
+        columns: [
+          {
+            docRef: 'Nghị định 37/2015 & 50/2021 (QLHD)',
+            clause: 'Điều 19 & Điều 37',
+            requirement: 'Khối lượng phát sinh ngoài phạm vi thiết kế/hợp đồng chưa có đơn giá bắt buộc phải thống nhất đơn giá và ký Phụ lục hợp đồng trước khi thi công.',
+            controlAction: 'Lập Biên bản hiện trường 4 bên → Thẩm tra dự toán phát sinh → Ký Phụ lục HĐ (Gate G11) trước khi đưa vào Phụ lục 04 (Gate G14).'
+          },
+          {
+            docRef: 'Nghị định 10/2021/NĐ-CP (QLCP)',
+            clause: 'Điều 15 & Điều 19',
+            requirement: 'Việc sử dụng chi phí dự phòng cho khối lượng phát sinh phải nằm trong Tổng mức đầu tư / Dự toán được duyệt. Nếu vượt phải thẩm định, phê duyệt điều chỉnh.',
+            controlAction: 'Phòng QS/Kinh tế kiểm tra số dư Chi phí dự phòng của gói thầu trước khi trình Chủ đầu tư phê duyệt dự toán bổ sung.'
+          },
+          {
+            docRef: 'Nghị định 175/2024/NĐ-CP (HDXD) & Luật PCCC',
+            clause: 'Điều 19 & Điều 39',
+            requirement: 'Nếu thay đổi thiết kế làm ảnh hưởng đến an toàn kết cấu chịu lực chính, công năng hoặc giải pháp PCCC thì phải trình Cơ quan chuyên môn XD / PC07 thẩm định lại.',
+            controlAction: 'Tuyệt đối không cho phép chỉ ký Biên bản xử lý kỹ thuật nội bộ tại công trường nếu phát sinh làm thay đổi vách ngăn cháy/lối thoát nạn/kết cấu chính.'
+          },
+          {
+            docRef: 'Nghị định 06/2021/NĐ-CP (QLCL)',
+            clause: 'Điều 15 & Điều 21',
+            requirement: 'Mọi phát sinh phải được phản ánh trung thực trong Nhật ký thi công, có ý kiến Giám sát tác giả của TVTK, nghiệm thu vật liệu (VLXD) và nghiệm thu công việc (QLCL).',
+            controlAction: 'Đồng bộ ngày tháng: Ngày phê duyệt chủ trương VO ≤ Ngày nhập vật liệu/Thí nghiệm LAS ≤ Ngày ghi Nhật ký ≤ Ngày ký BBNT công việc.'
+          }
+        ]
+      },
+      {
+        id: 'CX-02',
+        title: 'Đối soát 2: Trình tự Pháp lý Chuẩn bị Đầu tư & Thẩm định Thiết kế theo 6 Loại hình Dự án (HTKT, Dân dụng, KCN, CCN, FTZ, PPP/BT)',
+        functionalCodes: ['DTU', 'QHDD', 'HDXD', 'PCCC'],
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        summary: 'Sự khác biệt cốt lõi về Cơ quan đầu mối thẩm định, Quy hoạch, Đất đai và Giấy phép xây dựng từ Gate G0 đến Gate G9.',
+        columns: [
+          {
+            docRef: 'Khu Công Nghiệp (KCN) & Khu TM Tự Do (FTZ)',
+            clause: 'NĐ 35/2022/NĐ-CP & NĐ 175/2024',
+            requirement: 'Thực hiện cơ chế "Một cửa tại chỗ" tại Ban Quản lý KKT & các KCN. Công trình trong KCN đã có quy hoạch 1/500 và thẩm định thiết kế được miễn GPXD (nhưng phải thông báo khởi công).',
+            controlAction: 'Kiểm soát đấu nối nước thải vào trạm XLNT tập trung của KCN, mật độ xây dựng lô đất và thẩm duyệt PCCC chuyên ngành.'
+          },
+          {
+            docRef: 'Cụm Công Nghiệp (CCN)',
+            clause: 'Nghị định 32/2024/NĐ-CP',
+            requirement: 'Phải có Quyết định thành lập / mở rộng Cụm công nghiệp của UBND cấp Tỉnh (đầu mối Sở Công Thương) trước khi lập BCNCKT đầu tư xây dựng hạ tầng kỹ thuật CCN.',
+            controlAction: 'Chốt chặn Gate G1: Hoàn thành phương án phát triển CCN và lựa chọn Chủ đầu tư xây dựng hạ tầng kỹ thuật CCN.'
+          },
+          {
+            docRef: 'Dân dụng & Khu Đô Thị (BĐS Thương mại)',
+            clause: 'Luật Nhà ở 2023 · Luật KD BĐS 2023 · NĐ 175/2024',
+            requirement: 'Thẩm định tại Sở Xây dựng / Bộ Xây dựng. Kiểm soát chỉ tiêu dân số, quỹ đất Nhà ở xã hội (20%), điều kiện mở bán nhà ở hình thành trong tương lai.',
+            controlAction: 'Chốt chặn Gate G8 & G15: Hoàn thành nghĩa vụ tài chính đất đai và Văn bản thông báo đủ điều kiện bán nhà của Sở Xây dựng.'
+          },
+          {
+            docRef: 'Dự án PPP / BT & Hạ tầng Kỹ thuật (HTKT)',
+            clause: 'Luật PPP (Sửa đổi 2024) & Luật Đầu tư công',
+            requirement: 'Quản lý chặt chẽ Hợp đồng dự án PPP/BT, tỷ lệ vốn nhà nước tham gia, đấu thầu lựa chọn nhà đầu tư và kiểm toán quyết toán giá trị công trình BT.',
+            controlAction: 'Tách bạch chi phí đầu tư, lãi vay trong thời gian xây dựng và kiểm soát đơn giá định mức theo đúng quy định vốn nhà nước.'
+          }
+        ]
+      }
+    ];
+
+    // ============================================================================
+    // 4. DỮ LIỆU STAGE-GATE ĐỘNG (LẬP KẾ HOẠCH THEO LOẠI HÌNH DỰ ÁN TRỤC Y)
+    // ============================================================================
+    const INITIAL_GATES = [
+      {
+        gate: 'G0', phase: 'Giai đoạn I: Chuẩn bị đầu tư', name: 'Quy hoạch Phân khu 1/2000 & Chi tiết 1/500 (QHDD)',
+        stepsCount: 14,
+        functionalTags: ['QHDD', 'DTU'],
+        projectNotes: {
+          HTKT: 'Lập quy hoạch hướng tuyến tỷ lệ 1/500 và thỏa thuận khớp nối cao độ, hành lang an toàn kỹ thuật.',
+          DAN_DUNG: 'Phê duyệt Quy hoạch chi tiết 1/500; kiểm soát mật độ xây dựng, hệ số sử dụng đất (FAR), tầng cao và quỹ đất công cộng.',
+          KCN: 'Quy hoạch phân khu xây dựng KCN 1/2000 hoặc chi tiết 1/500 trình UBND Tỉnh thông qua Ban Quản lý KKT & các KCN.',
+          CCN: 'Quy hoạch chi tiết 1/500 Cụm công nghiệp gắn liền với Quyết định thành lập CCN theo NĐ 32/2024/NĐ-CP.',
+          FTZ: 'Quy hoạch phân khu chức năng Khu thương mại tự do (Khu sản xuất, Logistics, Thương mại dịch vụ, Hải quan riêng biệt).',
+          PPP_BT: 'Quy hoạch chi tiết 1/500 của cả Công trình dự án BT và Quỹ đất đối ứng thanh toán cho Nhà đầu tư.'
+        },
+        steps: [
+          {
+            code: 'I.0.1', title: 'Lập, thẩm định và phê duyệt Quy hoạch chi tiết 1/500 / Quy hoạch tổng mặt bằng',
+            mandatory: 'Bắt buộc (Hard-Stop)',
+            raci: { CDT: 'A (Trình duyệt)', BQLDA: 'R (Tổ chức lập)', TVTK: 'R (Lập đồ án QH)', TVGS: 'I', NhaThau: 'I', CoQuanNN: 'Sở XD / Ban QL KKT&KCN / UBND' },
+            ssotTemplate: 'BDS_QD_UBND_1500_2026_QHDD_PheDuyetQuyHoachChiTiet1500.pdf',
+            riskFlag: '⚠ Sai lệch chỉ tiêu sử dụng đất, mật độ xây dựng và tầng cao so với quy hoạch phân khu 1/2000.',
+            auditChecklist: [
+              'Quyết định phê duyệt nhiệm vụ và đồ án Quy hoạch chi tiết 1/500 kèm bản vẽ đóng dấu thẩm định',
+              'Văn bản thỏa thuận đấu nối hạ tầng kỹ thuật (Điện, Cấp thoát nước, Đấu nối giao thông)',
+              'Văn bản góp ý về giải pháp PCCC đối với đồ án quy hoạch chi tiết 1/500'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G1', phase: 'Giai đoạn I: Chuẩn bị đầu tư', name: 'Chủ trương Đầu tư & Chấp thuận Nhà đầu tư (DTU)',
+        stepsCount: 22,
+        functionalTags: ['DTU', 'QHDD'],
+        projectNotes: {
+          HTKT: 'Quyết định chủ trương đầu tư (Vốn công) hoặc Chấp thuận chủ trương đầu tư (Vốn ngoài ngân sách).',
+          DAN_DUNG: 'Chấp thuận chủ trương đầu tư dự án Khu đô thị / Nhà ở thương mại; đấu giá quyền sử dụng đất hoặc đấu thầu lựa chọn NĐT.',
+          KCN: 'Chấp thuận chủ trương đầu tư dự án đầu tư xây dựng và kinh doanh kết cấu hạ tầng KCN (NĐ 35/2022).',
+          CCN: 'Quyết định thành lập/mở rộng Cụm công nghiệp và giao Chủ đầu tư xây dựng hạ tầng kỹ thuật CCN (NĐ 32/2024).',
+          FTZ: 'Chấp thuận chủ trương đầu tư theo cơ chế đặc thù Khu thương mại tự do (FTZ) tại Ban Quản lý Khu CNC & các KCN.',
+          PPP_BT: 'Phê duyệt Báo cáo nghiên cứu tiền khả thi và Quyết định chủ trương đầu tư dự án PPP/BT.'
+        },
+        steps: [
+          {
+            code: 'I.1.1', title: 'Quyết định Chấp thuận chủ trương đầu tư / Giấy chứng nhận đăng ký đầu tư (IRC)',
+            mandatory: 'Bắt buộc',
+            raci: { CDT: 'A (Chủ trì)', BQLDA: 'R (Lập hồ sơ đề xuất)', TVTK: 'C (Thuyết minh sơ bộ)', TVGS: 'I', NhaThau: 'I', CoQuanNN: 'UBND Tỉnh / Sở KHĐT / Ban QL KCN' },
+            ssotTemplate: 'BDS_QD_UBND_88_2026_DTU_ChapThuanChuTruongDauTuDuAn.pdf',
+            riskFlag: '⚠ Thực hiện dự án chậm tiến độ cam kết trong Quyết định chủ trương đầu tư nhưng chưa làm thủ tục điều chỉnh/gia hạn.',
+            auditChecklist: [
+              'Văn bản đề nghị thực hiện dự án đầu tư + Báo cáo năng lực tài chính của Chủ đầu tư',
+              'Đề xuất dự án đầu tư / Báo cáo nghiên cứu tiền khả thi (Pre-FS)',
+              'Quyết định Chấp thuận chủ trương đầu tư / Quyết định thành lập CCN / Giấy chứng nhận ĐKĐT'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G6', phase: 'Giai đoạn I: Chuẩn bị đầu tư', name: 'Thẩm duyệt PCCC & Môi trường ĐTM (PCCC / ATLD)',
+        stepsCount: 18,
+        functionalTags: ['PCCC', 'QCVN', 'ATLD'],
+        projectNotes: {
+          HTKT: 'Thẩm duyệt PCCC đối với hệ thống cấp nước chữa cháy đô thị / hạ tầng và báo cáo ĐTM.',
+          DAN_DUNG: 'Thẩm duyệt PCCC bắt buộc theo QCVN 06 đối với chung cư, nhà cao tầng, hầm để xe và trung tâm thương mại.',
+          KCN: 'Phê duyệt ĐTM toàn KCN + Thẩm duyệt PCCC hạ tầng KCN và từng nhà xưởng sản xuất, kho bãi.',
+          CCN: 'Phê duyệt ĐTM Cụm công nghiệp, hệ thống thu gom xử lý nước thải tập trung và thẩm duyệt PCCC.',
+          FTZ: 'Kiểm soát nghiêm ngặt PCCC kho ngoại quan, trung tâm Logistics công suất lớn và an toàn môi trường.',
+          PPP_BT: 'Hoàn tất ĐTM và thẩm duyệt PCCC làm điều kiện tiên quyết trước khi phê duyệt BCNCKT dự án PPP.'
+        },
+        steps: [
+          {
+            code: 'I.6.1', title: 'Thẩm duyệt Thiết kế về Phòng cháy chữa cháy (PCCC) & Phê duyệt ĐTM',
+            mandatory: 'Bắt buộc (Hard-Stop)',
+            raci: { CDT: 'A (Ký tờ trình)', BQLDA: 'R (Theo dõi thẩm duyệt)', TVTK: 'R (Lập hồ sơ PCCC)', TVGS: 'I', NhaThau: 'I', CoQuanNN: 'Cục/Phòng Cảnh sát PCCC (PC07)' },
+            ssotTemplate: 'XD_QD_BCA_45_2026_PCCC_GiayChungNhanThamDuyetThietKePCCC.pdf',
+            riskFlag: '⚠ RF-02: Thay đổi công năng, vách ngăn cháy, lối thoát nạn trong quá trình thi công nhưng không thẩm duyệt điều chỉnh PCCC.',
+            auditChecklist: [
+              'Giấy chứng nhận thẩm duyệt thiết kế về PCCC kèm bộ bản vẽ có đóng dấu thẩm duyệt của PC07',
+              'Quyết định phê duyệt kết quả thẩm định Báo cáo đánh giá tác động môi trường (ĐTM) / Giấy phép môi trường'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G9', phase: 'Giai đoạn II: Thực hiện dự án', name: 'Thiết kế Triển khai sau TKCS (HDXD) & Dự toán (QLCP)',
+        stepsCount: 28,
+        functionalTags: ['HDXD', 'QLCP', 'TCVN', 'QCVN'],
+        projectNotes: {
+          HTKT: 'Thẩm định Thiết kế bản vẽ thi công (BVTC) và Dự toán công trình hạ tầng kỹ thuật tại Sở chuyên ngành.',
+          DAN_DUNG: 'Thẩm tra và thẩm định Thiết kế kỹ thuật / BVTC công trình dân dụng; kiểm soát chặt bảng bóc tách khối lượng BOQ.',
+          KCN: 'Thẩm định Thiết kế triển khai sau TKCS tại Ban Quản lý KKT & các KCN (hoặc Sở XD phân cấp).',
+          CCN: 'Thẩm định Thiết kế BVTC hạ tầng Cụm công nghiệp và dự toán chi phí đầu tư xây dựng.',
+          FTZ: 'Thẩm định thiết kế theo luồng ưu tiên một cửa tại Ban Quản lý Khu CNC & các KCN.',
+          PPP_BT: 'Thẩm định chặt chẽ Thiết kế kỹ thuật và Dự toán tại Cơ quan chuyên môn về XD làm cơ sở thanh toán hợp đồng BT/PPP.'
+        },
+        steps: [
+          {
+            code: 'II.9.1', title: 'Thẩm tra, Thẩm định & Phê duyệt Thiết kế Bản vẽ thi công (BVTC) và Dự toán',
+            mandatory: 'Bắt buộc',
+            raci: { CDT: 'A (Phê duyệt)', BQLDA: 'R (Tổ chức thẩm tra/thẩm định)', TVTK: 'R (Lập BVTC & Dự toán)', TVGS: 'C (Đánh giá tính khả thi)', NhaThau: 'I', CoQuanNN: 'Sở XD / Ban QL KCN + Tư vấn thẩm tra' },
+            ssotTemplate: 'XD_QD_CDT_112_2026_HDXD_PheDuyetThietKeBanVeThiCongVaDuToan.pdf',
+            riskFlag: '⚠ Khối lượng bóc tách trong Dự toán (QLCP) sai khác với Bản vẽ thi công (HDXD) dẫn đến tranh chấp Hợp đồng trọn gói.',
+            auditChecklist: [
+              'Báo cáo kết quả thẩm tra thiết kế BVTC (HDXD) và Dự toán (QLCP) của đơn vị tư vấn độc lập đủ năng lực',
+              'Văn bản thông báo kết quả thẩm định của Cơ quan chuyên môn về xây dựng / Ban Quản lý KCN',
+              'Quyết định phê duyệt Thiết kế BVTC và Dự toán xây dựng công trình của Chủ đầu tư'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G10', phase: 'Giai đoạn II: Thực hiện dự án', name: 'Kế hoạch LCNT & Tổ chức Đấu thầu (DTH)',
+        stepsCount: 35,
+        functionalTags: ['DTH', 'QLCP', 'QLHD'],
+        projectNotes: {
+          HTKT: 'Tổ chức lựa chọn nhà thầu thi công hạ tầng và tư vấn giám sát theo Luật Đấu thầu 2023.',
+          DAN_DUNG: 'Lựa chọn nhà thầu theo Quy chế đấu thầu nội bộ của Chủ đầu tư (nếu vốn tư nhân) hoặc Luật Đấu thầu (nếu vốn công).',
+          KCN: 'Đấu thầu các gói thầu san nền, giao thông, cấp thoát nước, trạm XLNT và điện chiếu sáng KCN.',
+          CCN: 'Đấu thầu lựa chọn nhà thầu thi công hạ tầng Cụm công nghiệp.',
+          FTZ: 'Lựa chọn tổng thầu EPC hoặc các nhà thầu gói thầu hạ tầng chiến lược FTZ.',
+          PPP_BT: 'Tuân thủ nghiêm ngặt quy định lựa chọn nhà thầu của dự án PPP có sử dụng vốn nhà nước.'
+        },
+        steps: [
+          {
+            code: 'II.10.2', title: 'Phê duyệt HSMT, Đánh giá HSDT, Thương thảo & Phê duyệt Kết quả LCNT',
+            mandatory: 'Bắt buộc',
+            raci: { CDT: 'A (Phê duyệt KQLCNT)', BQLDA: 'R (Bên mời thầu / Tổ chuyên gia)', TVTK: 'C (Làm rõ kỹ thuật)', TVGS: 'I', NhaThau: 'R (Nộp HSDT)', CoQuanNN: 'Hệ thống đấu thầu / Hội đồng thầu CĐT' },
+            ssotTemplate: 'XD_QD_CDT_145_2026_DTH_PheDuyetKetQuaLuaChonNhaThauGoiThauXL01.pdf',
+            riskFlag: '⚠ RF-03: Thương thảo hợp đồng làm thay đổi đơn giá hoặc bản chất kỹ thuật của Hồ sơ dự thầu.',
+            auditChecklist: [
+              'Quyết định phê duyệt Kế hoạch lựa chọn nhà thầu (KHLCNT) và Hồ sơ mời thầu (HSMT)',
+              'Báo cáo đánh giá HSDT của Tổ chuyên gia và Báo cáo thẩm định kết quả lựa chọn nhà thầu',
+              'Biên bản thương thảo hợp đồng và Quyết định phê duyệt Kết quả lựa chọn nhà thầu'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G11', phase: 'Giai đoạn II: Thực hiện dự án', name: 'Ký kết Hợp đồng, Bảo lãnh & Tạm ứng (QLHD)',
+        stepsCount: 19,
+        functionalTags: ['QLHD', 'QLCP'],
+        projectNotes: {
+          HTKT: 'Kiểm soát chặt điều khoản mặt bằng bàn giao từng phần và điều chỉnh giá vật liệu san lấp/nhựa đường.',
+          DAN_DUNG: 'Quy định rõ thứ tự ưu tiên tài liệu hợp đồng, phạt tiến độ và mốc bàn giao căn hộ/sàn thương mại.',
+          KCN: 'Hợp đồng thi công hạ tầng KCN gắn liền tiến độ bàn giao đất sạch cho nhà đầu tư thứ cấp.',
+          CCN: 'Kiểm soát bảo lãnh thực hiện hợp đồng và bảo lãnh tiền tạm ứng vô điều kiện, không hủy ngang.',
+          FTZ: 'Hợp đồng EPC / Thiết kế - Thi công yêu cầu quy định rõ mốc Hold Point phê duyệt thiết kế trước khi thi công.',
+          PPP_BT: 'Đảm bảo các điều khoản Hợp đồng xây lắp (EPC/XL) tương thích hoàn toàn với Hợp đồng dự án PPP/BT.'
+        },
+        steps: [
+          {
+            code: 'II.11.1', title: 'Ký kết Hợp đồng thi công xây dựng & Kiểm soát Bảo lãnh thực hiện HĐ / Tạm ứng',
+            mandatory: 'Bắt buộc (Hard-Stop)',
+            raci: { CDT: 'A (Ký Hợp đồng)', BQLDA: 'R (Soạn thảo & Kiểm soát bảo lãnh)', TVTK: 'I', TVGS: 'I (Nhận HĐ để giám sát)', NhaThau: 'R (Nộp Bảo lãnh & Ký HĐ)', CoQuanNN: 'Ngân hàng phát hành bảo lãnh' },
+            ssotTemplate: 'XD_HD_CDT_01_2026_QLHD_HopDongThiCongXayDungCongTrinh.pdf',
+            riskFlag: '⚠ RF-04: Giải ngân tạm ứng khi Bảo lãnh thực hiện hợp đồng hoặc Bảo lãnh tiền tạm ứng chưa có hiệu lực.',
+            auditChecklist: [
+              'Hợp đồng thi công xây dựng kèm Điều kiện chung, Điều kiện cụ thể, Chỉ dẫn kỹ thuật (Spec) và BOQ',
+              'Điều khoản quy định rõ Thứ tự ưu tiên các tài liệu hợp đồng (Theo Điều 6 NĐ 37/2015)',
+              'Bảo lãnh thực hiện hợp đồng và Bảo lãnh hoàn trả tiền tạm ứng (bản gốc Ngân hàng)'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G12', phase: 'Giai đoạn II: Thực hiện dự án', name: 'Thi công, Vật liệu (VLXD) & Quản lý Chất lượng (QLCL)',
+        stepsCount: 42,
+        functionalTags: ['QLCL', 'VLXD', 'TCVN', 'QCVN', 'ATLD'],
+        projectNotes: {
+          HTKT: 'Kiểm soát độ chặt nền đường K95/K98, thí nghiệm cống ly tâm, thử áp lực đường ống cấp nước và bê tông nhựa.',
+          DAN_DUNG: 'Kiểm soát thí nghiệm cọc (PDA/Nén tĩnh), cốt thép, bê tông, chống thấm và nghiệm thu PCCC/Cơ điện MEP.',
+          KCN: 'Kiểm soát chất lượng hạ tầng KCN, trạm xử lý nước thải tập trung và quan trắc môi trường tự động.',
+          CCN: 'Kiểm soát vật liệu đầu vào (VLXD), nhật ký thi công hàng ngày và nghiệm thu công việc xây dựng.',
+          FTZ: 'Áp dụng hệ thống quản lý chất lượng số hóa (CDE/BIM) và nhật ký thi công điện tử.',
+          PPP_BT: 'Lưu trữ đầy đủ hồ sơ chất lượng, CO/CQ, phiếu kết quả LAS-XD phục vụ đoàn Kiểm toán Nhà nước.'
+        },
+        steps: [
+          {
+            code: 'II.12.1', title: 'Kiểm soát Vật liệu đầu vào (VLXD), Nhật ký thi công & Nghiệm thu công việc (QLCL)',
+            mandatory: 'Bắt buộc (Liên thông Phân hệ #04 Thực thi)',
+            raci: { CDT: 'I (Kiểm tra định kỳ)', BQLDA: 'A (Kiểm soát quy trình)', TVTK: 'C (Giám sát tác giả)', TVGS: 'R (Ký nghiệm thu & Nhật ký hàng ngày)', NhaThau: 'R (Lập nhật ký, trình mẫu & nghiệm thu)', CoQuanNN: 'Cơ quan kiểm tra công tác nghiệm thu' },
+            ssotTemplate: 'XD_BBNT_TVGS_05_2026_QLCL_BienBanNghiemThuCongViecXayDung.pdf',
+            riskFlag: '⚠ RF-05: Ngày ký Biên bản nghiệm thu công việc xây dựng (QLCL) sớm hơn ngày có Kết quả thí nghiệm cường độ vật liệu (VLXD).',
+            auditChecklist: [
+              'Biên bản nghiệm thu vật liệu đầu vào (VLXD) kèm CO/CQ và Kết quả thí nghiệm hợp chuẩn (LAS-XD)',
+              'Nhật ký thi công xây dựng công trình được ghi chép hàng ngày, đánh số trang, đóng dấu giáp lai',
+              'Phiếu yêu cầu nghiệm thu (RFI) và Biên bản nghiệm thu công việc xây dựng theo TCVN'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G14', phase: 'Giai đoạn III: Kết thúc & Đưa vào khai thác', name: 'Nghiệm thu Giai đoạn, Thanh toán & Phát sinh (QLHD / QLCP)',
+        stepsCount: 26,
+        functionalTags: ['QLHD', 'QLCP', 'QLCL', 'TQT'],
+        projectNotes: {
+          HTKT: 'Nghiệm thu giai đoạn hoàn thành nền móng/mặt đường để thanh toán IPC theo đợt.',
+          DAN_DUNG: 'Nghiệm thu hoàn thành phần móng (đủ điều kiện mở bán), phần thân và hoàn thiện để giải ngân.',
+          KCN: 'Thanh toán theo tiến độ hoàn thành từng phân khu hạ tầng KCN.',
+          CCN: 'Kiểm soát chặt khối lượng hoàn thành thực tế đối chiếu bản vẽ hoàn công từng đợt.',
+          FTZ: 'Đối soát tự động 3 chiều: Bản vẽ hoàn công — Biên bản nghiệm thu QLCL — Bảng thanh toán QS.',
+          PPP_BT: 'Xác nhận khối lượng hoàn thành làm cơ sở xác định giá trị vốn đầu tư thanh toán dự án PPP/BT.'
+        },
+        steps: [
+          {
+            code: 'III.14.1', title: 'Kiểm soát Hồ sơ Thanh toán từng đợt (IPC) & Phụ lục điều chỉnh phát sinh (VO)',
+            mandatory: 'Bắt buộc (Chốt chặn Kiểm toán)',
+            raci: { CDT: 'A (Phê duyệt giải ngân)', BQLDA: 'R (Thẩm tra khối lượng & giá trị QS)', TVTK: 'C (Xác nhận bản vẽ phát sinh)', TVGS: 'R (Xác nhận khối lượng hoàn thành đạt chất lượng)', NhaThau: 'R (Lập hồ sơ thanh toán Phụ lục 03a/04)', CoQuanNN: 'Ngân hàng / Kho bạc giải ngân' },
+            ssotTemplate: 'XD_PLHD_CDT_02_2026_QLHD_PhuLucHopDongDieuChinhKhoiLuongPhatSinh.pdf',
+            riskFlag: '⚠ RF-04: Đưa khối lượng phát sinh ngoài hợp đồng vào bảng thanh toán khi chưa được Chủ đầu tư phê duyệt dự toán phát sinh (QLCP) và ký Phụ lục hợp đồng (QLHD).',
+            auditChecklist: [
+              'Bảng xác định giá trị khối lượng công việc hoàn thành theo hợp đồng (Phụ lục 03a.a)',
+              'Bảng xác định giá trị khối lượng phát sinh ngoài hợp đồng (Phụ lục 04 - bắt buộc kèm Phụ lục HĐ đã ký)',
+              'Đối chiếu khớp 100% giữa: Bản vẽ hoàn công đợt — Biên bản nghiệm thu (QLCL) — Bảng tính khối lượng QS (QLCP)'
+            ]
+          }
+        ]
+      },
+      {
+        gate: 'G15', phase: 'Giai đoạn III: Kết thúc & Đưa vào khai thác', name: 'Nghiệm thu Hoàn thành, Kiểm toán & Quyết toán Vốn (TQT)',
+        stepsCount: 24,
+        functionalTags: ['TQT', 'QLCL', 'PCCC'],
+        projectNotes: {
+          HTKT: 'Kiểm tra công tác nghiệm thu hoàn thành công trình hạ tầng kỹ thuật và bàn giao cho đơn vị quản lý vận hành.',
+          DAN_DUNG: 'Văn bản nghiệm thu PCCC của PC07 + Văn bản chấp thuận nghiệm thu của Sở XD/Bộ XD trước khi bàn giao người mua nhà.',
+          KCN: 'Nghiệm thu hoàn thành hạ tầng KCN, xác nhận hoàn thành công trình bảo vệ môi trường và quyết toán vốn đầu tư.',
+          CCN: 'Nghiệm thu bàn giao đưa Cụm công nghiệp vào khai thác và quyết toán dự án hoàn thành.',
+          FTZ: 'Nghiệm thu đồng bộ hạ tầng kỹ thuật và hạ tầng kiểm soát hải quan thông minh trước khi vận hành chính thức.',
+          PPP_BT: 'Kiểm toán độc lập / Kiểm toán Nhà nước và Phê duyệt quyết toán vốn đầu tư công trình PPP/BT hoàn thành.'
+        },
+        steps: [
+          {
+            code: 'III.15.1', title: 'Kiểm tra công tác nghiệm thu đưa vào sử dụng, Kiểm toán & Quyết toán vốn đầu tư (TQT)',
+            mandatory: 'Bắt buộc',
+            raci: { CDT: 'A (Phê duyệt quyết toán)', BQLDA: 'R (Lập Báo cáo quyết toán A-B & Toàn dự án)', TVTK: 'C', TVGS: 'C (Xác nhận tổng khối lượng hoàn công)', NhaThau: 'R (Chốt quyết toán A-B)', CoQuanNN: 'Sở XD / Cục PCCC / Kiểm toán độc lập' },
+            ssotTemplate: 'TC_QD_CDT_01_2026_TQT_PheDuyetQuyetToanVonDauTuDuAnHoanThanh.pdf',
+            riskFlag: '⚠ Đưa công trình vào sử dụng khi chưa có Văn bản nghiệm thu PCCC và Văn bản chấp thuận kết quả nghiệm thu của Cơ quan chuyên môn về XD.',
+            auditChecklist: [
+              'Văn bản nghiệm thu về PCCC và Văn bản chấp thuận kết quả nghiệm thu hoàn thành công trình đưa vào sử dụng',
+              'Bộ Bản vẽ hoàn công toàn bộ công trình và Hồ sơ hoàn thành công trình theo Phụ lục VIb NĐ 06/2021',
+              'Biên bản thanh lý hợp đồng, Bảo lãnh bảo hành công trình và Báo cáo kiểm toán quyết toán dự án hoàn thành (TQT)'
+            ]
+          }
+        ]
+      }
+    ];
+
+    const QAQC_PROCESSES = [
+      {
+        id: 'QT-01', code: '01', group: 'Chuẩn bị thi công (HDXD / QLCL)', gateRef: 'G12',
+        title: 'Kiểm tra điều kiện khởi công công trình xây dựng (Điều 107 Luật XD)',
+        summary: 'Kiểm soát đầy đủ 6 điều kiện pháp lý và kỹ thuật bắt buộc trước khi phát lệnh khởi công xây dựng tại hiện trường.',
+        legalTag: 'Khoản 39 Điều 1 Luật XD sửa đổi 2020; Điều 14 NĐ 06/2021 [Mã: HDXD, QLCL]',
+        steps: [
+          {
+            stepNo: 'BƯỚC 01', name: 'Rà soát Mặt bằng, Giấy phép xây dựng (hoặc điều kiện miễn GPXD) & Thiết kế BVTC',
+            type: 'Hard-Stop Hold Point (H)', parties: 'Chủ đầu tư ↔ Ban QLDA ↔ Tư vấn Giám sát',
+            desc: 'Kiểm tra Biên bản bàn giao mặt bằng xây dựng (toàn bộ hoặc từng phần), Giấy phép xây dựng (trừ trường hợp miễn GPXD tại KCN/dự án đã duyệt 1/500 đủ điều kiện) và bộ Bản vẽ thi công đã được phê duyệt, đóng dấu.',
+            raciDetail: { CDT_QLDA: 'A/R - Chủ trì rà soát đủ điều kiện khởi công', TVGS: 'C - Kiểm tra tính đầy đủ của hồ sơ BVTC nhận bàn giao', NhaThau: 'R - Tiếp nhận mặt bằng và mốc định vị công trình' },
+            diaryTemplate: 'BIÊN BẢN BÀN GIAO MẶT BẰNG & MỐC ĐỊNH VỊ: Chủ đầu tư, Ban QLDA và TVGS tiến hành bàn giao mặt bằng thi công và hệ thống mốc tọa độ, cao độ chuẩn (VN-2000) cho Nhà thầu thi công gói thầu [...].',
+            formTemplateTitle: 'THÔNG BÁO KHỞI CÔNG XÂY DỰNG CÔNG TRÌNH (Phụ lục V - Nghị định 06/2021/NĐ-CP)'
+          },
+          {
+            stepNo: 'BƯỚC 02', name: 'Phê duyệt Biện pháp thi công, Kế hoạch chất lượng (QCP), ITP & An toàn lao động (ATLD)',
+            type: 'Hold Point (H)', parties: 'Nhà thầu → TVGS → Ban QLDA / Chủ đầu tư',
+            desc: 'Nhà thầu trình Biện pháp tổ chức thi công chi tiết, Kế hoạch kiểm tra & nghiệm thu (ITP), Danh mục phòng thí nghiệm LAS-XD và Kế hoạch An toàn lao động - Vệ sinh môi trường để TVGS và Chủ đầu tư chấp thuận trước khi thi công.',
+            raciDetail: { CDT_QLDA: 'A - Phê duyệt ITP và Phòng thí nghiệm LAS-XD', TVGS: 'R - Thẩm tra biện pháp thi công & kế hoạch ATLĐ', NhaThau: 'R - Lập và đệ trình hồ sơ trước khởi công' },
+            diaryTemplate: 'Ghi nhận đã phê duyệt Kế hoạch thí nghiệm và kiểm tra chất lượng (ITP-01), chấp thuận phòng thí nghiệm hợp chuẩn LAS-XD [...] thực hiện thí nghiệm vật liệu cho dự án.',
+            formTemplateTitle: 'BIÊN BẢN CHẤP THUẬN BIỆN PHÁP THI CÔNG & KẾ HOẠCH ITP'
+          }
+        ]
+      },
+      {
+        id: 'QT-03', code: '03', group: 'Kiểm soát Vật liệu (VLXD / TCVN / QCVN)', gateRef: 'G12',
+        title: 'Kiểm soát và Nghiệm thu Vật liệu, Sản phẩm, Cấu kiện, Thiết bị đầu vào',
+        summary: 'Quy trình kiểm tra nguồn gốc xuất xứ (CO/CQ), lấy mẫu thí nghiệm tại phòng LAS hợp chuẩn và nghiệm thu vật liệu (VLXD) trước khi đưa vào sử dụng.',
+        legalTag: 'Điều 12, Điều 21 NĐ 06/2021; NĐ 09/2021 [Mã: VLXD, TCVN, QCVN]',
+        steps: [
+          {
+            stepNo: 'BƯỚC 01', name: 'Trình Hồ sơ Đề xuất Vật liệu (Material Submittal - MS)',
+            type: 'Hold Point (H)', parties: 'Nhà thầu → TVGS → Chủ đầu tư / Ban QLDA',
+            desc: 'Trước khi nhập vật liệu về công trường, Nhà thầu trình hồ sơ năng lực nhà cung cấp, Catalogue, chứng chỉ hợp chuẩn (TCVN) / hợp quy (QCVN) và mẫu vật liệu thực tế để TVGS và CĐT phê duyệt.',
+            raciDetail: { CDT_QLDA: 'A - Phê duyệt chủng loại vật liệu theo Hợp đồng', TVGS: 'R - Đánh giá sự phù hợp với Chỉ dẫn kỹ thuật (Spec)', NhaThau: 'R - Đệ trình hồ sơ MS tối thiểu 14 ngày trước khi nhập hàng' },
+            diaryTemplate: 'Ghi nhận Nhà thầu đệ trình Hồ sơ chấp thuận vật liệu (MS-012) cho hạng mục Thép cốt bê tông CB400-V và CB500-V theo đúng chủng loại quy định tại Hợp đồng.',
+            formTemplateTitle: 'PHIẾU PHÊ DUYỆT MẪU VẬT LIỆU ĐẦU VÀO (MATERIAL APPROVAL FORM - MAF)'
+          },
+          {
+            stepNo: 'BƯỚC 02', name: 'Lấy mẫu thí nghiệm dưới sự chứng kiến (Witness) & Nghiệm thu Vật liệu đầu vào',
+            type: 'Hard-Stop Hold Point (H)', parties: 'TVGS ↔ Nhà thầu ↔ Phòng LAS-XD',
+            desc: 'Chỉ sau khi có Kết quả thí nghiệm đạt yêu cầu từ phòng LAS-XD theo TCVN, TVGS và Nhà thầu mới ký Biên bản nghiệm thu vật liệu đầu vào cho phép đưa vào gia công, lắp dựng.',
+            raciDetail: { CDT_QLDA: 'I - Lưu hồ sơ phục vụ thanh toán G14', TVGS: 'A/R - Chứng kiến lấy mẫu & Ký BBNT vật liệu đầu vào', NhaThau: 'R - Lập Phiếu yêu cầu nghiệm thu vật liệu' },
+            diaryTemplate: 'Đã có kết quả thí nghiệm thép lô số [...] đạt yêu cầu theo TCVN 1651-2:2018. TVGS và Nhà thầu đã ký Biên bản nghiệm thu vật liệu đầu vào số BBNT-VL-08.',
+            formTemplateTitle: 'BIÊN BẢN NGHIỆM THU VẬT LIỆU, THIẾT BỊ TRƯỚC KHI ĐƯA VÀO SỬ DỤNG'
+          }
+        ]
+      },
+      {
+        id: 'QT-08', code: '08', group: 'Kiểm soát thi công (QLCL)', gateRef: 'G12',
+        title: 'Lập và quản lý Nhật ký thi công xây dựng công trình',
+        summary: 'Quy định trình tự thống nhất biểu mẫu, ghi chép hàng ngày, phản ánh tình hình hiện trường, xử lý sai khác thiết kế và lưu trữ Nhật ký thi công.',
+        legalTag: 'Khoản 13 Điều 15; Phụ lục IIa NĐ 06/2021 & NĐ 207/2026 [Mã: QLCL]',
+        steps: [
+          {
+            stepNo: 'BƯỚC 01', name: 'Thống nhất hình thức và nội dung Nhật ký thi công trước khởi công',
+            type: 'Hold Point (H)', parties: 'Chủ đầu tư / Ban QLDA ↔ TVGS ↔ Nhà thầu',
+            desc: 'Trước khi khởi công, Chủ đầu tư và Nhà thầu thống nhất bằng văn bản về hình thức (sổ giấy đánh số trang đóng dấu giáp lai hoặc Nhật ký điện tử) và nội dung chi tiết của nhật ký.',
+            raciDetail: { CDT_QLDA: 'A - Phê duyệt mẫu & đóng dấu giáp lai của CĐT', TVGS: 'R - Kiểm tra quy cách sổ nhật ký trước khi mở sổ', NhaThau: 'R - Lập sổ nhật ký theo từng gói thầu' },
+            diaryTemplate: 'BIÊN BẢN THỐNG NHẤT MẪU NHẬT KÝ: Xác nhận quyển Nhật ký thi công Gói thầu [...] gồm [...] trang, đã được đánh số thứ tự từ 01 đến [...] và đóng dấu giáp lai của Chủ đầu tư & Nhà thầu thi công.',
+            formTemplateTitle: 'BIÊN BẢN THỐNG NHẤT HÌNH THỨC VÀ NỘI DUNG NHẬT KÝ THI CÔNG'
+          },
+          {
+            stepNo: 'BƯỚC 02', name: 'Ghi chép diễn biến thi công hàng ngày & TVGS ký xác nhận',
+            type: 'Mandatory Daily', parties: 'Chỉ huy trưởng Nhà thầu ↔ Kỹ sư TVGS',
+            desc: 'Nhà thầu ghi chép thời tiết, nhân lực, thiết bị, công việc thực hiện, lấy mẫu thí nghiệm. Kỹ sư TVGS kiểm tra hiện trường, ghi nhận xét chất lượng và ký xác nhận hàng ngày. Tuyệt đối không ký xác nhận khối lượng phát sinh thương mại vượt thẩm quyền trong sổ nhật ký.',
+            raciDetail: { CDT_QLDA: 'A - Kiểm soát thẩm quyền ký của TVGS', TVGS: 'R - Ký xác nhận hàng ngày', NhaThau: 'R - Ghi chép trung thực cuối mỗi ca/ngày' },
+            diaryTemplate: 'Ngày [.../.../2026] | Thời tiết: Nắng ráo (31°C). Nhân lực: 45 CN + 03 KS. Thi công cốt thép, cốp pha dầm sàn tầng 5 trục A-D/1-6. Ý KIẾN TVGS: Đai dầm vùng gối đạt TCVN 4453, yêu cầu bổ sung con kê bê tông trước 14h00.',
+            formTemplateTitle: 'TRANG NHẬT KÝ THI CÔNG HÀNG NGÀY CHUẨN PHỤ LỤC IIA'
+          }
+        ]
+      },
+      {
+        id: 'QT-12', code: '12', group: 'Nghiệm thu (QLCL / TQT)', gateRef: 'G14',
+        title: 'Nghiệm thu Công việc xây dựng & Chuyển bước thi công',
+        summary: 'Kiểm soát nghiệm thu từng công việc xây dựng (cốt thép, cốp pha, chống thấm, cơ điện âm tường) trước khi đổ bê tông/lấp kín và đưa vào hồ sơ thanh toán G14.',
+        legalTag: 'Điều 21 Nghị định 06/2021/NĐ-CP [Mã: QLCL, TCVN]',
+        steps: [
+          {
+            stepNo: 'BƯỚC 01', name: 'Nghiệm thu nội bộ, Phát hành RFI & Ký Biên bản nghiệm thu công việc xây dựng',
+            type: 'Hold Point (H)', parties: 'Kỹ sư TVGS ↔ Chỉ huy trưởng / Kỹ thuật Nhà thầu',
+            desc: 'Nhà thầu nghiệm thu nội bộ và gửi Phiếu yêu cầu nghiệm thu (RFI) trước 24h. TVGS trực tiếp đo đạc, kiểm tra tại hiện trường trong vòng 24 giờ và ký Biên bản nghiệm thu công việc xây dựng cho phép chuyển bước.',
+            raciDetail: { CDT_QLDA: 'I - Giám sát ngẫu nhiên & hậu kiểm khi thanh toán', TVGS: 'A/R - Trực tiếp kiểm tra và ký BBNT công việc', NhaThau: 'R - Phát hành RFI, ký biên bản và lập sơ họa kiểm tra' },
+            diaryTemplate: 'TVGS và Nhà thầu đã nghiệm thu hiện trường cốt thép, cốp pha dầm sàn tầng 5 đạt yêu cầu kỹ thuật theo BVTC và TCVN 4453. Đồng ý cho phép Nhà thầu tiến hành đổ bê tông từ 15h00 cùng ngày.',
+            formTemplateTitle: 'BIÊN BẢN NGHIỆM THU CÔNG VIỆC XÂY DỰNG (ĐIỀU 21 NĐ 06/2021)'
+          }
+        ]
+      }
+    ];
+
+    // ============================================================================
+    // 5. HÀM TIỆN ÍCH & ENGINE PHÂN TÍCH FILE KÉO-THẢ 3 TRỤC
+    // ============================================================================
+    function removeVietnameseTones(str) {
+      if (!str) return '';
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+    }
+
+    function toPascalCaseVN(str, maxLength = 50) {
+      if (!str) return 'TrichYeuVanBan';
+      const cleanStr = removeVietnameseTones(str)
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .trim();
+      const pascal = cleanStr
+        .split(/\s+/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join('');
+      return pascal.substring(0, maxLength) || 'TrichYeuVanBan';
+    }
+
+    function cleanDocNumber(rawNum) {
+      if (!rawNum) return '00';
+      const firstPart = rawNum.split('/')[0].trim();
+      return firstPart.replace(/[^a-zA-Z0-9-]/g, '') || '00';
+    }
+
+    function parseVietnameseLegalText(rawText) {
+      const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+      const nodes = [];
+      let currentNode = null;
+
+      lines.forEach((line, idx) => {
+        const isChapter = /^(Chương|CHƯƠNG)\s+[IVXLCDM0-9]+/i.test(line);
+        const isSection = /^(Mục|MỤC)\s+[0-9]+/i.test(line);
+        const isArticle = /^(Điều|ĐIỀU)\s+[0-9]+[a-z]?[\.:]?/i.test(line);
+
+        if (isChapter || isSection || isArticle) {
+          if (currentNode) nodes.push(currentNode);
+          const parts = line.split(/[\.:]/);
+          const code = parts[0].trim() + (isArticle ? '.' : '');
+          const title = parts.slice(1).join('.').trim() || line;
+          currentNode = {
+            id: 'AUTO-' + (idx + 1),
+            level: isChapter ? 'Chương' : isSection ? 'Mục' : 'Điều',
+            code: code,
+            title: title,
+            clauseCount: isArticle ? 3 : 0,
+            content: ''
+          };
+        } else {
+          if (!currentNode) {
+            currentNode = {
+              id: 'AUTO-0',
+              level: 'Mở đầu',
+              code: 'Căn cứ ban hành · Lời mở đầu',
+              title: '',
+              clauseCount: 4,
+              content: line
+            };
+          } else {
+            currentNode.content += (currentNode.content ? '\n' : '') + line;
+          }
+        }
+      });
+      if (currentNode) nodes.push(currentNode);
+      return nodes;
+    }
+
+    function smartAnalyzeFile3D(fileName, extractedText = '') {
+      const extMatch = fileName.match(/\.([a-zA-Z0-9]+)$/);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'pdf';
+      const baseName = fileName.replace(/\.[^/.]+$/, '');
+      const combinedRaw = `${baseName}\n${extractedText.substring(0, 2500)}`;
+      const combinedUpperNoTone = removeVietnameseTones(combinedRaw).toUpperCase();
+
+      // Trục 1: Loại VB & Cơ quan
+      let docType = 'ND';
+      let issuer = 'CP';
+      if (/VAN BAN HOP NHAT|VBHN/.test(combinedUpperNoTone)) { docType = 'VBHN'; issuer = 'BXD'; }
+      else if (/NGHI QUYET|\bNQ\b/.test(combinedUpperNoTone)) { docType = 'NQ'; issuer = 'QH'; }
+      else if (/NGHI DINH|ND-CP|ND_CP|\bND\b/.test(combinedUpperNoTone)) { docType = 'ND'; issuer = 'CP'; }
+      else if (/THONG TU|TT-BXD|\bTT\b/.test(combinedUpperNoTone)) { docType = 'TT'; issuer = 'BXD'; }
+      else if (/LUAT|QH15|QH14/.test(combinedUpperNoTone)) { docType = 'LUAT'; issuer = 'QH'; }
+      else if (/QCVN|QUY CHUAN/.test(combinedUpperNoTone)) { docType = 'QCVN'; issuer = 'BXD'; }
+      else if (/TCVN|TIEU CHUAN/.test(combinedUpperNoTone)) { docType = 'TCVN'; issuer = 'BKHCN'; }
+      else if (/BIEN BAN NGHIEM THU|BBNT/.test(combinedUpperNoTone)) { docType = 'BBNT'; issuer = 'TVGS'; }
+      else if (/PHU LUC HOP DONG|PLHD/.test(combinedUpperNoTone)) { docType = 'PLHD'; issuer = 'CDT'; }
+      else if (/HOP DONG|\bHD\b/.test(combinedUpperNoTone)) { docType = 'HD'; issuer = 'CDT'; }
+      else if (/TO TRINH|TTR/.test(combinedUpperNoTone)) { docType = 'TTr'; issuer = 'BQLDA'; }
+      else if (/QUYET DINH|\bQD\b/.test(combinedUpperNoTone)) { docType = 'QD'; issuer = 'CDT'; }
+
+      // Trục 2: Nhận diện Loại hình dự án (HTKT, DAN_DUNG, KCN, CCN, FTZ, PPP_BT)
+      const projectAxes = new Set();
+      if (/KHU CONG NGHIEP|\bKCN\b|KHU KINH TE/.test(combinedUpperNoTone)) projectAxes.add('KCN');
+      if (/CUM CONG NGHIEP|\bCCN\b/.test(combinedUpperNoTone)) projectAxes.add('CCN');
+      if (/THUONG MAI TU DO|\bFTZ\b|LOGISTICS/.test(combinedUpperNoTone)) projectAxes.add('FTZ');
+      if (/PPP|\bBT\b|\bBOT\b|DOI TAC CONG TU/.test(combinedUpperNoTone)) projectAxes.add('PPP_BT');
+      if (/HA TANG KY THUAT|GIAO THONG|CAP THOAT NUOC/.test(combinedUpperNoTone)) projectAxes.add('HTKT');
+      if (/DAN DUNG|CHUNG CU|KHU DO THI|NHA O/.test(combinedUpperNoTone)) projectAxes.add('DAN_DUNG');
+      if (projectAxes.size === 0) {
+        ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'].forEach(p => projectAxes.add(p));
+      }
+
+      // Trục 3: Nhận diện Chức năng (QLCL, HDXD, QLHD, QLCP, VLXD, TCVN, QCVN...)
+      const domainRules = [
+        { code: 'QCVN', weight: 10, keywords: ['QCVN', 'QUY CHUAN KY THUAT'], gates: ['G6', 'G9', 'G12'], qaqc: ['QT-03'] },
+        { code: 'TCVN', weight: 9,  keywords: ['TCVN', 'TIEU CHUAN QUOC GIA', 'TIEU CHUAN NGHIEM THU'], gates: ['G12', 'G14'], qaqc: ['QT-03', 'QT-08', 'QT-12'] },
+        { code: 'QLCP', weight: 8,  keywords: ['QLCP', 'CHI PHI', 'DU TOAN', 'DINH MUC', 'DON GIA', 'TONG MUC DAU TU'], gates: ['G9', 'G10', 'G14'], qaqc: [] },
+        { code: 'QLHD', weight: 8,  keywords: ['QLHD', 'HOP DONG', 'PHU LUC HOP DONG', 'TAM UNG', 'DIEU CHINH GIA', 'PHAT SINH'], gates: ['G11', 'G14'], qaqc: [] },
+        { code: 'VLXD', weight: 8,  keywords: ['VLXD', 'VAT LIEU', 'HOP CHUAN', 'HOP QUY', 'THI NGHIEM', 'LAS-XD', 'CO/CQ'], gates: ['G12'], qaqc: ['QT-03'] },
+        { code: 'QLCL', weight: 8,  keywords: ['QLCL', 'CHAT LUONG', 'NGHIEM THU', 'NHAT KY THI CONG', 'BAO TRI'], gates: ['G12', 'G14', 'G15'], qaqc: ['QT-01', 'QT-03', 'QT-08', 'QT-12'] },
+        { code: 'HDXD', weight: 7,  keywords: ['HDXD', 'HOAT DONG XAY DUNG', 'THAM DINH', 'BAN VE THI CONG', 'GIAY PHEP XAY DUNG', 'KHOI CONG'], gates: ['G0', 'G9', 'G12'], qaqc: ['QT-01'] },
+        { code: 'DTH',  weight: 8,  keywords: ['DTH', 'DAU THAU', 'LUA CHON NHA THAU', 'MOI THAU', 'HSMT'], gates: ['G10', 'G11'], qaqc: [] },
+        { code: 'TQT',  weight: 8,  keywords: ['TQT', 'QUYET TOAN', 'KIEM TOAN', 'THANH QUYET TOAN'], gates: ['G14', 'G15'], qaqc: [] },
+        { code: 'PCCC', weight: 9,  keywords: ['PCCC', 'PHONG CHAY', 'CHUA CHAY'], gates: ['G6', 'G12', 'G15'], qaqc: [] },
+        { code: 'DTU',  weight: 8,  keywords: ['CHU TRUONG DAU TU', 'KHU CONG NGHIEP', 'CUM CONG NGHIEP', 'THUONG MAI TU DO', 'PPP'], gates: ['G0', 'G1'], qaqc: [] }
+      ];
+
+      let primaryDomain = 'QLCL';
+      let secondaryDomains = [];
+      let linkedGates = new Set();
+      let linkedQAQC = new Set();
+      let bestScore = -1;
+
+      domainRules.forEach(rule => {
+        let hits = 0;
+        rule.keywords.forEach(kw => {
+          if (combinedUpperNoTone.includes(kw)) hits += 1;
+        });
+        if (hits > 0) {
+          secondaryDomains.push(rule.code);
+          rule.gates.forEach(g => linkedGates.add(g));
+          rule.qaqc.forEach(q => linkedQAQC.add(q));
+          const score = hits * rule.weight;
+          if (score > bestScore) {
+            bestScore = score;
+            primaryDomain = rule.code;
+          }
+        }
+      });
+
+      if (secondaryDomains.length === 0) {
+        secondaryDomains = ['QLCL', 'HDXD'];
+        linkedGates.add('G12');
+      }
+
+      let rawNumber = '01';
+      const numInText = extractedText.match(/Số\s*:\s*([0-9a-zA-Z\-\/]+)/i);
+      const numInFile = baseName.match(/(\d{1,4}[\/\-](?:\d{4}[\/\-])?[a-zA-ZĐđ\-]+)|(\b\d{1,4}\b)/);
+      if (numInText && numInText[1]) rawNumber = numInText[1].trim();
+      else if (numInFile && numInFile[0]) rawNumber = numInFile[0].replace(/-/g, '/');
+
+      let year = '2026';
+      const yearMatch = combinedRaw.match(/\b(201[5-9]|202[0-9])\b/);
+      if (yearMatch) year = yearMatch[1];
+
+      let rawSummary = baseName
+        .replace(/^(XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z]+_\d{4}_[A-Z]+_/i, '')
+        .replace(/[_-]+/g, ' ')
+        .trim();
+
+      return {
+        industry: primaryDomain === 'TQT' ? 'TC' : primaryDomain === 'DTU' ? 'BDS' : 'XD',
+        docType,
+        issuer,
+        rawNumber,
+        year,
+        primaryDomain,
+        rawSummary: rawSummary || baseName,
+        appendixSuffix: '',
+        ext,
+        projectAxes: Array.from(projectAxes),
+        secondaryDomains: Array.from(new Set([primaryDomain, ...secondaryDomains])),
+        linkedGates: Array.from(linkedGates),
+        linkedQAQC: Array.from(linkedQAQC)
+      };
+    }
+
+    async function extractTextFromPdfFile(file) {
+      if (!window.pdfjsLib) return '';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      const maxPages = Math.min(pdf.numPages, 3);
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      return fullText;
+    }
+
+    async function extractTextFromDocxFile(file) {
+      if (!window.mammoth) return '';
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await window.mammoth.extractRawText({ arrayBuffer });
+      return result.value || '';
+    }
+
+    // ============================================================================
+    // 6. MAIN APPLICATION COMPONENT (LEX-PMO OS v3.0 — 5-STEP CAUSAL CHAIN + AI)
+    // ============================================================================
+    function LexPmoApp() {
+      // Điều hướng Chuỗi 5 Bước + Trung tâm AI:
+      // 'STEP1_INGEST' | 'STEP2_VBPL' | 'STEP3_PLAN' | 'STEP4_EXECUTE' | 'STEP5_AUDIT' | 'STEP6_AI'
+      const [activeTab, setActiveTab] = useState('STEP1_INGEST');
+      const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+      const [globalSearch, setGlobalSearch] = useState('');
+
+      // Trục Y toàn cục: Loại hình dự án đang điều hành (HTKT, DAN_DUNG, KCN, CCN, FTZ, PPP_BT)
+      const [activeProjectArchetype, setActiveProjectArchetype] = useState('KCN');
+      const [activeProjectName, setActiveProjectName] = useState('DA Đầu tư Hạ tầng KCN / Khu Đô Thị');
+
+      const [legalDocs, setLegalDocs] = useState(INITIAL_LEGAL_DOCS);
+      const [toastMsg, setToastMsg] = useState(null);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 3800);
+      };
+
+      const currentArchetypeMeta = useMemo(
+        () => TAXONOMY_3D.projectTypes.find(p => p.code === activeProjectArchetype) || TAXONOMY_3D.projectTypes[0],
+        [activeProjectArchetype]
+      );
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 1: NHẬP DỮ LIỆU & ĐỊNH DANH 3 TRỤC (INGEST & 3D TAGGING)
+      // --------------------------------------------------------------------------
+      const [isDragging, setIsDragging] = useState(false);
+      const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
+      const [droppedFilesQueue, setDroppedFilesQueue] = useState([]);
+      const [activeRawFile, setActiveRawFile] = useState(null);
+      const fileInputRef = useRef(null);
+
+      const [namingForm, setNamingForm] = useState({
+        industry: 'XD',
+        docType: 'ND',
+        issuer: 'CP',
+        rawNumber: '207/2026/NĐ-CP',
+        year: '2026',
+        primaryDomain: 'QLCL',
+        rawSummary: 'Quản lý chất lượng thi công và bảo trì công trình xây dựng',
+        appendixSuffix: 'PLIIa',
+        ext: 'pdf',
+        // Ma trận 3 Trục
+        projectAxes: ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: ['QLCL', 'VLXD', 'TCVN', 'QCVN', 'QLHD'],
+        linkedGates: ['G12', 'G14', 'G15'],
+        linkedQAQC: ['QT-01', 'QT-03', 'QT-08', 'QT-12'],
+        status: 'Còn hiệu lực năm 2026',
+        rawContentToParse: `Chương I: QUY ĐỊNH CHUNG\nĐiều 1. Phạm vi điều chỉnh và đối tượng áp dụng\nNghị định này hướng dẫn chi tiết về quản lý chất lượng (QLCL), vật liệu xây dựng (VLXD), thi công xây dựng và bảo trì công trình xây dựng áp dụng cho dự án Dân dụng, Hạ tầng kỹ thuật, KCN, CCN, FTZ và PPP.\nĐiều 15. Quản lý Nhật ký thi công và Hồ sơ chất lượng\n1. Chủ đầu tư và Nhà thầu thống nhất mẫu Nhật ký thi công trước khi khởi công.\n2. Tư vấn giám sát kiểm tra và ký xác nhận hằng ngày.\nĐiều 21. Nghiệm thu công việc xây dựng\nBiên bản nghiệm thu công việc xây dựng là căn cứ bắt buộc để chuyển bước thi công và thanh toán khối lượng hoàn thành tại Gate G14.`
+      });
+
+      const generatedFileName = useMemo(() => {
+        const numClean = cleanDocNumber(namingForm.rawNumber);
+        const summaryPascal = toPascalCaseVN(namingForm.rawSummary, 50);
+        const suffix = namingForm.appendixSuffix.trim() ? `-${namingForm.appendixSuffix.trim()}` : '';
+        return `${namingForm.industry}_${namingForm.docType}_${namingForm.issuer}_${numClean}_${namingForm.year}_${namingForm.primaryDomain}_${summaryPascal}${suffix}.${namingForm.ext}`;
+      }, [namingForm]);
+
+      const toggleArrayItem = (field, value) => {
+        setNamingForm(prev => {
+          const arr = prev[field] || [];
+          return { ...prev, [field]: arr.includes(value) ? arr.filter(i => i !== value) : [...arr, value] };
+        });
+      };
+
+      const handleProcessFiles = async (fileList) => {
+        const files = Array.from(fileList);
+        if (files.length === 0) return;
+        setIsAnalyzingFile(true);
+        const analyzedQueue = [];
+
+        for (const file of files) {
+          let extractedText = '';
+          try {
+            if (file.name.toLowerCase().endsWith('.pdf')) extractedText = await extractTextFromPdfFile(file);
+            else if (file.name.toLowerCase().endsWith('.docx')) extractedText = await extractTextFromDocxFile(file);
+          } catch (e) {}
+
+          const suggestion = smartAnalyzeFile3D(file.name, extractedText);
+          const numClean = cleanDocNumber(suggestion.rawNumber);
+          const summaryPascal = toPascalCaseVN(suggestion.rawSummary, 50);
+          const proposedName = `${suggestion.industry}_${suggestion.docType}_${suggestion.issuer}_${numClean}_${suggestion.year}_${suggestion.primaryDomain}_${summaryPascal}.${suggestion.ext}`;
+
+          analyzedQueue.push({
+            id: Math.random().toString(36).substring(2, 9),
+            rawFile: file,
+            originalName: file.name,
+            extractedText,
+            suggestion,
+            proposedName
+          });
+        }
+
+        const first = analyzedQueue[0];
+        setActiveRawFile(first.rawFile);
+        setNamingForm(prev => ({
+          ...prev,
+          industry: first.suggestion.industry,
+          docType: first.suggestion.docType,
+          issuer: first.suggestion.issuer,
+          rawNumber: first.suggestion.rawNumber,
+          year: first.suggestion.year,
+          primaryDomain: first.suggestion.primaryDomain,
+          rawSummary: first.suggestion.rawSummary,
+          ext: first.suggestion.ext,
+          projectAxes: first.suggestion.projectAxes,
+          secondaryDomains: first.suggestion.secondaryDomains,
+          linkedGates: first.suggestion.linkedGates,
+          linkedQAQC: first.suggestion.linkedQAQC,
+          rawContentToParse: first.extractedText && first.extractedText.trim().length > 20 ? first.extractedText.substring(0, 3000) : prev.rawContentToParse
+        }));
+        setDroppedFilesQueue(prev => [...analyzedQueue, ...prev]);
+        setIsAnalyzingFile(false);
+        showToast(`Đã nhận diện 3 Trục: [${first.suggestion.docType}] × [${first.suggestion.primaryDomain}] cho ${files.length} file!`);
+      };
+
+      const handleDownloadRenamedFile = (fileObj, newName) => {
+        if (!fileObj) {
+          showToast('Hãy kéo-thả 1 file từ máy tính vào ô phía trên trước khi tải bản đổi tên!');
+          return;
+        }
+        const url = URL.createObjectURL(fileObj);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = newName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`Đã tải xuống file chuẩn SSOT: ${newName}`);
+      };
+
+      const handleSaveToSSOT = () => {
+        const parsedNodes = parseVietnameseLegalText(namingForm.rawContentToParse);
+        const newDocId = 'DOC-0' + (legalDocs.length + 1);
+        const newDoc = {
+          id: newDocId,
+          ssotFileName: generatedFileName,
+          docNumber: namingForm.rawNumber,
+          docType: namingForm.docType,
+          issuer: namingForm.issuer,
+          year: namingForm.year,
+          issueDate: `01/01/${namingForm.year}`,
+          effectiveDate: `15/02/${namingForm.year}`,
+          primaryDomain: namingForm.primaryDomain,
+          title: namingForm.rawSummary,
+          status: namingForm.status,
+          isAmended: false,
+          projectAxes: namingForm.projectAxes,
+          secondaryDomains: namingForm.secondaryDomains,
+          linkedGates: namingForm.linkedGates,
+          linkedQAQC: namingForm.linkedQAQC,
+          lineage: `Gắn nhãn 3 Trục: [${namingForm.docType}] × Dự án [${namingForm.projectAxes.join(', ')}] × Chức năng [${namingForm.secondaryDomains.join(', ')}].`,
+          nodes: parsedNodes
+        };
+        setLegalDocs([newDoc, ...legalDocs]);
+        setSelectedDocId(newDocId);
+        setExpandedInlineDocId(newDocId);
+        showToast(`Đã nạp "${generatedFileName}" vào Chuỗi Giá Trị SSOT!`);
+      };
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 2: TRA CỨU VBPL 3 CỘT & ĐỐI SOÁT CHÉO (LOOKUP & CROSS-EXAM)
+      // --------------------------------------------------------------------------
+      const [vbplSubMode, setVbplSubMode] = useState('READER_3PANE'); // 'READER_3PANE' | 'CROSS_EXAM'
+      const [categorySearch, setCategorySearch] = useState('');
+      const [expandedCatGroups, setExpandedCatGroups] = useState({
+        'GRP-FUNC-1': true,
+        'GRP-FUNC-2': true,
+        'GRP-FUNC-3': true
+      });
+      const [vbplDomainFilter, setVbplDomainFilter] = useState('ALL');
+      const [vbplProjectFilter, setVbplProjectFilter] = useState('ALL');
+      const [pane2SubTab, setPane2SubTab] = useState('DOCS');
+      const [exactMatchAccent, setExactMatchAccent] = useState(false);
+      const [filterDocType, setFilterDocType] = useState('ALL');
+      const [selectedDocId, setSelectedDocId] = useState('DOC-01');
+      const [expandedInlineDocId, setExpandedInlineDocId] = useState('DOC-01');
+      const [bookmarkedDocIds, setBookmarkedDocIds] = useState(['DOC-01', 'DOC-02']);
+      const [activeNodeId, setActiveNodeId] = useState('N01-D15');
+      const [showRightTocCard, setShowRightTocCard] = useState(true);
+      const [readerFontSize, setReaderFontSize] = useState(14);
+      const [selectedCrossExamId, setSelectedCrossExamId] = useState('CX-01');
+
+      const filteredLegalDocs = useMemo(() => {
+        return legalDocs.filter(doc => {
+          if (pane2SubTab === 'BOOKMARKS' && !bookmarkedDocIds.includes(doc.id)) return false;
+          const matchDomain = vbplDomainFilter === 'ALL'
+            || doc.primaryDomain === vbplDomainFilter
+            || doc.secondaryDomains.includes(vbplDomainFilter);
+          if (!matchDomain) return false;
+
+          const matchProject = vbplProjectFilter === 'ALL'
+            || (doc.projectAxes && doc.projectAxes.includes(vbplProjectFilter));
+          if (!matchProject) return false;
+
+          if (filterDocType !== 'ALL' && doc.docType !== filterDocType) return false;
+
+          if (globalSearch.trim()) {
+            const q = exactMatchAccent ? globalSearch.trim().toLowerCase() : removeVietnameseTones(globalSearch.trim()).toLowerCase();
+            const haystackRaw = `${doc.docNumber} ${doc.title} ${doc.ssotFileName} ${doc.nodes.map(n => n.code + ' ' + n.title + ' ' + n.content).join(' ')}`;
+            const haystack = exactMatchAccent ? haystackRaw.toLowerCase() : removeVietnameseTones(haystackRaw).toLowerCase();
+            if (!haystack.includes(q)) return false;
+          }
+          return true;
+        });
+      }, [legalDocs, pane2SubTab, bookmarkedDocIds, vbplDomainFilter, vbplProjectFilter, filterDocType, globalSearch, exactMatchAccent]);
+
+      const currentLegalDoc = useMemo(
+        () => filteredLegalDocs.find(d => d.id === selectedDocId) || filteredLegalDocs[0] || legalDocs[0],
+        [filteredLegalDocs, selectedDocId, legalDocs]
+      );
+
+      const jumpToArticleNode = (docId, nodeId) => {
+        if (selectedDocId !== docId) setSelectedDocId(docId);
+        setActiveNodeId(nodeId);
+        setTimeout(() => {
+          const el = document.getElementById(`reader-node-${nodeId}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+      };
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 3: LẬP KẾ HOẠCH STAGE-GATE & RACI THEO LOẠI HÌNH DỰ ÁN
+      // --------------------------------------------------------------------------
+      const [selectedGateCode, setSelectedGateCode] = useState('G12');
+      const [checkedAuditItems, setCheckedAuditItems] = useState({});
+      const currentGate = useMemo(
+        () => INITIAL_GATES.find(g => g.gate === selectedGateCode) || INITIAL_GATES[0],
+        [selectedGateCode]
+      );
+      const currentStep = currentGate.steps[0];
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 4: THỰC THI QUY TRÌNH QA/QC, BIỂU MẪU AUTO-FILL & NHẬT KÝ
+      // --------------------------------------------------------------------------
+      const [selectedProcessId, setSelectedProcessId] = useState('QT-08');
+      const [selectedFlowStepIdx, setSelectedFlowStepIdx] = useState(0);
+      const [showFormPreviewModal, setShowFormPreviewModal] = useState(false);
+
+      const currentProcess = useMemo(
+        () => QAQC_PROCESSES.find(p => p.id === selectedProcessId) || QAQC_PROCESSES[0],
+        [selectedProcessId]
+      );
+      const currentFlowStep = currentProcess.steps[selectedFlowStepIdx] || currentProcess.steps[0];
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 5: KIỂM SOÁT, VO WIZARD & KIỂM TOÁN PHÁP LÝ DỰ ÁN
+      // --------------------------------------------------------------------------
+      const [voState, setVoState] = useState({
+        contractType: 'TRON_GOI',
+        isOutsideScope: 'YES',
+        exceedsPkgPrice: 'NO',
+        affectsSafetyPCCC: 'NO'
+      });
+      const [chronoDates, setChronoDates] = useState({
+        sampleDate: '2026-10-05',
+        labResultDate: '2026-10-12',
+        materialApproveDate: '2026-10-13',
+        workInspectDate: '2026-10-10'
+      });
+
+      const chronoAuditStatus = useMemo(() => {
+        const dSample = new Date(chronoDates.sampleDate);
+        const dLab = new Date(chronoDates.labResultDate);
+        const dMat = new Date(chronoDates.materialApproveDate);
+        const dWork = new Date(chronoDates.workInspectDate);
+        const errors = [];
+        if (dLab < dSample) errors.push('LỖI NGHIÊM TRỌNG (VLXD): Ngày xuất kết quả thí nghiệm LAS sớm hơn Ngày lấy mẫu hiện trường!');
+        if (dMat < dLab) errors.push('LỖI QUY TRÌNH (QT-03 - VLXD): Nghiệm thu vật liệu đầu vào khi chưa có Kết quả thí nghiệm hợp chuẩn!');
+        if (dWork < dMat || dWork < dLab) errors.push('LỖI XUẤT TOÁN (RF-05 - QLCL): Ngày ký Biên bản nghiệm thu công việc xây dựng sớm hơn Ngày có kết quả thí nghiệm / nghiệm thu vật liệu đầu vào!');
+        return errors;
+      }, [chronoDates]);
+
+      // --------------------------------------------------------------------------
+      // STATE BƯỚC 6: TRUNG TÂM 5 AI AGENTS (MULTI-AGENT COMMAND CENTER)
+      // --------------------------------------------------------------------------
+      const [activeAiAgent, setActiveAiAgent] = useState('AGENT_2_CROSS');
+      const [geminiApiKey, setGeminiApiKey] = useState('');
+      const [aiPromptInput, setAiPromptInput] = useState(
+        'Phân tích điều kiện pháp lý và rủi ro kiểm toán khi điều chỉnh thiết kế và phát sinh khối lượng tại Dự án Hạ tầng Khu Công Nghiệp (KCN) / Khu Thương Mại Tự Do (FTZ).'
+      );
+      const [aiOutputText, setAiOutputText] = useState('');
+      const [isAiRunning, setIsAiRunning] = useState(false);
+
+      const runMultiAgentAnalysis = async () => {
+        setIsAiRunning(true);
+        // Nếu người dùng nhập Gemini API Key thật thì gọi trực tiếp Google Generative Language API
+        if (geminiApiKey.trim().length > 20) {
+          try {
+            const sysPrompt = `Bạn là Tổng Công Trình Sư Pháp Lý & Quản Lý Dự Án Đầu Tư Xây Dựng (LEX-PMO OS v3.0). Hãy phân tích theo Ma trận 3 Trục (Pháp luật: Luật/NĐ/TT/VBHN × Loại dự án: ${activeProjectArchetype} × Chức năng: QLCL/HDXD/QLHD/QLCP/VLXD/TCVN/QCVN) và ánh xạ vào 17 Stage-Gate (G0-G16) + RACI 4 bên.`;
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: `${sysPrompt}\n\nYêu cầu phân tích: ${aiPromptInput}` }] }]
+                })
+              }
+            );
+            const data = await res.json();
+            const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (reply) {
+              setAiOutputText(reply);
+              setIsAiRunning(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('Fallback sang Built-in Legal Reasoning Engine:', e);
+          }
+        }
+
+        // Chế độ Built-in Deterministic Legal AI Engine (Chạy tức thì không cần API Key)
+        setTimeout(() => {
+          const report = `[BÁO CÁO PHÂN TÍCH TỪ HỆ THỐNG ĐA TÁC NHÂN AI — LEX-PMO OS v3.0]
+====================================================================
+• Tác nhân thực thi: ${activeAiAgent}
+• Hệ tọa độ Dự án đang chọn (Trục Y): [${currentArchetypeMeta.code}] — ${currentArchetypeMeta.name}
+• Cơ quan thẩm quyền đầu mối: ${currentArchetypeMeta.authority}
+
+1. ĐỐI SOÁT CHÉO CĂN CỨ PHÁP LÝ (TRỤC X × TRỤC Z):
+   - Nhóm Hoạt động Xây dựng [HDXD]: Áp dụng Điều 15, Điều 39 Nghị định 175/2024/NĐ-CP và Luật Xây dựng (sửa đổi 2020). Lưu ý đặc thù ${currentArchetypeMeta.code}: ${currentArchetypeMeta.specialNote}
+   - Nhóm Quản lý Chi phí [QLCP] & Hợp đồng [QLHD]: Áp dụng Điều 19, Điều 37 Văn bản hợp nhất Nghị định 37/2015 & 50/2021/NĐ-CP kết hợp Nghị định 10/2021/NĐ-CP.
+   - Nhóm Quản lý Chất lượng [QLCL] & Vật liệu [VLXD]: Áp dụng Điều 12, Điều 15 (Khoản 13 - Nhật ký thi công), Điều 21 Nghị định 06/2021/NĐ-CP.
+
+2. LỘ TRÌNH KIỂM SOÁT STAGE-GATE & RACI 4 BÊN (CHỐT CHẶN KIỂM TOÁN):
+   - [Gate G6 & G9]: Nếu nội dung điều chỉnh làm thay đổi kết cấu chịu lực chính, mật độ xây dựng hoặc giải pháp PCCC → Bắt buộc thẩm định/thẩm duyệt lại tại ${currentArchetypeMeta.authority} và Cục/Phòng PC07 trước khi thi công.
+   - [Gate G11]: Ban QLDA (R) và Tư vấn QS thẩm tra dự toán phát sinh (QLCP), trình Chủ đầu tư (A) phê duyệt và ký Phụ lục Hợp đồng (QLHD) với Nhà thầu trước khi triển khai.
+   - [Gate G12 & G14]: Tư vấn Giám sát (R) kiểm tra chứng chỉ CO/CQ, kết quả thí nghiệm LAS-XD (VLXD) → Ghi nhận Nhật ký thi công hàng ngày → Ký Biên bản nghiệm thu công việc (QLCL) → Đưa vào Phụ lục 03a/04 giải ngân.
+
+3. CẢNH BÁO RỦI RO KIỂM TOÁN PHÁP LÝ (RISK FLAGS):
+   - ⚠ Chặn tuyệt đối lỗi ký Biên bản nghiệm thu công việc xây dựng trước ngày có phiếu kết quả thí nghiệm LAS-XD (${chronoAuditStatus.length} cảnh báo đang mở).
+   - ⚠ Tên file lưu trữ vào Kho SSOT bắt buộc chuẩn hóa: XD_PLHD_CDT_02_2026_QLHD_PhuLucHopDongDieuChinhPhatSinh.pdf`;
+          setAiOutputText(report);
+          setIsAiRunning(false);
+          showToast('🤖 AI Agent đã hoàn tất đối soát chéo 3 Trục & xuất phán quyết!');
+        }, 450);
+      };
+
+      // Cấu hình Chuỗi 5 Bước + AI trên Left Sidebar
+      const SIDEBAR_CHAIN = [
+        {
+          section: 'CHUỖI GIÁ TRỊ NHÂN QUẢ (5 BƯỚC KHÉP KÍN)',
+          items: [
+            {
+              id: 'STEP1_INGEST',
+              stepNum: 'BƯỚC 1',
+              icon: '📥',
+              title: 'Nhập dữ liệu & Định danh 3 Trục',
+              subtitle: 'Pháp luật × Dự án × Chức năng',
+              badge: '9 Thành phần',
+              badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+            },
+            {
+              id: 'STEP2_VBPL',
+              stepNum: 'BƯỚC 2',
+              icon: '⚖️',
+              title: 'Tra cứu VBPL 360 & Đối soát chéo',
+              subtitle: '3 Cột chuẩn mẫu · Ma trận đối soát',
+              badge: `${legalDocs.length} VB`,
+              badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+            },
+            {
+              id: 'STEP3_PLAN',
+              stepNum: 'BƯỚC 3',
+              icon: '🧭',
+              title: 'Lập Kế hoạch Stage-Gate & RACI',
+              subtitle: `Lộ trình G0–G16 theo [${activeProjectArchetype}]`,
+              badge: '17 Gate',
+              badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            },
+            {
+              id: 'STEP4_EXECUTE',
+              stepNum: 'BƯỚC 4',
+              icon: '▦',
+              title: 'Thực thi: Quy trình, Biểu mẫu, Nhật ký',
+              subtitle: 'Sơ đồ khối QA/QC · Auto-fill Biểu mẫu',
+              badge: `${QAQC_PROCESSES.length} QT`,
+              badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+            },
+            {
+              id: 'STEP5_AUDIT',
+              stepNum: 'BƯỚC 5',
+              icon: '🛡️',
+              title: 'Kiểm soát, VO & Kiểm toán Pháp lý',
+              subtitle: 'Cây quyết định VO · Rà soát ngày',
+              badge: chronoAuditStatus.length > 0 ? `${chronoAuditStatus.length} Lỗi` : '100% Đạt',
+              badgeColor: chronoAuditStatus.length > 0
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+            }
+          ]
+        },
+        {
+          section: 'TRÍ TUỆ NHÂN TẠO ĐA TÁC NHÂN',
+          items: [
+            {
+              id: 'STEP6_AI',
+              stepNum: 'AI CORE',
+              icon: '🤖',
+              title: 'Trung tâm 5 AI Agents Pháp lý',
+              subtitle: 'Bóc tách · Đối soát · Kiểm toán AI',
+              badge: 'Gemini Ready',
+              badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+            }
+          ]
+        }
+      ];
+
+      const currentChainMeta = useMemo(() => {
+        for (const grp of SIDEBAR_CHAIN) {
+          const found = grp.items.find(i => i.id === activeTab);
+          if (found) return found;
+        }
+        return SIDEBAR_CHAIN[0].items[0];
+      }, [activeTab, activeProjectArchetype, legalDocs.length, chronoAuditStatus.length]);
+
+      return (
+        <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden">
+          {/* ==================================================================
+              LEFT SIDEBAR NAVIGATION (CHUỖI 5 BƯỚC: NHẬP -> TRA CỨU -> LẬP KH -> THỰC THI -> KIỂM SOÁT)
+             ================================================================== */}
+          <aside
+            className={`${
+              isSidebarCollapsed ? 'w-16' : 'w-72'
+            } bg-slate-900/95 border-r border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-200 z-30 select-none`}
+          >
+            <div>
+              {/* Brand Header */}
+              <div className="h-14 px-3 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-bold text-slate-950 shadow-lg shrink-0">
+                    LX
+                  </div>
+                  {!isSidebarCollapsed && (
+                    <div className="leading-tight truncate">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-white">LEX-PMO OS</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          v3.0 Chain
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate">3-Axis Legal & Project OS</p>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setIsSidebarCollapsed(prev => !prev)}
+                  title="Thu gọn / Mở rộng Sidebar"
+                  className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs border border-slate-700 shrink-0"
+                >
+                  {isSidebarCollapsed ? '▶' : '◀'}
+                </button>
+              </div>
+
+              {/* Chuỗi 5 Bước Điều hướng */}
+              <div className="p-2 space-y-4 overflow-y-auto max-h-[calc(100vh-230px)]">
+                {SIDEBAR_CHAIN.map((group, gIdx) => (
+                  <div key={gIdx} className="space-y-1.5">
+                    {!isSidebarCollapsed && (
+                      <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                        {group.section}
+                      </div>
+                    )}
+                    {group.items.map((item, idx) => {
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id)}
+                          title={`${item.stepNum}: ${item.title}`}
+                          className={`w-full text-left rounded-xl p-2.5 transition-all flex items-center justify-between gap-2 border ${
+                            isActive
+                              ? 'bg-gradient-to-r from-amber-500/20 to-amber-500/5 border-amber-500 text-white shadow-md'
+                              : 'bg-transparent border-transparent text-slate-300 hover:bg-slate-800/70'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`h-8 w-8 rounded-lg flex items-center justify-center text-sm shrink-0 border ${
+                                isActive
+                                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                                  : 'bg-slate-950 border-slate-800 text-slate-300'
+                              }`}
+                            >
+                              {item.icon}
+                            </div>
+                            {!isSidebarCollapsed && (
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-mono font-bold text-amber-400">
+                                    {item.stepNum}
+                                  </span>
+                                  <span className="text-xs font-bold truncate">{item.title}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 truncate">{item.subtitle}</p>
+                              </div>
+                            )}
+                          </div>
+                          {!isSidebarCollapsed && (
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${item.badgeColor}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Chân Sidebar: Bộ lọc nhanh Trục Chức năng (QLCL, HDXD, QLHD, QLCP, VLXD, TCVN, QCVN) */}
+            <div className="p-2.5 border-t border-slate-800 bg-slate-950/70 space-y-2">
+              {!isSidebarCollapsed && (
+                <>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                    <span>TRỤC CHỨC NĂNG (Z):</span>
+                    <span className="text-emerald-400">● 3D SSOT</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {['QLCL', 'HDXD', 'QLHD', 'QLCP', 'VLXD', 'TCVN', 'QCVN', 'DTH', 'TQT'].map(code => (
+                      <button
+                        key={code}
+                        onClick={() => {
+                          setVbplDomainFilter(code);
+                          setActiveTab('STEP2_VBPL');
+                        }}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition ${
+                          vbplDomainFilter === code && activeTab === 'STEP2_VBPL'
+                            ? 'bg-amber-500 text-slate-950 font-bold border-amber-400'
+                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-amber-500/50'
+                        }`}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </aside>
+
+          {/* ==================================================================
+              RIGHT MAIN WORKSPACE (TOP PIPELINE BAR + ACTIVE STEP VIEW)
+             ================================================================== */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* TOP CONTEXT & PROJECT ARCHETYPE BAR */}
+            <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between gap-3 shrink-0 z-20">
+              {/* Bước hiện tại trong Chuỗi */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-mono font-bold text-xs shrink-0">
+                  {currentChainMeta.stepNum}
+                </span>
+                <div className="min-w-0">
+                  <h1 className="text-sm font-bold text-white truncate">{currentChainMeta.title}</h1>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    Chuỗi: 1. Nhập 3 Trục → 2. Tra cứu & Đối soát → 3. Lập KH Stage-Gate → 4. Thực thi → 5. Kiểm toán
+                  </p>
+                </div>
+              </div>
+
+              {/* Bộ chọn Trục Y: Loại hình Dự án (HTKT, Dân dụng, KCN, CCN, FTZ, PPP/BT) */}
+              <div className="flex items-center gap-2">
+                <div className="hidden xl:flex items-center gap-1.5 bg-slate-950 border border-amber-500/40 rounded-lg px-2.5 py-1">
+                  <span className="text-[10px] font-mono uppercase text-amber-400 font-bold">
+                    Trục Dự án:
+                  </span>
+                  <select
+                    value={activeProjectArchetype}
+                    onChange={e => setActiveProjectArchetype(e.target.value)}
+                    className="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer"
+                  >
+                    {TAXONOMY_3D.projectTypes.map(pt => (
+                      <option key={pt.code} value={pt.code} className="bg-slate-900 text-slate-100">
+                        [{pt.code}] {pt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Ô tìm kiếm toàn cục */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={globalSearch}
+                    onChange={e => setGlobalSearch(e.target.value)}
+                    placeholder="🔍 Tìm QLCL, HDXD, KCN, FTZ, Điều khoản..."
+                    className="w-64 bg-slate-950 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                  />
+                  {globalSearch && (
+                    <button onClick={() => setGlobalSearch('')} className="absolute right-2.5 top-1.5 text-xs text-slate-400 hover:text-white">
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </header>
+
+            {toastMsg && (
+              <div className="fixed bottom-5 right-5 z-50 bg-emerald-500 text-slate-950 font-semibold text-xs px-4 py-3 rounded-lg shadow-2xl border border-emerald-300 flex items-center gap-2">
+                <span>✓</span>
+                <span>{toastMsg}</span>
+              </div>
+            )}
+
+            {/* ================================================================
+                MAIN CONTENT AREA THEO TỪNG BƯỚC TRONG CHUỖI 5 BƯỚC
+               ================================================================ */}
+            <main className="flex-1 overflow-hidden">
+              {/* ==============================================================
+                  BƯỚC 1: NHẬP DỮ LIỆU & ĐỊNH DANH MA TRẬN 3 TRỤC
+                  (Pháp luật × Dự án HTKT/Dân dụng/KCN/CCN/FTZ/PPP × Chức năng)
+                 ============================================================== */}
+              {activeTab === 'STEP1_INGEST' && (
+                <div className="h-full grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                  {/* Cột Trái (7 cols): Kéo-Thả PDF/Word + Đặt tên 9 thành phần + Gắn nhãn 3 Trục */}
+                  <div className="col-span-12 lg:col-span-7 p-5 overflow-y-auto space-y-4">
+                    {/* Ô Kéo-Thả File */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleProcessFiles(e.dataTransfer.files);
+                        }
+                      }}
+                      onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                      className={`cursor-pointer rounded-xl border-2 border-dashed p-4 transition-all flex items-center justify-between gap-4 ${
+                        isDragging
+                          ? 'border-emerald-400 bg-emerald-500/15'
+                          : 'border-amber-500/50 bg-slate-900/70 hover:border-amber-400'
+                      }`}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.doc,.xlsx,.xls,.dwg"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleProcessFiles(e.target.files);
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-3.5">
+                        <div className="h-12 w-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shrink-0">
+                          {isAnalyzingFile ? '⏳' : '📥'}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold uppercase text-amber-400">
+                            BƯỚC 1.1 — KÉO & THẢ FILE PDF / WORD VÀO ĐÂY ĐỂ BÓC TÁCH TỰ ĐỘNG 3 TRỤC
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Tự động nhận diện: <b className="text-rose-400">Trục Pháp luật (Luật/NĐ/TT/VBHN)</b> × <b className="text-sky-400">Trục Dự án (HTKT/Dân dụng/KCN/CCN/FTZ/PPP)</b> × <b className="text-emerald-400">Trục Chức năng (QLCL/HDXD/QLHD/QLCP/VLXD)</b>.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shrink-0">
+                        Chọn File
+                      </span>
+                    </div>
+
+                    {/* Kết quả Sinh Tên File 9 Thành phần */}
+                    <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl p-4 shadow-lg">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-mono uppercase text-amber-400 font-semibold">
+                          ⚡ ĐỊNH DANH TÊN FILE VẬT LÝ CHUẨN SSOT (9 THÀNH PHẦN):
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedFileName);
+                              showToast('Đã copy tên file chuẩn SSOT!');
+                            }}
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-semibold px-3 py-1 rounded-md"
+                          >
+                            📋 Copy Tên File
+                          </button>
+                          {activeRawFile && (
+                            <button
+                              onClick={() => handleDownloadRenamedFile(activeRawFile, generatedFileName)}
+                              className="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1 rounded-md shadow"
+                            >
+                              💾 Tải File Đã Đổi Tên
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-sm text-emerald-400 break-all select-all">
+                        {generatedFileName}
+                      </div>
+                    </div>
+
+                    {/* Cấu hình 9 Thành phần & TRỤC 1 (Nhóm Pháp luật) */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-4">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 border-b border-slate-800 pb-2">
+                        TRỤC 1 (NHÓM PHÁP LUẬT): Luật · Nghị định · Thông tư · Nghị quyết · Văn bản hợp nhất · QCVN/TCVN
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">1. [Ngành]</label>
+                          <select
+                            value={namingForm.industry}
+                            onChange={e => setNamingForm({ ...namingForm, industry: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          >
+                            {TAXONOMY_3D.industries.map(item => (
+                              <option key={item.code} value={item.code}>{item.code} — {item.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-rose-400 font-bold mb-1">2. [Loại_VB] (Nhóm Pháp luật)</label>
+                          <select
+                            value={namingForm.docType}
+                            onChange={e => setNamingForm({ ...namingForm, docType: e.target.value })}
+                            className="w-full bg-slate-950 border border-rose-500/60 rounded-lg px-2.5 py-2 text-xs text-rose-300 font-bold"
+                          >
+                            {TAXONOMY_3D.legalGroups.map(item => (
+                              <option key={item.code} value={item.code}>{item.code} — {item.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">3. [Cơ Quan]</label>
+                          <select
+                            value={namingForm.issuer}
+                            onChange={e => setNamingForm({ ...namingForm, issuer: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          >
+                            {TAXONOMY_3D.issuers.map(item => (
+                              <option key={item.code} value={item.code}>{item.code} — {item.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">4. [Số_Hiệu]</label>
+                          <input
+                            type="text"
+                            value={namingForm.rawNumber}
+                            onChange={e => setNamingForm({ ...namingForm, rawNumber: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">5. [Năm] (YYYY)</label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={namingForm.year}
+                            onChange={e => setNamingForm({ ...namingForm, year: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-amber-400 font-bold mb-1">6. [Lĩnh_Vực Chức năng]</label>
+                          <select
+                            value={namingForm.primaryDomain}
+                            onChange={e => setNamingForm({ ...namingForm, primaryDomain: e.target.value })}
+                            className="w-full bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-2 text-xs text-amber-300 font-bold"
+                          >
+                            {TAXONOMY_3D.functionalDomains.map(item => (
+                              <option key={item.code} value={item.code}>{item.code} — {item.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                        <div className="md:col-span-8">
+                          <label className="block text-[11px] text-slate-400 mb-1">7. [Trích_Yếu] (Chuyển PascalCase ≤ 50 ký tự)</label>
+                          <input
+                            type="text"
+                            value={namingForm.rawSummary}
+                            onChange={e => setNamingForm({ ...namingForm, rawSummary: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <div className="md:col-span-4">
+                          <label className="block text-[11px] text-slate-400 mb-1">8. [Hậu tố Phụ lục/Phần]</label>
+                          <input
+                            type="text"
+                            value={namingForm.appendixSuffix}
+                            onChange={e => setNamingForm({ ...namingForm, appendixSuffix: e.target.value })}
+                            placeholder="VD: PL01, PLIIa"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TRỤC 2 (NHÓM DỰ ÁN) & TRỤC 3 (NHÓM CHỨC NĂNG) */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">
+                          🏗️ TRỤC 2 (NHÓM DỰ ÁN ÁP DỤNG): Hạ tầng kỹ thuật · Dân dụng · KCN · CCN · FTZ · PPP/BT
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {TAXONOMY_3D.projectTypes.map(pt => {
+                            const active = namingForm.projectAxes.includes(pt.code);
+                            return (
+                              <button
+                                key={pt.code}
+                                type="button"
+                                onClick={() => toggleArrayItem('projectAxes', pt.code)}
+                                className={`p-2.5 rounded-lg border text-left transition flex items-start justify-between gap-2 ${
+                                  active
+                                    ? 'bg-sky-500/20 border-sky-400 text-sky-200'
+                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                                }`}
+                              >
+                                <div className="text-xs">
+                                  <div className="font-bold font-mono text-white">{active ? '✓ ' : '+ '}[{pt.code}]</div>
+                                  <div className="text-[11px] mt-0.5">{pt.name}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+                          ⚙️ TRỤC 3 (NHÓM CHỨC NĂNG NGHIỆP VỤ): QLCL · HDXD · QLHD · QLCP · VLXD · TCVN · QCVN
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {TAXONOMY_3D.functionalDomains.map(d => {
+                            const active = namingForm.secondaryDomains.includes(d.code);
+                            return (
+                              <button
+                                key={d.code}
+                                type="button"
+                                onClick={() => toggleArrayItem('secondaryDomains', d.code)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
+                                  active
+                                    ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                                }`}
+                              >
+                                {active ? '✓ ' : '+ '}<b>{d.code}</b> ({d.name})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
+                          🧭 ÁNH XẠ TỰ ĐỘNG SANG STAGE-GATE (BƯỚC 3) & QUY TRÌNH QA/QC (BƯỚC 4):
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {INITIAL_GATES.map(g => {
+                            const active = namingForm.linkedGates.includes(g.gate);
+                            return (
+                              <button
+                                key={g.gate}
+                                type="button"
+                                onClick={() => toggleArrayItem('linkedGates', g.gate)}
+                                className={`px-2.5 py-1 rounded text-xs font-mono border transition ${
+                                  active
+                                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                                }`}
+                              >
+                                {active ? '✓ ' : ''}{g.gate}: {g.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cột Phải (5 cols): Bóc tách Điều khoản & Đẩy sang Bước 2, 3, 4 */}
+                  <div className="col-span-12 lg:col-span-5 p-5 bg-slate-900/30 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-bold uppercase text-emerald-400">
+                          BƯỚC 1.2 — Bóc tách Chương-Mục-Điều & Đẩy vào Chuỗi Giá Trị
+                        </h3>
+                        <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">
+                          AST Parser
+                        </span>
+                      </div>
+                      <textarea
+                        rows={8}
+                        value={namingForm.rawContentToParse}
+                        onChange={e => setNamingForm({ ...namingForm, rawContentToParse: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            handleSaveToSSOT();
+                            setActiveTab('STEP2_VBPL');
+                          }}
+                          className="py-2.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg transition"
+                        >
+                          🚀 Lưu & Chuyển sang Bước 2 (Tra cứu VBPL)
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleSaveToSSOT();
+                            setActiveTab('STEP3_PLAN');
+                          }}
+                          className="py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition"
+                        >
+                          🧭 Lưu & Chuyển sang Bước 3 (Lập KH Gate)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Preview JSON Tọa độ 3 Trục */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase text-slate-300">
+                          📊 Siêu dữ liệu Tọa độ 3 Trục (3D Metadata SSOT)
+                        </h4>
+                        <span className="text-[10px] font-mono text-amber-400">REG_Master Ready</span>
+                      </div>
+                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-sky-300 overflow-x-auto">
+{JSON.stringify({
+  ssot_file_name: generatedFileName,
+  axis_1_legal_group: namingForm.docType,
+  axis_2_project_types: namingForm.projectAxes,
+  axis_3_functional_domains: namingForm.secondaryDomains,
+  generated_stage_gates: namingForm.linkedGates,
+  generated_qaqc_flows: namingForm.linkedQAQC
+}, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==============================================================
+                  BƯỚC 2: TRA CỨU VBPL 360 (3 CỘT CHUẨN MẪU) & ĐỐI SOÁT CHÉO
+                 ============================================================== */}
+              {activeTab === 'STEP2_VBPL' && (
+                <div className="h-full flex flex-col overflow-hidden">
+                  {/* Thanh chuyển đổi chế độ trong Bước 2: [Trình đọc 3 Cột chuẩn mẫu] vs [Ma trận Đối soát chéo Đa văn bản] */}
+                  <div className="h-10 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setVbplSubMode('READER_3PANE')}
+                        className={`px-3 py-1 rounded text-xs font-bold transition ${
+                          vbplSubMode === 'READER_3PANE'
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        📚 2A. Thư viện VBPL 3 Cột (Chương · Mục · Điều)
+                      </button>
+                      <button
+                        onClick={() => setVbplSubMode('CROSS_EXAM')}
+                        className={`px-3 py-1 rounded text-xs font-bold transition ${
+                          vbplSubMode === 'CROSS_EXAM'
+                            ? 'bg-emerald-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        🔀 2B. Bảng Đối soát chéo Đa Văn bản (Cross-Reference Matrix)
+                      </button>
+                    </div>
+
+                    {/* Bộ lọc nhanh theo Trục Dự án (Trục Y) ngay trên Thư viện VBPL */}
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-[11px] text-slate-400">Lọc theo Nhóm Dự án:</span>
+                      {['ALL', 'HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'].map(pCode => (
+                        <button
+                          key={pCode}
+                          onClick={() => setVbplProjectFilter(pCode)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+                            vbplProjectFilter === pCode
+                              ? 'bg-sky-500 text-slate-950 font-bold border-sky-400'
+                              : 'bg-slate-950 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          {pCode === 'ALL' ? 'Tất cả DA' : pCode}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* CHẾ ĐỘ 2A: GIAO DIỆN 3 CỘT CHUẨN THƯ VIỆN VBPL */}
+                  {vbplSubMode === 'READER_3PANE' ? (
+                    <div className="flex-1 grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                      {/* CỘT 1 (3 COLS): CÂY CHỨC NĂNG NGHIỆP VỤ */}
+                      <div className="col-span-12 lg:col-span-3 bg-[#0c1424] flex flex-col justify-between overflow-hidden">
+                        <div className="p-3 border-b border-slate-800/80 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase text-amber-400">📚 TRỤC CHỨC NĂNG (Z)</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                              13 Chuyên đề
+                            </span>
+                          </div>
+                          <input
+                            type="text"
+                            value={categorySearch}
+                            onChange={e => setCategorySearch(e.target.value)}
+                            placeholder="Lọc QLCL, HDXD, QLHD, QLCP, VLXD..."
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"
+                          />
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                          {LEGAL_CATEGORY_TREE.map(group => {
+                            const isExpanded = !!expandedCatGroups[group.id];
+                            const visibleChildren = group.children.filter(c =>
+                              !categorySearch.trim() ||
+                              c.code.toLowerCase().includes(categorySearch.toLowerCase()) ||
+                              c.name.toLowerCase().includes(categorySearch.toLowerCase())
+                            );
+                            if (visibleChildren.length === 0) return null;
+
+                            return (
+                              <div key={group.id} className="space-y-1">
+                                <button
+                                  onClick={() => setExpandedCatGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
+                                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800/60 flex items-center justify-between text-xs font-semibold text-slate-200"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-slate-400 text-[10px]">{isExpanded ? '▾' : '▸'}</span>
+                                    <span>{isExpanded ? '📖' : '📕'}</span>
+                                    <span className="truncate">{group.name}</span>
+                                  </div>
+                                </button>
+
+                                {isExpanded && (
+                                  <div className="pl-4 pr-1 space-y-1 border-l border-slate-800 ml-3">
+                                    {visibleChildren.map(child => {
+                                      const count = legalDocs.filter(
+                                        d => d.primaryDomain === child.code || d.secondaryDomains.includes(child.code)
+                                      ).length;
+                                      const isSelected = vbplDomainFilter === child.code;
+                                      return (
+                                        <button
+                                          key={child.code}
+                                          onClick={() => setVbplDomainFilter(child.code)}
+                                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition ${
+                                            isSelected
+                                              ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                                              : 'text-slate-300 hover:bg-slate-800/70'
+                                          }`}
+                                        >
+                                          <span className="truncate">📄 {child.name}</span>
+                                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 ml-1">
+                                            {count}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="p-2.5 border-t border-slate-800 bg-slate-950/80">
+                          <button
+                            onClick={() => {
+                              setVbplDomainFilter('ALL');
+                              setVbplProjectFilter('ALL');
+                              setFilterDocType('ALL');
+                            }}
+                            className="w-full py-2 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold"
+                          >
+                            🌐 Xem toàn bộ thư viện ({legalDocs.length} VB)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* CỘT 2 (4 COLS): DANH SÁCH VĂN BẢN + LỌC LOẠI PHÁP LUẬT + INLINE ACCORDION TOC */}
+                      <div className="col-span-12 lg:col-span-4 bg-slate-900/40 flex flex-col overflow-hidden">
+                        <div className="p-2.5 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-300">
+                            Trục Pháp luật (X):
+                          </span>
+                          <select
+                            value={filterDocType}
+                            onChange={e => setFilterDocType(e.target.value)}
+                            className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
+                          >
+                            <option value="ALL">Tất cả (Luật, NĐ, TT, NQ, VBHN, QCVN, TCVN)</option>
+                            {TAXONOMY_3D.legalGroups.map(dt => (
+                              <option key={dt.code} value={dt.code}>{dt.code} — {dt.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+                          {filteredLegalDocs.map(doc => {
+                            const isSelected = doc.id === currentLegalDoc?.id;
+                            const isExpandedToc = doc.id === expandedInlineDocId;
+                            const typeObj = TAXONOMY_3D.legalGroups.find(t => t.code === doc.docType) || { name: doc.docType, badgeColor: 'bg-slate-700 text-white' };
+
+                            return (
+                              <div
+                                key={doc.id}
+                                className={`rounded-xl border overflow-hidden transition-all ${
+                                  isSelected ? 'border-sky-500 bg-slate-900 shadow-lg' : 'border-slate-800 bg-slate-900/60'
+                                }`}
+                              >
+                                <div
+                                  onClick={() => {
+                                    setSelectedDocId(doc.id);
+                                    setExpandedInlineDocId(prev => (prev === doc.id ? null : doc.id));
+                                  }}
+                                  className="p-3 cursor-pointer space-y-1.5"
+                                >
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs text-slate-400">{isExpandedToc ? '▾' : '▸'}</span>
+                                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${typeObj.badgeColor}`}>
+                                        {doc.docType}
+                                      </span>
+                                      <span className="font-mono text-xs font-bold text-white">{doc.docNumber}</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                      {doc.primaryDomain}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-xs text-slate-200 font-medium leading-snug">{doc.title}</p>
+
+                                  {/* Nhãn Trục Dự án (HTKT, DAN_DUNG, KCN, CCN, FTZ, PPP) */}
+                                  <div className="flex flex-wrap gap-1 pt-1">
+                                    {(doc.projectAxes || []).map(p => (
+                                      <span key={p} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                        {p}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Cây Mục lục bung nội tuyến ngay tại Cột 2 */}
+                                {isExpandedToc && (
+                                  <div className="bg-slate-950/90 border-t border-slate-800 max-h-72 overflow-y-auto divide-y divide-slate-900">
+                                    {doc.nodes.map(node => (
+                                      <div
+                                        key={node.id}
+                                        onClick={() => jumpToArticleNode(doc.id, node.id)}
+                                        className={`px-3.5 py-2 text-xs cursor-pointer transition flex items-start justify-between gap-2 ${
+                                          node.level === 'Chương'
+                                            ? 'bg-slate-900 text-amber-400 font-bold uppercase'
+                                            : activeNodeId === node.id && isSelected
+                                            ? 'bg-amber-500/20 text-amber-300 font-semibold border-l-2 border-amber-500'
+                                            : 'text-slate-300 hover:bg-slate-900'
+                                        }`}
+                                      >
+                                        <span><b>{node.code}</b> {node.title}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* CỘT 3 (5 COLS): SMART READER & NÚT CHUYỂN TIẾP SANG BƯỚC 3 (STAGE-GATE) & BƯỚC 4 (QA/QC) */}
+                      <div className="col-span-12 lg:col-span-5 bg-slate-950 flex flex-col overflow-hidden">
+                        {currentLegalDoc && (
+                          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-mono font-bold text-amber-400">
+                                  [{currentLegalDoc.docType}] Số {currentLegalDoc.docNumber} • Chức năng: {currentLegalDoc.primaryDomain}
+                                </span>
+                                <span className="text-[11px] font-mono text-emerald-400">{currentLegalDoc.status}</span>
+                              </div>
+                              <h2 className="text-base font-bold text-white leading-snug">{currentLegalDoc.title}</h2>
+                              <div className="text-xs text-slate-400">{currentLegalDoc.lineage}</div>
+
+                              {/* Nút chuyển tiếp nhân quả sang Bước 3 (Stage-Gate) & Bước 4 (Thực thi) */}
+                              <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] text-slate-400">Chuyển sang Lập kế hoạch & Thực thi:</span>
+                                {currentLegalDoc.linkedGates.map(g => (
+                                  <button
+                                    key={g}
+                                    onClick={() => {
+                                      setSelectedGateCode(g);
+                                      setActiveTab('STEP3_PLAN');
+                                    }}
+                                    className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30"
+                                  >
+                                    🧭 Bước 3: Gate {g} →
+                                  </button>
+                                ))}
+                                {currentLegalDoc.linkedQAQC.map(qt => (
+                                  <button
+                                    key={qt}
+                                    onClick={() => {
+                                      setSelectedProcessId(qt);
+                                      setActiveTab('STEP4_EXECUTE');
+                                    }}
+                                    className="text-[11px] font-mono px-2 py-0.5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30"
+                                  >
+                                    ▦ Bước 4: Quy trình {qt} →
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-3" style={{ fontSize: `${readerFontSize}px` }}>
+                              {currentLegalDoc.nodes.map(node => (
+                                <div
+                                  id={`reader-node-${node.id}`}
+                                  key={node.id}
+                                  className={`p-4 rounded-xl border space-y-1.5 ${
+                                    activeNodeId === node.id
+                                      ? 'bg-amber-500/10 border-amber-500'
+                                      : 'bg-slate-900/60 border-slate-800'
+                                  }`}
+                                >
+                                  <div className="font-bold text-amber-400">{node.code} {node.title}</div>
+                                  {node.content && (
+                                    <p className="text-slate-200 leading-relaxed whitespace-pre-line">{node.content}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* CHẾ ĐỘ 2B: BẢNG ĐỐI SOÁT CHÉO ĐA VĂN BẢN (CROSS-REFERENCE MATRIX) */
+                    <div className="flex-1 p-5 overflow-y-auto space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        {CROSS_EXAM_TOPICS.map(topic => (
+                          <button
+                            key={topic.id}
+                            onClick={() => setSelectedCrossExamId(topic.id)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                              selectedCrossExamId === topic.id
+                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg'
+                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            {topic.title}
+                          </button>
+                        ))}
+                      </div>
+
+                      {CROSS_EXAM_TOPICS.filter(t => t.id === selectedCrossExamId).map(topic => (
+                        <div key={topic.id} className="space-y-4">
+                          <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2">
+                            <h3 className="text-sm font-bold text-emerald-400">{topic.title}</h3>
+                            <p className="text-xs text-slate-300">{topic.summary}</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                            {topic.columns.map((col, idx) => (
+                              <div key={idx} className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                                <div className="space-y-2">
+                                  <div className="text-xs font-mono font-bold text-amber-400 border-b border-slate-800 pb-1.5">
+                                    ⚖️ {col.docRef}
+                                  </div>
+                                  <div className="text-[11px] font-mono text-sky-400">Căn cứ: {col.clause}</div>
+                                  <p className="text-xs text-slate-200 leading-relaxed">{col.requirement}</p>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-200">
+                                  <b className="text-emerald-400 block mb-0.5">🛡️ Chốt chặn thực thi:</b>
+                                  {col.controlAction}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==============================================================
+                  BƯỚC 3: LẬP KẾ HOẠCH STAGE-GATE (G0–G16) & RACI ĐỘNG THEO DỰ ÁN
+                 ============================================================== */}
+              {activeTab === 'STEP3_PLAN' && (
+                <div className="h-full flex flex-col overflow-hidden">
+                  {/* Thanh chọn Nhóm Dự án (HTKT, Dân dụng, KCN, CCN, FTZ, PPP/BT) */}
+                  <div className="p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-amber-400 mr-1">
+                        🏗️ Chọn Loại hình Dự án để cấu hình Stage-Gate:
+                      </span>
+                      {TAXONOMY_3D.projectTypes.map(pt => (
+                        <button
+                          key={pt.code}
+                          onClick={() => setActiveProjectArchetype(pt.code)}
+                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition ${
+                            activeProjectArchetype === pt.code
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                              : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-amber-500/40'
+                          }`}
+                        >
+                          {pt.code}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-emerald-400 font-mono">
+                      Đầu mối thẩm quyền: {currentArchetypeMeta.authority}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                    {/* Cột 1 (3 cols): 17 Cổng Stage-Gate */}
+                    <div className="col-span-12 lg:col-span-3 overflow-y-auto p-3 space-y-2 bg-slate-950">
+                      {INITIAL_GATES.map(g => {
+                        const isSelected = g.gate === selectedGateCode;
+                        return (
+                          <button
+                            key={g.gate}
+                            onClick={() => setSelectedGateCode(g.gate)}
+                            className={`w-full text-left p-3 rounded-xl border transition-all ${
+                              isSelected
+                                ? 'bg-amber-500/15 border-amber-500 text-white shadow-md'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-900'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950">
+                                {g.gate}
+                              </span>
+                              <div className="flex gap-1">
+                                {g.functionalTags.map(ft => (
+                                  <span key={ft} className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-amber-300">
+                                    {ft}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="text-xs font-semibold leading-snug">{g.name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Cột 2 (5 cols): Đặc thù Pháp lý theo Loại hình Dự án + Ma trận RACI 4 Bên */}
+                    <div className="col-span-12 lg:col-span-5 overflow-y-auto p-5 space-y-4">
+                      {/* Thẻ Đặc thù Pháp lý của Gate này đối với loại dự án đang chọn (KCN / FTZ / CCN / PPP...) */}
+                      <div className="bg-gradient-to-br from-sky-950/60 to-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-sky-400">
+                            🎯 CHỈ DẪN ĐẶC THÙ CHO DỰ ÁN [{activeProjectArchetype}] TẠI {currentGate.gate}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">
+                            {currentArchetypeMeta.authority}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed">
+                          {currentGate.projectNotes[activeProjectArchetype]}
+                        </p>
+                      </div>
+
+                      {currentGate.steps.map(step => (
+                        <div key={step.code} className="bg-slate-900/70 border border-amber-500/40 rounded-xl p-4 space-y-4">
+                          <div>
+                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950 mr-2">
+                              Bước {step.code}
+                            </span>
+                            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                              {step.mandatory}
+                            </span>
+                            <h3 className="text-sm font-bold text-white mt-2">{step.title}</h3>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Chủ đầu tư</div>
+                              <div className="font-semibold text-amber-400">{step.raci.CDT}</div>
+                            </div>
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Ban QLDA</div>
+                              <div className="font-semibold text-emerald-400">{step.raci.BQLDA}</div>
+                            </div>
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Tư vấn Thiết kế</div>
+                              <div className="font-semibold text-sky-400">{step.raci.TVTK}</div>
+                            </div>
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Tư vấn Giám sát</div>
+                              <div className="font-semibold text-purple-400">{step.raci.TVGS}</div>
+                            </div>
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Nhà thầu</div>
+                              <div className="font-semibold text-orange-400">{step.raci.NhaThau}</div>
+                            </div>
+                            <div className="p-2 rounded bg-slate-950 border border-slate-800">
+                              <div className="text-[10px] text-slate-400">Cơ quan Thẩm quyền</div>
+                              <div className="font-semibold text-slate-200">{currentArchetypeMeta.authority}</div>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs text-rose-200">
+                            <div className="font-bold text-rose-400 mb-0.5">Chốt chặn Rủi ro Kiểm toán Pháp lý:</div>
+                            {step.riskFlag}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Cột 3 (4 cols): Checklist Hồ sơ Bắt buộc & Chuyển tiếp sang Bước 4 (Thực thi) */}
+                    <div className="col-span-12 lg:col-span-4 overflow-y-auto p-5 bg-slate-900/30 space-y-4">
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                        <h3 className="text-xs font-bold uppercase text-emerald-400">
+                          ☑️ Checklist Hồ sơ Bắt buộc tại {currentGate.gate} ({activeProjectArchetype})
+                        </h3>
+                        {currentStep.auditChecklist.map((item, idx) => {
+                          const key = `${currentStep.code}-${idx}`;
+                          const isChecked = !!checkedAuditItems[key];
+                          return (
+                            <label
+                              key={key}
+                              onClick={() => setCheckedAuditItems(prev => ({ ...prev, [key]: !prev[key] }))}
+                              className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer text-xs ${
+                                isChecked
+                                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200'
+                                  : 'bg-slate-950 border-slate-800 text-slate-300'
+                              }`}
+                            >
+                              <input type="checkbox" checked={isChecked} readOnly className="mt-0.5 accent-emerald-500" />
+                              <span>{item}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => setActiveTab('STEP4_EXECUTE')}
+                        className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg transition"
+                      >
+                        ▦ Chuyển sang Bước 4: Mở Sơ đồ Quy trình, Biểu mẫu & Nhật ký →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==============================================================
+                  BƯỚC 4: THỰC THI CHI TIẾT (QUY TRÌNH QA/QC, BIỂU MẪU AUTO-FILL, NHẬT KÝ)
+                 ============================================================== */}
+              {activeTab === 'STEP4_EXECUTE' && (
+                <div className="h-full grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                  <div className="col-span-12 lg:col-span-3 p-3 overflow-y-auto space-y-2 bg-slate-950">
+                    <div className="text-[11px] font-bold uppercase text-amber-400 px-2 py-1">
+                      DANH MỤC SƠ ĐỒ QUY TRÌNH THỰC THI
+                    </div>
+                    {QAQC_PROCESSES.map(proc => (
+                      <button
+                        key={proc.id}
+                        onClick={() => {
+                          setSelectedProcessId(proc.id);
+                          setSelectedFlowStepIdx(0);
+                        }}
+                        className={`w-full text-left p-3 rounded-xl border transition ${
+                          proc.id === selectedProcessId
+                            ? 'bg-amber-500/15 border-amber-500 text-white'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-amber-400">Quy trình {proc.code}</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-300">
+                            Gate {proc.gateRef}
+                          </span>
+                        </div>
+                        <div className="text-xs font-semibold mt-1">{proc.title}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="col-span-12 lg:col-span-5 p-5 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                      <h2 className="text-base font-bold text-white">{currentProcess.title}</h2>
+                      <p className="text-xs text-slate-400">{currentProcess.summary}</p>
+                      <span className="inline-block text-[11px] font-mono px-2.5 py-1 rounded bg-amber-500/15 text-amber-300">
+                        ⚖️ {currentProcess.legalTag}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {currentProcess.steps.map((st, idx) => (
+                        <div
+                          key={st.stepNo}
+                          onClick={() => setSelectedFlowStepIdx(idx)}
+                          className={`p-4 rounded-xl border cursor-pointer transition ${
+                            idx === selectedFlowStepIdx ? 'bg-amber-500/15 border-amber-500 shadow-lg' : 'bg-slate-900 border-slate-800'
+                          }`}
+                        >
+                          <div className="flex justify-between text-xs font-mono text-amber-400 mb-1">
+                            <span>{st.stepNo}</span>
+                            <span>{st.type}</span>
+                          </div>
+                          <div className="text-sm font-bold text-white">{st.name}</div>
+                          <div className="text-xs text-slate-400 mt-1">Tương tác: {st.parties}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cột Phải (4 cols): Hướng dẫn + Mẫu Nhật ký + Khởi tạo Biểu mẫu Tự động (Auto-Fill) */}
+                  <div className="col-span-12 lg:col-span-4 p-5 bg-slate-900/30 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-4 space-y-2">
+                      <div className="text-xs font-mono text-amber-400">{currentFlowStep.stepNo}</div>
+                      <h3 className="text-sm font-bold text-white">{currentFlowStep.name}</h3>
+                      <p className="text-xs text-slate-300 leading-relaxed">{currentFlowStep.desc}</p>
+                    </div>
+
+                    <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400">✍️ Mẫu câu ghi Nhật ký Thi công chuẩn:</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentFlowStep.diaryTemplate);
+                            showToast('Đã copy mẫu ghi Nhật ký thi công!');
+                          }}
+                          className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="p-3 rounded bg-slate-950 font-mono text-xs text-slate-200">{currentFlowStep.diaryTemplate}</div>
+                    </div>
+
+                    {/* Trình Khởi tạo Biểu mẫu Tự động điền căn cứ pháp lý (Smart Auto-Fill Form) */}
+                    <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-3">
+                      <div className="text-xs font-bold uppercase text-sky-400">
+                        📄 Biểu mẫu Chuẩn Tự động Điền Căn cứ Pháp lý:
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1.5 font-mono text-slate-300">
+                        <div className="text-amber-300 font-bold">{currentFlowStep.formTemplateTitle}</div>
+                        <div>• Dự án: {activeProjectName} [{activeProjectArchetype}]</div>
+                        <div>• Căn cứ: {currentProcess.legalTag}</div>
+                        <div>• Thành phần ký: Chủ đầu tư / Ban QLDA — TVGS — Nhà thầu</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const content = `${currentFlowStep.formTemplateTitle}\nDự án: ${activeProjectName} (${activeProjectArchetype})\nCăn cứ pháp lý: ${currentProcess.legalTag}\nNội dung xác nhận: ${currentFlowStep.diaryTemplate}`;
+                          navigator.clipboard.writeText(content);
+                          showToast('Đã copy nội dung Biểu mẫu tự động điền sẵn căn cứ pháp lý!');
+                        }}
+                        className="w-full py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition"
+                      >
+                        📋 Copy Toàn bộ Dự thảo Biểu mẫu Chuẩn
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==============================================================
+                  BƯỚC 5: KIỂM SOÁT, PHÁT SINH VO & KIỂM TOÁN PHÁP LÝ DỰ ÁN
+                 ============================================================== */}
+              {activeTab === 'STEP5_AUDIT' && (
+                <div className="h-full grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                  <div className="col-span-12 lg:col-span-6 p-5 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-amber-400">
+                        🔀 Công cụ 1: Cây Quyết định Xử lý Phát sinh Hợp đồng & Thay đổi Thiết kế (VO Wizard)
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">1. Loại Hợp đồng đang thực hiện (QLHD):</label>
+                          <select
+                            value={voState.contractType}
+                            onChange={e => setVoState({ ...voState, contractType: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          >
+                            <option value="TRON_GOI">Hợp đồng Trọn gói (Lump-sum)</option>
+                            <option value="DON_GIA_CO_DINH">Hợp đồng theo Đơn giá cố định</option>
+                            <option value="DON_GIA_DIEU_CHINH">Hợp đồng theo Đơn giá điều chỉnh</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">2. Phát sinh nằm ngoài phạm vi Thiết kế/HĐ?</label>
+                          <select
+                            value={voState.isOutsideScope}
+                            onChange={e => setVoState({ ...voState, isOutsideScope: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          >
+                            <option value="YES">Có — Phát sinh ngoài bản vẽ hợp đồng</option>
+                            <option value="NO">Không — Chỉ chênh lệch khối lượng BOQ</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">3. Có làm VƯỢT Giá gói thầu / Dự toán (QLCP)?</label>
+                          <select
+                            value={voState.exceedsPkgPrice}
+                            onChange={e => setVoState({ ...voState, exceedsPkgPrice: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          >
+                            <option value="NO">Không — Nằm trong dự phòng phí gói thầu</option>
+                            <option value="YES">Có — Vượt dự toán gói thầu được duyệt</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">4. Có ảnh hưởng Kết cấu chính / PCCC không?</label>
+                          <select
+                            value={voState.affectsSafetyPCCC}
+                            onChange={e => setVoState({ ...voState, affectsSafetyPCCC: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          >
+                            <option value="NO">Không ảnh hưởng an toàn chịu lực & PCCC</option>
+                            <option value="YES">Có ảnh hưởng kết cấu chính / giải pháp PCCC</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2 text-xs">
+                      <div className="font-bold text-emerald-400 uppercase">
+                        ⚖️ Lộ trình Pháp lý Bắt buộc cho Dự án [{activeProjectArchetype}]:
+                      </div>
+                      {voState.contractType === 'TRON_GOI' && voState.isOutsideScope === 'NO' ? (
+                        <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-500 text-rose-200">
+                          <b>⛔ CẢNH BÁO TỪ CHỐI THANH TOÁN (QLHD):</b> Đối với Hợp đồng Trọn gói, nếu không có thay đổi thiết kế hoặc yêu cầu của Chủ đầu tư, mọi chênh lệch tăng khối lượng so với BOQ nhà thầu tự chịu rủi ro — <b>TUYỆT ĐỐI KHÔNG ký Phụ lục bổ sung kinh phí</b>.
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 space-y-2 text-slate-200">
+                          <div><b>1. Hiện trường (QLCL - Gate G12):</b> Lập Biên bản hiện trường 4 bên (Ban QLDA, TVGS, TVTK, Nhà thầu) xác nhận nguyên nhân phát sinh.</div>
+                          {voState.affectsSafetyPCCC === 'YES' && (
+                            <div className="text-amber-300 font-semibold">
+                              ⚠️ <b>Thẩm định lại (HDXD/PCCC - Gate G6 & G9):</b> Phải trình {currentArchetypeMeta.authority} / Cục PCCC thẩm định thiết kế điều chỉnh trước khi thi công!
+                            </div>
+                          )}
+                          <div>
+                            <b>2. Dự toán (QLCP - Gate G9):</b>{' '}
+                            {voState.exceedsPkgPrice === 'YES'
+                              ? 'Do VƯỢT giá gói thầu, Chủ đầu tư phải phê duyệt điều chỉnh Dự toán gói thầu và KHLCNT trước khi ký Phụ lục.'
+                              : 'Sử dụng chi phí dự phòng trong hợp đồng. Chủ đầu tư thẩm định và phê duyệt bản vẽ + dự toán phát sinh.'}
+                          </div>
+                          <div><b>3. Hợp đồng (QLHD - Gate G11):</b> Ký Phụ lục Hợp đồng chính thức trước khi đưa vào Phụ lục 04 thanh toán tại Gate G14.</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="col-span-12 lg:col-span-6 p-5 bg-slate-900/30 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-sky-400">
+                        🕵️ Công cụ 2: Kiểm toán Logic Thời gian Hồ sơ (VLXD → QLCL → TQT)
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">1. Ngày lấy mẫu vật liệu hiện trường (VLXD):</label>
+                          <input
+                            type="date"
+                            value={chronoDates.sampleDate}
+                            onChange={e => setChronoDates({ ...chronoDates, sampleDate: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">2. Ngày xuất Kết quả thí nghiệm LAS (VLXD):</label>
+                          <input
+                            type="date"
+                            value={chronoDates.labResultDate}
+                            onChange={e => setChronoDates({ ...chronoDates, labResultDate: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">3. Ngày Nghiệm thu vật liệu đầu vào (QT-03):</label>
+                          <input
+                            type="date"
+                            value={chronoDates.materialApproveDate}
+                            onChange={e => setChronoDates({ ...chronoDates, materialApproveDate: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-slate-400 mb-1">4. Ngày Nghiệm thu công việc xây dựng (QLCL):</label>
+                          <input
+                            type="date"
+                            value={chronoDates.workInspectDate}
+                            onChange={e => setChronoDates({ ...chronoDates, workInspectDate: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {chronoAuditStatus.length === 0 ? (
+                        <div className="p-4 rounded-xl bg-emerald-950/50 border border-emerald-500 text-emerald-300 text-xs">
+                          ✅ <b>HỒ SƠ HỢP LỆ 100% VỀ TRÌNH TỰ THỜI GIAN!</b> Đủ điều kiện chuyển sang Gate G14 giải ngân.
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500 text-rose-200 text-xs space-y-2">
+                          <div className="font-bold text-rose-400">
+                            🚨 PHÁT HIỆN {chronoAuditStatus.length} LỖI LOGIC THỜI GIAN HỒ SƠ:
+                          </div>
+                          <ul className="list-disc pl-4 space-y-1">
+                            {chronoAuditStatus.map((e, idx) => <li key={idx}>{e}</li>)}
+                          </ul>
+                          <button
+                            onClick={() => setChronoDates({
+                              sampleDate: '2026-10-05',
+                              labResultDate: '2026-10-12',
+                              materialApproveDate: '2026-10-13',
+                              workInspectDate: '2026-10-15'
+                            })}
+                            className="mt-2 px-3 py-1.5 rounded bg-emerald-500 text-slate-950 font-bold text-xs"
+                          >
+                            Sửa mẫu về ngày hợp lệ (2026-10-15)
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==============================================================
+                  BƯỚC 6: TRUNG TÂM 5 AI AGENTS PHÁP LÝ & KIỂM TOÁN DỰ ÁN
+                 ============================================================== */}
+              {activeTab === 'STEP6_AI' && (
+                <div className="h-full grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                  {/* Cột Trái (4 cols): Chọn 1 trong 5 AI Agents chuyên biệt */}
+                  <div className="col-span-12 lg:col-span-4 p-4 overflow-y-auto space-y-3 bg-slate-950">
+                    <div className="text-xs font-bold uppercase text-indigo-400">
+                      🤖 CHỌN TÁC NHÂN AI CHUYÊN BIỆT (5 AI AGENTS)
+                    </div>
+                    {[
+                      {
+                        id: 'AGENT_1_INGEST',
+                        name: 'Agent 1 — AI Legal Ingestor & 3D Mapper',
+                        desc: 'Tự động đọc văn bản mới và gắn nhãn 3 Trục (Pháp luật × Dự án × Chức năng) vào Bước 1.'
+                      },
+                      {
+                        id: 'AGENT_2_CROSS',
+                        name: 'Agent 2 — AI Cross-Exam & Conflict Resolver',
+                        desc: 'Đối soát chéo giữa Luật Xây dựng, Luật Đấu thầu, NĐ Hợp đồng và NĐ Chi phí tại Bước 2.'
+                      },
+                      {
+                        id: 'AGENT_3_PLAN',
+                        name: 'Agent 3 — AI Project Blueprint Generator',
+                        desc: 'Thiết kế lộ trình pháp lý G0–G16 riêng cho dự án HTKT, Dân dụng, KCN, CCN, FTZ hoặc PPP/BT tại Bước 3.'
+                      },
+                      {
+                        id: 'AGENT_4_SITE',
+                        name: 'Agent 4 — AI Site & Contract Copilot',
+                        desc: 'Soạn thảo Nhật ký thi công, Biên bản hiện trường và Công văn trả lời phát sinh hợp đồng tại Bước 4.'
+                      },
+                      {
+                        id: 'AGENT_5_AUDIT',
+                        name: 'Agent 5 — AI Pre-Audit Forensic Inspector',
+                        desc: 'Rà soát khuyết tật pháp lý, trình tự thời gian nghiệm thu và nguy cơ xuất toán tại Bước 5.'
+                      }
+                    ].map(ag => (
+                      <button
+                        key={ag.id}
+                        onClick={() => setActiveAiAgent(ag.id)}
+                        className={`w-full text-left p-3.5 rounded-xl border transition space-y-1 ${
+                          activeAiAgent === ag.id
+                            ? 'bg-indigo-500/20 border-indigo-400 text-white shadow-lg'
+                            : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:bg-slate-900'
+                        }`}
+                      >
+                        <div className="text-xs font-bold text-indigo-300">{ag.name}</div>
+                        <p className="text-[11px] text-slate-400 leading-snug">{ag.desc}</p>
+                      </button>
+                    ))}
+
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                      <label className="block text-[11px] font-mono text-slate-400">
+                        🔑 Gemini API Key (Tùy chọn — Để trống sẽ chạy Built-in Legal Engine):
+                      </label>
+                      <input
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={e => setGeminiApiKey(e.target.value)}
+                        placeholder="AIzaSy... (Không bắt buộc)"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cột Phải (8 cols): Giao diện Thực thi AI & Phán quyết Pháp lý */}
+                  <div className="col-span-12 lg:col-span-8 p-5 overflow-y-auto space-y-4">
+                    <div className="bg-slate-900 border border-indigo-500/40 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-indigo-400">
+                          YÊU CẦU PHÂN TÍCH TÌNH HUỐNG PHÁP LÝ / KIỂM TOÁN DỰ ÁN [{activeProjectArchetype}]
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                          3D Context Active
+                        </span>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={aiPromptInput}
+                        onChange={e => setAiPromptInput(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        onClick={runMultiAgentAnalysis}
+                        disabled={isAiRunning}
+                        className="w-full py-2.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition"
+                      >
+                        {isAiRunning ? '⏳ Đang chạy đối soát chéo 3 Trục...' : '⚡ KÍCH HOẠT AI AGENT ĐỐI SOÁT CHÉO & XUẤT PHÁN QUYẾT'}
+                      </button>
+                    </div>
+
+                    {aiOutputText && (
+                      <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase text-emerald-400">
+                            📋 Kết quả Phân tích & Đối soát từ AI Agent:
+                          </span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(aiOutputText);
+                              showToast('Đã copy báo cáo phân tích của AI!');
+                            }}
+                            className="text-xs bg-slate-800 px-2.5 py-1 rounded text-slate-200 hover:bg-slate-700"
+                          >
+                            Copy Báo cáo
+                          </button>
+                        </div>
+                        <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed">
+                          {aiOutputText}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<LexPmoApp />);
+  </script>
+</body>
+</html>
