@@ -95,9 +95,62 @@ import { Step5CommandCenter } from './components/steps/Step5CommandCenter';
 import {
   analyzeLegalWithHybridAi,
   compareClausesWithHybridAi,
+  fetchRoleGuardStatus,
   probeHybridServices,
+  RoleGuardStatus,
   syncAuditLogEntry,
+  toCanonicalGuardRole,
 } from './services/ssotBridgeService';
+
+const LEX_PMO_UNLOCKED_ROLES_KEY = 'lex_pmo_unlocked_roles_v1';
+const LEX_PMO_ACTIVE_ACTOR_KEY = 'lex_pmo_active_actor_id_v1';
+
+type ElevatedGuardRole = 'CDT' | 'PMU' | 'TVGS';
+
+function readUnlockedRolesFromSession(): ElevatedGuardRole[] {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return [];
+    const raw = window.sessionStorage.getItem(LEX_PMO_UNLOCKED_ROLES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r): r is ElevatedGuardRole => r === 'CDT' || r === 'PMU' || r === 'TVGS'
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeUnlockedRolesToSession(roles: ElevatedGuardRole[]): void {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem(LEX_PMO_UNLOCKED_ROLES_KEY, JSON.stringify(roles));
+    }
+  } catch {
+    // Ignore storage quota/security errors
+  }
+}
+
+function readSavedActorIdFromSession(): string | null {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null;
+    const raw = window.sessionStorage.getItem(LEX_PMO_ACTIVE_ACTOR_KEY);
+    return raw && raw.trim() ? raw.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedActorIdToSession(actorId: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem(LEX_PMO_ACTIVE_ACTOR_KEY, actorId);
+    }
+  } catch {
+    // Ignore storage quota/security errors
+  }
+}
 
 type MainStepTab =
   | 'STEP1_INGEST'
@@ -375,7 +428,103 @@ export function useLexPmoOrchestrator() {
 
   // Nhân sự đang đăng nhập (Cross-Entity Actor cho RBAC & AuditLog)
   const [employees, setEmployees] = useState<EmployeeUser[]>(INITIAL_EMPLOYEES);
-  const [currentActorId, setCurrentActorId] = useState<string>('EMP-01');
+  const [unlockedRoles, setUnlockedRoles] = useState<ElevatedGuardRole[]>(() =>
+    readUnlockedRolesFromSession()
+  );
+  const [roleGuardStatus, setRoleGuardStatus] = useState<RoleGuardStatus & { checked: boolean }>({
+    checked: false,
+    protected: true,
+    demoMode: false,
+    guardedRoles: ['CDT', 'PMU', 'TVGS'],
+  });
+  const [currentActorId, setCurrentActorId] = useState<string>(() => {
+    const savedActorId = readSavedActorIdFromSession();
+    const initialUnlocked = readUnlockedRolesFromSession();
+    if (savedActorId) {
+      const matched = INITIAL_EMPLOYEES.find(e => e.id === savedActorId);
+      if (matched) {
+        const canonical = toCanonicalGuardRole(matched.rbacRole);
+        if (
+          canonical === 'CONTRACTOR' ||
+          initialUnlocked.includes(canonical as ElevatedGuardRole)
+        ) {
+          return savedActorId;
+        }
+      }
+    }
+    return 'EMP-05';
+  });
+
+  useEffect(() => {
+    let active = true;
+    void fetchRoleGuardStatus().then(status => {
+      if (!active) return;
+      if (!status) {
+        setRoleGuardStatus({
+          checked: true,
+          protected: true,
+          demoMode: false,
+          guardedRoles: ['CDT', 'PMU', 'TVGS'],
+        });
+        return;
+      }
+
+      setRoleGuardStatus({
+        checked: true,
+        ...status,
+      });
+
+      const savedActorId = readSavedActorIdFromSession();
+      const sessionUnlocked = readUnlockedRolesFromSession();
+
+      if (status.demoMode && !status.protected) {
+        if (!savedActorId) {
+          setCurrentActorId('EMP-01');
+        } else if (INITIAL_EMPLOYEES.some(e => e.id === savedActorId)) {
+          setCurrentActorId(savedActorId);
+        }
+        return;
+      }
+
+      setCurrentActorId(prevId => {
+        const currentEmp = INITIAL_EMPLOYEES.find(e => e.id === prevId);
+        if (!currentEmp) return 'EMP-05';
+        const canonical = toCanonicalGuardRole(currentEmp.rbacRole);
+        if (
+          canonical !== 'CONTRACTOR' &&
+          status.guardedRoles.includes(canonical as ElevatedGuardRole) &&
+          !sessionUnlocked.includes(canonical as ElevatedGuardRole)
+        ) {
+          return 'EMP-05';
+        }
+        return prevId;
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleUnlockRole = (role: ElevatedGuardRole) => {
+    setUnlockedRoles(prev => {
+      const next = prev.includes(role) ? prev : [...prev, role];
+      writeUnlockedRolesToSession(next);
+      return next;
+    });
+  };
+
+  const handleLockAllRoles = () => {
+    setUnlockedRoles([]);
+    writeUnlockedRolesToSession([]);
+    setCurrentActorId('EMP-05');
+    writeSavedActorIdToSession('EMP-05');
+  };
+
+  const handleSelectActorId = (employeeId: string) => {
+    setCurrentActorId(employeeId);
+    writeSavedActorIdToSession(employeeId);
+  };
 
   const currentActor = useMemo(
     () => employees.find(e => e.id === currentActorId) || employees[0],
@@ -3655,6 +3804,8 @@ export function useLexPmoOrchestrator() {
     activeProjectName, setActiveProjectName,
     employees, setEmployees,
     currentActorId, setCurrentActorId,
+    roleGuardStatus, unlockedRoles,
+    handleUnlockRole, handleLockAllRoles, handleSelectActorId,
     currentActor, raciPerms,
     pendingDigitalSignoff, setPendingDigitalSignoff,
     gateTvgsVerifiedMap, setGateTvgsVerifiedMap,
@@ -3817,7 +3968,11 @@ export default function App() {
     setActiveProjectArchetype,
     activeProjectName,
     employees,
-    setCurrentActorId,
+    roleGuardStatus,
+    unlockedRoles,
+    handleUnlockRole,
+    handleLockAllRoles,
+    handleSelectActorId,
     currentActor,
     raciPerms,
     pendingDigitalSignoff,
@@ -4017,7 +4172,11 @@ export default function App() {
           employees={employees}
           raciPerms={raciPerms}
           globalSearch={globalSearch}
-          onSelectActorId={employeeId => setCurrentActorId(employeeId)}
+          roleGuardStatus={roleGuardStatus}
+          unlockedRoles={unlockedRoles}
+          onUnlockRole={handleUnlockRole}
+          onLockAllRoles={handleLockAllRoles}
+          onSelectActorId={handleSelectActorId}
           onChangeProjectArchetype={code => setActiveProjectArchetype(code)}
           onChangeGlobalSearch={val => setGlobalSearch(val)}
           showToast={showToast}

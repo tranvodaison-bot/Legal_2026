@@ -566,6 +566,45 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </select>
                     </div>
                   </div>
+
+                  {/* Thanh tải nhanh 3 Biểu mẫu CSV chuẩn SSOT (UTF-8 BOM) */}
+                  <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="text-[10px] font-mono uppercase text-emerald-400 font-bold">
+                      📥 BỘ BIỂU MẪU CSV CHUẨN SSOT (UTF-8 BOM):
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <a
+                        href="/templates/mau_danh_muc_vbpl_3truc.csv"
+                        download="mau_danh_muc_vbpl_3truc.csv"
+                        onClick={() =>
+                          showToast('Đang tải biểu mẫu CSV: Danh mục VBPL 3 Trục (UTF-8 BOM)')
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
+                      >
+                        📥 Mẫu VBPL 3 Trục (.csv)
+                      </a>
+                      <a
+                        href="/templates/mau_stage_gate_du_an.csv"
+                        download="mau_stage_gate_du_an.csv"
+                        onClick={() =>
+                          showToast('Đang tải biểu mẫu CSV: Stage-Gate Dự án (UTF-8 BOM)')
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
+                      >
+                        📥 Mẫu Stage-Gate Dự án (.csv)
+                      </a>
+                      <a
+                        href="/templates/mau_hop_dong_itp.csv"
+                        download="mau_hop_dong_itp.csv"
+                        onClick={() =>
+                          showToast('Đang tải biểu mẫu CSV: Hợp đồng & ITP (UTF-8 BOM)')
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
+                      >
+                        📥 Mẫu Hợp đồng & ITP (.csv)
+                      </a>
+                    </div>
+                  </div>
                 </div>
 
                 {/* 2. BẢNG ĐỔI TÊN FILE & FOLDER HÀNG LOẠT + TRẠNG THÁI CDE ISO 19650 + CHECK TRÙNG SHA-256 */}

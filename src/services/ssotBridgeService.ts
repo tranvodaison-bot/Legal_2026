@@ -66,13 +66,104 @@ export async function probeHybridServices(): Promise<HybridServiceHealth> {
   };
 }
 
-function toCanonicalFourPartyRole(rawRole: string): 'CDT' | 'PMU' | 'TVGS' | 'CONTRACTOR' {
+export type CanonicalGuardRole = 'CDT' | 'PMU' | 'TVGS' | 'CONTRACTOR';
+
+export interface RoleGuardStatus {
+  protected: boolean;
+  demoMode: boolean;
+  guardedRoles: Array<'CDT' | 'PMU' | 'TVGS'>;
+  configError?: string;
+}
+
+export interface VerifyRoleResponse {
+  ok: boolean;
+  verified: boolean;
+  role?: CanonicalGuardRole;
+  demoMode?: boolean;
+  protected?: boolean;
+  message?: string;
+  error?: string;
+}
+
+export function toCanonicalGuardRole(rawRole: string): CanonicalGuardRole {
   const upper = (rawRole || '').toUpperCase();
   if (upper.includes('CDT')) return 'CDT';
   if (upper.includes('PMU') || upper.includes('BQLDA') || upper.includes('ADMIN_PMO')) return 'PMU';
   if (upper.includes('TVGS') || upper.includes('TVTK')) return 'TVGS';
   if (upper.includes('CONTRACTOR') || upper.includes('NTTC')) return 'CONTRACTOR';
-  return 'PMU';
+  return 'CONTRACTOR';
+}
+
+function toCanonicalFourPartyRole(rawRole: string): CanonicalGuardRole {
+  return toCanonicalGuardRole(rawRole);
+}
+
+/**
+ * Kiểm tra chế độ bảo vệ vai trò (Demo Mode vs Protected Mode) từ `/api/verify-role`.
+ */
+export async function fetchRoleGuardStatus(): Promise<RoleGuardStatus | null> {
+  try {
+    const res = await fetchWithTimeout(
+      '/api/verify-role',
+      { method: 'GET', cache: 'no-store' },
+      2500
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as Partial<RoleGuardStatus> & { ok?: boolean };
+    if (typeof data.protected !== 'boolean' || typeof data.demoMode !== 'boolean') {
+      return null;
+    }
+    return {
+      protected: data.protected,
+      demoMode: data.demoMode,
+      guardedRoles: Array.isArray(data.guardedRoles)
+        ? data.guardedRoles.filter(
+            (r): r is 'CDT' | 'PMU' | 'TVGS' => r === 'CDT' || r === 'PMU' || r === 'TVGS'
+          )
+        : [],
+      ...(typeof data.configError === 'string' && data.configError.trim()
+        ? { configError: data.configError.trim() }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Xác thực Passcode chuyển vai trò qua `/api/verify-role`.
+ */
+export async function verifyRolePasscode(
+  role: string,
+  passcode: string
+): Promise<VerifyRoleResponse> {
+  const canonicalRole = toCanonicalGuardRole(role);
+  const res = await fetchWithTimeout(
+    '/api/verify-role',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: canonicalRole, passcode }),
+    },
+    4000
+  );
+
+  let data: Partial<VerifyRoleResponse> = {};
+  try {
+    data = (await res.json()) as Partial<VerifyRoleResponse>;
+  } catch {
+    data = {};
+  }
+
+  return {
+    ok: Boolean(data.ok),
+    verified: Boolean(data.verified),
+    role: (data.role as CanonicalGuardRole | undefined) || canonicalRole,
+    demoMode: data.demoMode,
+    protected: data.protected,
+    message: data.message,
+    error: data.error || (!res.ok ? `Lỗi xác thực (${res.status}).` : undefined),
+  };
 }
 
 /**
