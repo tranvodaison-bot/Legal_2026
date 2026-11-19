@@ -1,8 +1,36 @@
+# Dependencies & Build Artifacts
 node_modules/
 build/
 dist/
 coverage/
+.vercel/
+
+# OS & Logs
 .DS_Store
+Thumbs.db
 *.log
+
+# Environment Secrets
 .env*
 !.env.example
+
+# Python & Local Runtime Caches
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# Local Data Lake, SQLite Warehouse & Runtime Exports (must stay outside Git on SSD E:\)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.parquet
+01_bronze/
+02_silver/
+03_gold/
+04_warehouse/
+05_exports/
+desktop-sidecar/ssot_rename_audit_log.json
