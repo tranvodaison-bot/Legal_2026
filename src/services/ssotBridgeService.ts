@@ -1,4 +1,10 @@
-import { AuditLogEntry, LegalDiffCategory, ProjectArchetypeCode } from '../types/lexPmoTypes';
+import {
+  AuditLogEntry,
+  LegalDiffCategory,
+  LegalNode,
+  LegalTocSection,
+  ProjectArchetypeCode,
+} from '../types/lexPmoTypes';
 
 export interface HybridServiceHealth {
   fastApiOnline: boolean;
@@ -221,17 +227,29 @@ export async function syncAuditLogEntry(
 }
 
 /**
- * Gọi Local PDF Scanner Sidecar (:8008) để trích xuất OCR 4 vùng & SHA-256 trực tiếp dưới máy trạm;
- * tự động trả về null nếu Sidecar (:8008) chưa bật để dùng bộ phân tích браузер cục bộ.
+ * Gọi Local PDF Scanner Sidecar (:8008) để trích xuất text/OCR, phân rã cấu trúc Chương/Điều/Khoản
+ * & SHA-256 trực tiếp dưới máy trạm; tự động trả về null nếu Sidecar (:8008) chưa bật để dùng bộ phân tích trình duyệt.
  */
 export async function scanPdfViaLocalSidecar(fileMeta: {
   fileName: string;
   sizeBytes: number;
   relativePath?: string;
+  filePath?: string;
+  rawText?: string;
 }): Promise<{
   sha256?: string;
   extractedText?: string;
   ocrConfidence?: number;
+  meta?: {
+    source_type: string;
+    ocr_applied: boolean;
+    total_pages: number;
+    chapters: number;
+    articles: number;
+    clauses: number;
+  };
+  sections?: LegalTocSection[];
+  legalNodes?: LegalNode[];
   source: 'sidecar-8008';
 } | null> {
   try {
@@ -240,16 +258,23 @@ export async function scanPdfViaLocalSidecar(fileMeta: {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fileMeta),
+        body: JSON.stringify({
+          ...fileMeta,
+          file_path: fileMeta.filePath || fileMeta.relativePath,
+          raw_text: fileMeta.rawText,
+        }),
       },
-      1200
+      2500
     );
     if (res.ok) {
       const data = await res.json();
       return {
         sha256: data.sha256,
-        extractedText: data.extractedText,
-        ocrConfidence: data.ocrConfidence,
+        extractedText: data.extractedText || data.raw_text,
+        ocrConfidence: data.ocrConfidence ?? data.ocr_confidence,
+        meta: data.meta,
+        sections: Array.isArray(data.sections) ? data.sections : undefined,
+        legalNodes: Array.isArray(data.legal_nodes) ? data.legal_nodes : undefined,
         source: 'sidecar-8008',
       };
     }

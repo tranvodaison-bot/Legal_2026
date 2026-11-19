@@ -19,8 +19,11 @@ import {
   buildAutoSuggestedTags,
   buildFileNameByRule,
   cleanDocNumber,
+  cleanLegalPageNoise,
   createSampleBatchItems,
+  parseLegalDocumentStructure,
   parseRawTagInput,
+  parseVietnameseLegalText,
   resolveDocTaxonomyFromTags,
   smartAnalyzeFile3D,
   stripRedundantSummaryPrefix,
@@ -928,4 +931,63 @@ test('Unified VBPL [SoHieu]-[Nam]_[LoaiVB]-[CoQuan]_[LinhVuc]_[TrichYeu] generat
   assert.equal(mappedTaxonomy.industryGroupId, 'IND-XAYDUNG-DAUTHAU');
   assert.ok(mappedTaxonomy.tags.includes('G14'));
   assert.ok(mappedTaxonomy.tags.includes('Gói thầu XL-01'));
+});
+
+test('LegalDocumentParser noise filter, ND 30/2020 structure tree, and wrapped PDF line joining', () => {
+  const rawSample = [
+    'QUỐC HỘI',
+    'Số: 135/2025/QH15',
+    '1',
+    'Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;',
+    'Chương I: QUY ĐỊNH CHUNG',
+    '- 2 -',
+    'Điều 1. Phạm vi điều chỉnh',
+    '1. Luật này quy định về hoạt động đầu tư xây dựng',
+    'trên lãnh thổ Việt Nam.',
+    'a) Lập quy hoạch và chuẩn bị dự án;',
+    'đ) Nghiệm thu, bàn giao đưa công trình vào sử dụng.',
+    '[Trang 3/89]',
+    'Trang 4/89',
+    'Điều 15a. Quản lý chất lượng thi công',
+    'Nội dung quy định chung không đánh số khoản',
+    'nối sang dòng kế tiếp.',
+  ].join('\n');
+
+  const cleaned = cleanLegalPageNoise(rawSample);
+  assert.ok(!cleaned.includes('- 2 -'));
+  assert.ok(!cleaned.includes('[Trang 3/89]'));
+  assert.ok(!cleaned.includes('Trang 4/89'));
+  assert.ok(!cleaned.split('\n').includes('1'));
+
+  const structured = parseLegalDocumentStructure(rawSample);
+  assert.equal(structured.stats.chapters, 1);
+  assert.equal(structured.stats.articles, 2);
+  assert.equal(structured.stats.clauses, 3);
+
+  assert.equal(structured.toc[0].id, 'preamble');
+  assert.equal(structured.toc[0].article_number, 'Căn cứ');
+  assert.ok(structured.toc[0].content_blocks[0].text.includes('Căn cứ Hiến pháp'));
+
+  assert.equal(structured.toc[1].id, 'dieu_1');
+  assert.equal(structured.toc[1].article_number, 'Điều 1');
+  assert.equal(structured.toc[1].title, 'Phạm vi điều chỉnh');
+  assert.equal(structured.toc[1].clauses_count, 3);
+  assert.equal(
+    structured.toc[1].content_blocks[0].text,
+    '1. Luật này quy định về hoạt động đầu tư xây dựng trên lãnh thổ Việt Nam.'
+  );
+  assert.equal(structured.toc[1].content_blocks[2].type, 'point');
+  assert.equal(structured.toc[1].content_blocks[2].index, 'đ');
+
+  assert.equal(structured.toc[2].article_number, 'Điều 15a');
+  assert.equal(
+    structured.toc[2].content_blocks[0].text,
+    'Nội dung quy định chung không đánh số khoản nối sang dòng kế tiếp.'
+  );
+
+  const nodes = parseVietnameseLegalText(rawSample);
+  assert.equal(nodes[0].level, 'Mở đầu');
+  assert.equal(nodes[1].level, 'Chương');
+  assert.equal(nodes[2].level, 'Điều');
+  assert.equal(nodes[2].clauseCount, 3);
 });

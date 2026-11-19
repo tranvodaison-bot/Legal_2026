@@ -85,6 +85,32 @@ export interface LegalNode {
   content: string;
 }
 
+export interface LegalContentBlock {
+  type: 'clause' | 'point' | 'paragraph';
+  index: string;
+  text: string;
+}
+
+export interface LegalTocSection {
+  id: string;
+  chapter: string;
+  article_number: string;
+  title: string;
+  full_heading: string;
+  content_blocks: LegalContentBlock[];
+  clauses_count: number;
+}
+
+export interface LegalParsedStructure {
+  stats: {
+    chapters: number;
+    articles: number;
+    clauses: number;
+  };
+  toc: LegalTocSection[];
+  nodes: LegalNode[];
+}
+
 export interface LegalDocument {
   id: string;
   ssotFileName: string;

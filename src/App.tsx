@@ -76,6 +76,7 @@ import {
   extractTextFromFileEnhanced,
   formatFileSize,
   normalizeSsotDocType,
+  parseLegalDocumentStructure,
   parseVietnameseLegalText,
   removeVietnameseTones,
   resolveDocTaxonomyFromTags,
@@ -1316,7 +1317,10 @@ export function useLexPmoOrchestrator() {
     const fileItems = selectedItems.filter(i => i.itemKind !== 'FOLDER');
     if (fileItems.length > 0) {
       const addedDocs: LegalDocument[] = fileItems.map((item, idx) => {
-        const nodes = parseVietnameseLegalText(item.extractedText || namingForm.rawContentToParse);
+        const structured = parseLegalDocumentStructure(
+          item.extractedText || namingForm.rawContentToParse
+        );
+        const nodes = structured.nodes;
         const confirmedTags = (
           item.smartTags && item.smartTags.length > 0
             ? item.smartTags
@@ -1347,9 +1351,12 @@ export function useLexPmoOrchestrator() {
           status: 'Còn hiệu lực năm 2026',
           validityPeriod: 'Còn hiệu lực',
           isAmended: false,
-          chapterCount: Math.max(1, nodes.filter(n => n.level === 'Chương').length),
-          articleCount: Math.max(1, nodes.filter(n => n.level === 'Điều').length),
-          clauseTotalCount: nodes.length * 3,
+          chapterCount: structured.stats.chapters,
+          articleCount: Math.max(1, structured.stats.articles),
+          clauseTotalCount: Math.max(
+            1,
+            structured.stats.clauses || nodes.reduce((acc, n) => acc + (n.clauseCount || 1), 0)
+          ),
           projectAxes:
             syncedSug.projectAxes.length > 0
               ? syncedSug.projectAxes
@@ -2248,7 +2255,8 @@ export function useLexPmoOrchestrator() {
   }, [vbplSubSectorFilter, activeIndustryGroup]);
 
   const handleSaveToSSOT = async () => {
-    const parsedNodes = parseVietnameseLegalText(namingForm.rawContentToParse);
+    const structured = parseLegalDocumentStructure(namingForm.rawContentToParse);
+    const parsedNodes = structured.nodes;
     const newDocId = 'DOC-0' + (legalDocs.length + 1);
     const autoTags = buildAutoSuggestedTags(namingForm, activeProjectArchetype, 'CONFIRMED');
     const taxonomy = resolveDocTaxonomyFromTags(
@@ -2274,9 +2282,12 @@ export function useLexPmoOrchestrator() {
       status: namingForm.status,
       validityPeriod: 'Còn hiệu lực',
       isAmended: false,
-      chapterCount: Math.max(1, parsedNodes.filter(n => n.level === 'Chương').length),
-      articleCount: Math.max(1, parsedNodes.filter(n => n.level === 'Điều').length),
-      clauseTotalCount: parsedNodes.reduce((acc, n) => acc + (n.clauseCount || 4), 0),
+      chapterCount: structured.stats.chapters,
+      articleCount: Math.max(1, structured.stats.articles),
+      clauseTotalCount: Math.max(
+        1,
+        structured.stats.clauses || parsedNodes.reduce((acc, n) => acc + (n.clauseCount || 1), 0)
+      ),
       projectAxes:
         namingForm.projectAxes.length > 0
           ? namingForm.projectAxes

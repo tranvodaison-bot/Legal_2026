@@ -4,6 +4,8 @@ import {
   FolderNamingPresetCode,
   FunctionalDomainCode,
   LegalNode,
+  LegalParsedStructure,
+  LegalTocSection,
   OcrZonesExtract,
   ProjectArchetypeCode,
   QlvbNamingGroupCode,
@@ -313,49 +315,202 @@ export function extractOcrZonesFromText(fileName: string, text: string): OcrZone
   };
 }
 
-export function parseVietnameseLegalText(rawText: string): LegalNode[] {
-  const lines = rawText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean);
+export function cleanLegalPageNoise(text: string): string {
+  if (!text) return '';
+  const cleaned: string[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const s = rawLine
+      .normalize('NFC')
+      .replace(/[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/g, ' ')
+      .replace(/[\u200b-\u200d\ufeff]/g, '')
+      .trim();
+    if (!s) continue;
+    // Bỏ qua dòng chỉ có số trang (VD: "1", "- 2 -", "– 2 –", "Trang 1/89", "[Trang 1/4]")
+    if (
+      /^(?:[-–—\u00ad\u2212]\s*)?\d+(?:\s*[-–—\u00ad\u2212])?$/.test(s) ||
+      /^\[?Trang\s+\d+(?:\s*\/\s*\d+)?\]?$/i.test(s)
+    ) {
+      continue;
+    }
+    cleaned.push(s);
+  }
+  return cleaned.join('\n');
+}
+
+/**
+ * Phân rã cấu trúc văn bản pháp luật chuẩn Nghị định 30/2020/NĐ-CP:
+ * Lời mở đầu / Căn cứ -> Chương -> Mục -> Điều -> Khoản (1.) -> Điểm (a)/đ)) + Nối dòng PDF bị ngắt.
+ */
+export function parseLegalDocumentStructure(rawText: string): LegalParsedStructure {
+  const cleanedText = cleanLegalPageNoise(rawText || '');
+  const lines = cleanedText ? cleanedText.split('\n') : [];
+
+  const reChuong = /^(Chương\s+[IVXLCDM\d]+)\s*[:.\-]?\s*(.*)$/i;
+  const reMuc = /^(Mục\s+\d+)\s*[:.\-]?\s*(.*)$/i;
+  const reDieu = /^(Điều\s+\d+[a-z]?)\s*[.:]\s*(.*)$/i;
+  const reKhoan = /^(\d+)\.\s+(.*)$/;
+  const reDiem = /^([a-zđ])\)\s+(.*)$/i;
+
+  const preambleLines: string[] = [];
+  let currentChapterTitle = 'Căn cứ ban hành · Lời mở đầu';
+  let currentArticleToc: LegalTocSection | null = null;
+  let currentArticleNode: LegalNode | null = null;
+
+  const tocArticles: LegalTocSection[] = [];
   const nodes: LegalNode[] = [];
-  let currentNode: LegalNode | null = null;
+  const stats = { chapters: 0, articles: 0, clauses: 0 };
 
-  lines.forEach((line, idx) => {
-    const isChapter = /^(Chương|CHƯƠNG)\s+[IVXLCDM0-9]+/i.test(line);
-    const isSection = /^(Mục|MỤC)\s+[0-9]+/i.test(line);
-    const isArticle = /^(Điều|ĐIỀU)\s+[0-9]+[a-z]?[.:]?/i.test(line);
+  const flushArticle = () => {
+    if (!currentArticleToc || !currentArticleNode) return;
+    tocArticles.push(currentArticleToc);
+    currentArticleNode.content = currentArticleToc.content_blocks.map(b => b.text).join('\n');
+    currentArticleNode.clauseCount = Math.max(
+      currentArticleToc.clauses_count,
+      currentArticleToc.content_blocks.length > 0 ? 1 : 0
+    );
+    nodes.push(currentArticleNode);
+    currentArticleToc = null;
+    currentArticleNode = null;
+  };
 
-    if (isChapter || isSection || isArticle) {
-      if (currentNode) nodes.push(currentNode);
-      const parts = line.split(/[.:]/);
-      const code = parts[0].trim() + (isArticle ? '.' : '');
-      const title = parts.slice(1).join('.').trim() || line;
-      currentNode = {
-        id: 'AUTO-' + (idx + 1),
-        level: isChapter ? 'Chương' : isSection ? 'Mục' : 'Điều',
-        code,
-        title,
-        clauseCount: isArticle ? 3 : 0,
+  for (const line of lines) {
+    // 1. Kiểm tra cấp CHƯƠNG
+    const mChuong = line.match(reChuong);
+    if (mChuong) {
+      flushArticle();
+      stats.chapters += 1;
+      const chapCode = mChuong[1].trim();
+      const chapSubtitle = (mChuong[2] || '').trim();
+      currentChapterTitle = chapSubtitle ? `${chapCode}: ${chapSubtitle}` : chapCode;
+      nodes.push({
+        id: `AUTO-${nodes.length + 1}`,
+        level: 'Chương',
+        code: chapCode,
+        title: chapSubtitle || line,
+        clauseCount: 0,
+        content: '',
+      });
+      continue;
+    }
+
+    // 1b. Kiểm tra cấp MỤC
+    const mMuc = line.match(reMuc);
+    if (mMuc) {
+      flushArticle();
+      const secCode = mMuc[1].trim();
+      const secTitle = (mMuc[2] || '').trim() || line;
+      nodes.push({
+        id: `AUTO-${nodes.length + 1}`,
+        level: 'Mục',
+        code: secCode,
+        title: secTitle,
+        clauseCount: 0,
+        content: '',
+      });
+      continue;
+    }
+
+    // 2. Kiểm tra cấp ĐIỀU
+    const mDieu = line.match(reDieu);
+    if (mDieu) {
+      flushArticle();
+      stats.articles += 1;
+      const artCode = mDieu[1].trim();
+      const artTitle = (mDieu[2] || '').trim();
+      currentArticleToc = {
+        id: `dieu_${stats.articles}`,
+        chapter: currentChapterTitle,
+        article_number: artCode,
+        title: artTitle,
+        full_heading: line,
+        content_blocks: [],
+        clauses_count: 0,
+      };
+      currentArticleNode = {
+        id: `AUTO-${nodes.length + 1}`,
+        level: 'Điều',
+        code: artCode,
+        title: artTitle || line,
+        clauseCount: 0,
         content: '',
       };
+      continue;
+    }
+
+    // 3. Nội dung bên trong (Trước Điều 1 -> Căn cứ; Sau Điều 1 -> Khoản / Điểm / Nối dòng)
+    if (!currentArticleToc) {
+      preambleLines.push(line);
     } else {
-      if (!currentNode) {
-        currentNode = {
-          id: 'AUTO-0',
-          level: 'Mở đầu',
-          code: 'Căn cứ ban hành · Lời mở đầu',
-          title: '',
-          clauseCount: 4,
-          content: line,
-        };
+      const mKhoan = line.match(reKhoan);
+      const mDiem = line.match(reDiem);
+      if (mKhoan) {
+        stats.clauses += 1;
+        currentArticleToc.clauses_count += 1;
+        currentArticleToc.content_blocks.push({
+          type: 'clause',
+          index: mKhoan[1],
+          text: line,
+        });
+      } else if (mDiem) {
+        stats.clauses += 1;
+        currentArticleToc.clauses_count += 1;
+        currentArticleToc.content_blocks.push({
+          type: 'point',
+          index: mDiem[1].toLowerCase(),
+          text: line,
+        });
+      } else if (currentArticleToc.content_blocks.length > 0) {
+        const lastIdx = currentArticleToc.content_blocks.length - 1;
+        currentArticleToc.content_blocks[lastIdx].text += ` ${line}`;
       } else {
-        currentNode.content += (currentNode.content ? '\n' : '') + line;
+        currentArticleToc.content_blocks.push({
+          type: 'paragraph',
+          index: '0',
+          text: line,
+        });
       }
     }
-  });
-  if (currentNode) nodes.push(currentNode);
-  return nodes;
+  }
+
+  flushArticle();
+
+  const preambleText = preambleLines.join('\n');
+  const preambleNode: LegalTocSection = {
+    id: 'preamble',
+    chapter: 'Mở đầu',
+    article_number: 'Căn cứ',
+    title: 'Căn cứ ban hành · Lời mở đầu',
+    full_heading: 'Căn cứ ban hành · Lời mở đầu',
+    content_blocks: preambleLines.length
+      ? [{ type: 'paragraph', index: '0', text: preambleText }]
+      : [],
+    clauses_count: preambleLines.length,
+  };
+
+  if (preambleLines.length > 0) {
+    nodes.unshift({
+      id: 'AUTO-0',
+      level: 'Mở đầu',
+      code: 'Căn cứ ban hành · Lời mở đầu',
+      title: '',
+      clauseCount: preambleLines.length,
+      content: preambleText,
+    });
+  }
+
+  return {
+    stats: {
+      chapters: Math.max(1, stats.chapters),
+      articles: stats.articles,
+      clauses: stats.clauses,
+    },
+    toc: [preambleNode, ...tocArticles],
+    nodes,
+  };
+}
+
+export function parseVietnameseLegalText(rawText: string): LegalNode[] {
+  return parseLegalDocumentStructure(rawText).nodes;
 }
 
 export function detectQlvbGroup(docType: string, primaryDomain: FunctionalDomainCode): QlvbNamingGroupCode {
@@ -1229,27 +1384,42 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
 export async function extractTextFromPdfFile(
   file: File,
   deepScan = false
-): Promise<{ text: string; pagesRead: number; totalPages: number }> {
+): Promise<{ text: string; pagesRead: number; totalPages: number; isLikelyScan: boolean }> {
   if (typeof window === 'undefined' || !window.pdfjsLib) {
-    return { text: '', pagesRead: 0, totalPages: 1 };
+    return { text: '', pagesRead: 0, totalPages: 1, isLikelyScan: false };
   }
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let fullText = '';
+  const pageTexts: string[] = [];
+  let sampleChars = 0;
+  const samplePages = Math.min(3, pdf.numPages);
   const maxPages = Math.min(pdf.numPages, deepScan ? 15 : 4);
   for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    fullText += `[Trang ${i}/${pdf.numPages}]\n` + content.items.map(item => item.str).join(' ') + '\n\n';
+    const rawPage = content.items.map(item => item.str).join(' ');
+    if (i <= samplePages) {
+      sampleChars += rawPage.trim().length;
+    }
+    const cleanedPage = cleanLegalPageNoise(rawPage);
+    if (cleanedPage) {
+      pageTexts.push(cleanedPage);
+    }
   }
-  return { text: fullText, pagesRead: maxPages, totalPages: pdf.numPages };
+  const avgChars = sampleChars / Math.max(1, samplePages);
+  return {
+    text: pageTexts.join('\n'),
+    pagesRead: maxPages,
+    totalPages: pdf.numPages,
+    isLikelyScan: avgChars < 150,
+  };
 }
 
 export async function extractTextFromDocxFile(file: File): Promise<string> {
   if (typeof window === 'undefined' || !window.mammoth) return '';
   const arrayBuffer = await file.arrayBuffer();
   const result = await window.mammoth.extractRawText({ arrayBuffer });
-  return result.value || '';
+  return cleanLegalPageNoise(result.value || '');
 }
 
 export async function extractTextFromFileEnhanced(
@@ -1263,9 +1433,15 @@ export async function extractTextFromFileEnhanced(
       if (res.text.trim()) {
         return {
           text: res.text,
-          statsLabel: `PDF · Đã đọc ${res.pagesRead}/${res.totalPages} trang`,
+          statsLabel: res.isLikelyScan
+            ? `PDF Scan (Mật độ chữ thấp) · ${res.pagesRead}/${res.totalPages} trang`
+            : `PDF · Đã đọc ${res.pagesRead}/${res.totalPages} trang`,
         };
       }
+      return {
+        text: `VĂN BẢN / HỒ SƠ DỰ ÁN: ${file.name}\nFile PDF dạng ảnh scan (0 ký tự text layer). Hãy bật Local Scanner (:8008) để chạy OCR tiếng Việt tự động.`,
+        statsLabel: `PDF Scan · Cần OCR (:8008) (${res.totalPages} trang)`,
+      };
     } else if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
       const txt = await extractTextFromDocxFile(file);
       if (txt.trim()) {

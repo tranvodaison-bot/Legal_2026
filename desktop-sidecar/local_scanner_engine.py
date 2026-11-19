@@ -1,9 +1,12 @@
+import io
 import os
 import re
 import json
 import shutil
 import hashlib
+import zipfile
 import unicodedata
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 
@@ -11,9 +14,26 @@ import fitz  # PyMuPDF
 import cv2
 import numpy as np
 from PIL import Image
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# --- HỖ TRỢ ĐỌC WORD (.DOCX) ---
+try:
+    import docx  # python-docx
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+
+# --- TÍCH HỢP TESSERACT OCR (FALLBACK / PDF SCAN 250 DPI) ---
+try:
+    import pytesseract
+    PYTESSERACT_AVAILABLE = True
+    _default_tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    if os.path.exists(_default_tesseract_path):
+        pytesseract.pytesseract.tesseract_cmd = _default_tesseract_path
+except ImportError:
+    PYTESSERACT_AVAILABLE = False
 
 # --- TÍCH HỢP VIETOCR (OFFLINE TIẾNG VIỆT CHUẨN DẤU) ---
 try:
@@ -252,6 +272,320 @@ def extract_text_hybrid_pipeline(pdf_path: str, extract_full_tables: bool = Fals
         "confidence": round(avg_confidence, 3),
         "ai_metadata": {}
     }
+
+
+def _read_docx_xml_fallback(file_path: str) -> str:
+    """Đọc đoạn văn bản từ file .docx chuẩn OOXML khi máy trạm chưa cài python-docx."""
+    paragraphs: List[str] = []
+    with zipfile.ZipFile(file_path, "r") as zf:
+        xml_bytes = zf.read("word/document.xml")
+    root = ET.fromstring(xml_bytes)
+    w_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    for p_el in root.iter(f"{w_ns}p"):
+        texts = [t_el.text for t_el in p_el.iter(f"{w_ns}t") if t_el.text]
+        line = "".join(texts).strip()
+        if line:
+            paragraphs.append(line)
+    return "\n".join(paragraphs)
+
+
+class LegalDocumentParser:
+    def __init__(self, min_chars_per_page: int = 150):
+        self.min_chars_per_page = min_chars_per_page
+
+    def extract_raw_text(self, file_path: str) -> Dict[str, Any]:
+        """Bước 1: Trích xuất text thô từ DOCX hoặc PDF (tự động OCR nếu là file scan)."""
+        ext = file_path.lower().rsplit(".", 1)[-1] if "." in file_path else ""
+
+        if ext == "docx":
+            if DOCX_AVAILABLE:
+                doc = docx.Document(file_path)
+                paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+                full_text = "\n".join(paragraphs)
+                total_pages = len(doc.paragraphs) // 30 + 1
+            else:
+                full_text = _read_docx_xml_fallback(file_path)
+                total_pages = max(1, len(full_text.splitlines()) // 30 + 1)
+            return {
+                "source_type": "DOCX_NATIVE",
+                "ocr_applied": False,
+                "total_pages": total_pages,
+                "raw_text": self._clean_page_noise(full_text),
+            }
+
+        if ext == "pdf":
+            with fitz.open(file_path) as doc:
+                total_pages = len(doc)
+                if total_pages == 0:
+                    return {
+                        "source_type": "PDF_NATIVE",
+                        "ocr_applied": False,
+                        "total_pages": 0,
+                        "raw_text": "",
+                    }
+
+                sample_pages = min(3, total_pages)
+                sample_text = "".join([doc[i].get_text("text").strip() for i in range(sample_pages)])
+
+                # Kiểm tra mật độ chữ để phát hiện PDF Scan / Lỗi lớp text
+                avg_chars = len(sample_text) / max(1, sample_pages)
+                is_scan = avg_chars < self.min_chars_per_page
+
+                pages_text = []
+                for page_num in range(total_pages):
+                    page = doc[page_num]
+                    if not is_scan:
+                        text = page.get_text("text")
+                    else:
+                        text = self._ocr_scan_page(page, page_num)
+
+                    # Làm sạch header/footer số trang rác
+                    cleaned_page = self._clean_page_noise(text)
+                    if cleaned_page:
+                        pages_text.append(cleaned_page)
+
+            return {
+                "source_type": "PDF_OCR" if is_scan else "PDF_NATIVE",
+                "ocr_applied": is_scan,
+                "total_pages": total_pages,
+                "raw_text": "\n".join(pages_text),
+            }
+
+        raise ValueError(f"Định dạng file .{ext} chưa được hỗ trợ. Vui lòng dùng .pdf hoặc .docx")
+
+    def _ocr_scan_page(self, page: Any, page_num: int) -> str:
+        """Render trang PDF thành ảnh 250 DPI và chạy OCR tiếng Việt (Tesseract -> VietOCR -> Gemini Vision)."""
+        pix = page.get_pixmap(dpi=250)
+        png_bytes = pix.tobytes("png")
+
+        if PYTESSERACT_AVAILABLE:
+            try:
+                img = Image.open(io.BytesIO(png_bytes))
+                txt = pytesseract.image_to_string(img, lang="vie")
+                if txt and txt.strip():
+                    return txt
+            except Exception as e:
+                print(f"[WARN] Tesseract OCR fallback trang {page_num + 1}: {e}")
+
+        if vn_ocr_predictor is not None:
+            try:
+                clean_pil = preprocess_remove_red_stamp(png_bytes)
+                line_imgs = segment_text_lines_from_pil(clean_pil)
+                ocr_lines = []
+                for l_img in line_imgs:
+                    text_line = str(vn_ocr_predictor.predict(l_img)).strip()
+                    if text_line:
+                        ocr_lines.append(text_line)
+                if ocr_lines:
+                    return "\n".join(ocr_lines)
+            except Exception as e:
+                print(f"[WARN] VietOCR lỗi trang {page_num + 1}: {e}")
+
+        if gemini_client is not None and page_num < 3:
+            vision_text, _ = call_gemini_vision_fallback(png_bytes)
+            if vision_text:
+                return vision_text
+
+        return ""
+
+    def _clean_page_noise(self, text: str) -> str:
+        """Chuẩn hóa khoảng trắng/NFC và loại bỏ các dòng số trang đơn lẻ hoặc ký tự rác."""
+        lines = text.split("\n")
+        cleaned = []
+        for line in lines:
+            s = unicodedata.normalize("NFC", line)
+            s = re.sub(r"[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]", " ", s)
+            s = re.sub(r"[\u200b-\u200d\ufeff]", "", s).strip()
+            # Bỏ qua dòng chỉ có số trang (VD: "1", "- 2 -", "– 2 –", "Trang 1/89", "[Trang 1/89]")
+            if re.match(r"^(?:[-–—\u00ad\u2212]\s*)?\d+(?:\s*[-–—\u00ad\u2212])?$", s) or re.match(
+                r"^\[?Trang\s+\d+(?:\s*/\s*\d+)?\]?$", s, re.IGNORECASE
+            ):
+                continue
+            if s:
+                cleaned.append(s)
+        return "\n".join(cleaned)
+
+    def parse_structure(self, raw_text: str) -> Dict[str, Any]:
+        """Bước 2: Phân rã cấu trúc chuẩn Nghị định 30/2020/NĐ-CP cho Cột 3."""
+        lines = self._clean_page_noise(raw_text or "").split("\n") if raw_text else []
+
+        # Regex neo chặt đầu dòng
+        re_chuong = re.compile(r"^(Chương\s+[IVXLCDM\d]+)\s*[:.\-]?\s*(.*)$", re.IGNORECASE)
+        re_muc = re.compile(r"^(Mục\s+\d+)\s*[:.\-]?\s*(.*)$", re.IGNORECASE)
+        re_dieu = re.compile(r"^(Điều\s+\d+[a-zA-Z]?)\s*[:.]\s*(.*)$", re.IGNORECASE)
+        re_khoan = re.compile(r"^(\d+)\.\s+(.*)$")
+        re_diem = re.compile(r"^([a-zđ])\)\s+(.*)$", re.IGNORECASE)
+
+        chapters = []
+        articles = []
+        legal_nodes: List[Dict[str, Any]] = []
+
+        # Khởi tạo node Lời mở đầu / Căn cứ ban hành
+        preamble_lines: List[str] = []
+        current_chapter = {"code": "CHUONG_0", "title": "Căn cứ ban hành · Lời mở đầu"}
+        current_article: Optional[Dict[str, Any]] = None
+        current_node: Optional[Dict[str, Any]] = None
+
+        stats = {"chapters": 0, "articles": 0, "clauses": 0}
+
+        def flush_article() -> None:
+            nonlocal current_article, current_node
+            if current_article is not None:
+                articles.append(current_article)
+                if current_node is not None:
+                    current_node["content"] = "\n".join(
+                        b["text"] for b in current_article["content_blocks"]
+                    )
+                    current_node["clauseCount"] = max(
+                        current_article["clauses_count"],
+                        1 if current_article["content_blocks"] else 0,
+                    )
+                    legal_nodes.append(current_node)
+                current_article = None
+                current_node = None
+
+        for line in lines:
+            if not line:
+                continue
+
+            # 1. Kiểm tra cấp CHƯƠNG
+            m_chuong = re_chuong.match(line)
+            if m_chuong:
+                flush_article()
+                stats["chapters"] += 1
+                chap_code = m_chuong.group(1).strip()
+                chap_sub = m_chuong.group(2).strip()
+                current_chapter = {
+                    "code": chap_code.upper(),
+                    "title": f"{chap_code}: {chap_sub}".strip(": "),
+                }
+                chapters.append(current_chapter)
+                legal_nodes.append({
+                    "id": f"AUTO-{len(legal_nodes) + 1}",
+                    "level": "Chương",
+                    "code": chap_code,
+                    "title": chap_sub or line,
+                    "clauseCount": 0,
+                    "content": "",
+                })
+                continue
+
+            # 1b. Kiểm tra cấp MỤC
+            m_muc = re_muc.match(line)
+            if m_muc:
+                flush_article()
+                sec_code = m_muc.group(1).strip()
+                sec_title = m_muc.group(2).strip()
+                legal_nodes.append({
+                    "id": f"AUTO-{len(legal_nodes) + 1}",
+                    "level": "Mục",
+                    "code": sec_code,
+                    "title": sec_title or line,
+                    "clauseCount": 0,
+                    "content": "",
+                })
+                continue
+
+            # 2. Kiểm tra cấp ĐIỀU
+            m_dieu = re_dieu.match(line)
+            if m_dieu:
+                flush_article()
+                stats["articles"] += 1
+                art_code = m_dieu.group(1).strip()
+                art_title = m_dieu.group(2).strip()
+                current_article = {
+                    "id": f"dieu_{stats['articles']}",
+                    "chapter": current_chapter["title"],
+                    "article_number": art_code,
+                    "title": art_title,
+                    "full_heading": line,
+                    "content_blocks": [],
+                    "clauses_count": 0,
+                }
+                current_node = {
+                    "id": f"AUTO-{len(legal_nodes) + 1}",
+                    "level": "Điều",
+                    "code": art_code,
+                    "title": art_title or line,
+                    "clauseCount": 0,
+                    "content": "",
+                }
+                continue
+
+            # 3. Nội dung bên trong (Trước Điều 1 -> Căn cứ; Sau Điều 1 -> Nội dung Điều)
+            if current_article is None:
+                preamble_lines.append(line)
+            else:
+                m_khoan = re_khoan.match(line)
+                m_diem = re_diem.match(line)
+
+                if m_khoan:
+                    stats["clauses"] += 1
+                    current_article["clauses_count"] += 1
+                    current_article["content_blocks"].append({
+                        "type": "clause",
+                        "index": m_khoan.group(1),
+                        "text": line,
+                    })
+                elif m_diem:
+                    stats["clauses"] += 1
+                    current_article["clauses_count"] += 1
+                    current_article["content_blocks"].append({
+                        "type": "point",
+                        "index": m_diem.group(1).lower(),
+                        "text": line,
+                    })
+                else:
+                    # Nối dòng văn bản bị ngắt xuống dòng trong PDF
+                    if current_article["content_blocks"]:
+                        current_article["content_blocks"][-1]["text"] += " " + line
+                    else:
+                        current_article["content_blocks"].append({
+                            "type": "paragraph",
+                            "index": "0",
+                            "text": line,
+                        })
+
+        # Đẩy Điều cuối cùng vào mảng
+        flush_article()
+
+        # Đưa Căn cứ ban hành lên đầu danh sách hiển thị Cột 3
+        preamble_text = "\n".join(preamble_lines)
+        preamble_node = {
+            "id": "preamble",
+            "chapter": "Mở đầu",
+            "article_number": "Căn cứ",
+            "title": "Căn cứ ban hành · Lời mở đầu",
+            "full_heading": "Căn cứ ban hành · Lời mở đầu",
+            "content_blocks": [{"type": "paragraph", "index": "0", "text": preamble_text}]
+            if preamble_lines
+            else [],
+            "clauses_count": len(preamble_lines),
+        }
+
+        if preamble_lines:
+            legal_nodes.insert(0, {
+                "id": "AUTO-0",
+                "level": "Mở đầu",
+                "code": "Căn cứ ban hành · Lời mở đầu",
+                "title": "",
+                "clauseCount": len(preamble_lines),
+                "content": preamble_text,
+            })
+
+        return {
+            "stats": {
+                "chapters": max(1, stats["chapters"]),
+                "articles": stats["articles"],
+                "clauses": stats["clauses"],
+            },
+            "toc": [preamble_node] + articles,
+            "chapters": chapters,
+            "legal_nodes": legal_nodes,
+        }
+
+
+parser = LegalDocumentParser()
 
 
 # ============================================================================
@@ -790,6 +1124,15 @@ class ScanFolderRequest(BaseModel):
     project_code: str = "KCN"
     gate_code: Optional[str] = None
 
+class ScanFileRequest(BaseModel):
+    file_path: Optional[str] = None
+    fileName: Optional[str] = None
+    relativePath: Optional[str] = None
+    sizeBytes: Optional[int] = None
+    raw_text: Optional[str] = None
+    project_code: str = "KCN"
+    gate_code: Optional[str] = None
+
 class RenameItem(BaseModel):
     old_path: str
     new_name: str
@@ -804,11 +1147,80 @@ def local_health_check():
         "status": "online",
         "service": "LEX-PMO-LOCAL-SCANNER-V3.1",
         "capabilities": {
+            "legal_document_parser": True,
+            "python_docx": DOCX_AVAILABLE,
+            "pytesseract_ocr": PYTESSERACT_AVAILABLE,
             "vietocr_offline": vn_ocr_predictor is not None,
             "docling_tables": docling_converter is not None,
             "gemini_vision_fallback": gemini_client is not None
         }
     }
+
+
+@app.post("/api/scan-file")
+@app.post("/api/local/scan-file")
+def scan_legal_file(
+    file_path: Optional[str] = Query(default=None),
+    req: Optional[ScanFileRequest] = Body(default=None),
+):
+    resolved_path = file_path or (req.file_path if req else None) or (req.relativePath if req else None)
+    if resolved_path and os.path.isfile(resolved_path):
+        try:
+            extracted = parser.extract_raw_text(resolved_path)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        structured = parser.parse_structure(extracted["raw_text"])
+        fname = (req.fileName if req and req.fileName else None) or os.path.basename(resolved_path)
+        file_hash = compute_sha256(resolved_path)
+        classified = classify_3_axes_and_9_parts(
+            fname,
+            {
+                "text": extracted["raw_text"],
+                "engine_used": extracted["source_type"],
+                "confidence": 0.90 if extracted["ocr_applied"] else 0.99,
+                "ai_metadata": {},
+            },
+            project_code=(req.project_code if req else "KCN"),
+            default_gate=(req.gate_code if req else None),
+        )
+        return {
+            "status": "SUCCESS",
+            "meta": {
+                "source_type": extracted["source_type"],
+                "ocr_applied": extracted["ocr_applied"],
+                "total_pages": extracted["total_pages"],
+                **structured["stats"],
+            },
+            "sections": structured["toc"],
+            "legal_nodes": structured["legal_nodes"],
+            "raw_text": extracted["raw_text"],
+            "extractedText": extracted["raw_text"],
+            "sha256": file_hash,
+            "ocrConfidence": round(classified.get("ocr_confidence", 0.96) * 100),
+            **classified,
+        }
+
+    if req and req.raw_text:
+        structured = parser.parse_structure(req.raw_text)
+        return {
+            "status": "SUCCESS",
+            "meta": {
+                "source_type": "RAW_TEXT",
+                "ocr_applied": False,
+                "total_pages": 1,
+                **structured["stats"],
+            },
+            "sections": structured["toc"],
+            "legal_nodes": structured["legal_nodes"],
+            "raw_text": req.raw_text,
+            "extractedText": req.raw_text,
+        }
+
+    raise HTTPException(
+        status_code=404,
+        detail="Không tìm thấy tệp tại đường dẫn file_path hoặc không có raw_text đầu vào",
+    )
 
 
 @app.post("/api/local/scan-folder")
@@ -820,7 +1232,8 @@ def scan_local_folder(req: ScanFolderRequest):
     seen_hashes = {}
 
     for fname in os.listdir(req.folder_path):
-        if not fname.lower().endswith(".pdf"):
+        lower_name = fname.lower()
+        if not (lower_name.endswith(".pdf") or lower_name.endswith(".docx")):
             continue
         full_path = os.path.join(req.folder_path, fname)
         if not os.path.isfile(full_path):
@@ -830,10 +1243,36 @@ def scan_local_folder(req: ScanFolderRequest):
         is_duplicate = file_hash in seen_hashes
         seen_hashes.setdefault(file_hash, fname)
 
-        extracted = extract_text_hybrid_pipeline(full_path, extract_full_tables=req.extract_tables)
+        if lower_name.endswith(".pdf") and req.extract_tables and docling_converter is not None:
+            extracted_hybrid = extract_text_hybrid_pipeline(full_path, extract_full_tables=True)
+            raw_text = extracted_hybrid.get("text", "")
+            structured = parser.parse_structure(raw_text)
+            parser_meta = {
+                "source_type": extracted_hybrid.get("engine_used", "DOCLING_TABLE_OCR"),
+                "ocr_applied": True,
+                "total_pages": 1,
+                **structured["stats"],
+            }
+        else:
+            parsed_doc = parser.extract_raw_text(full_path)
+            raw_text = parsed_doc["raw_text"]
+            structured = parser.parse_structure(raw_text)
+            extracted_hybrid = {
+                "text": raw_text,
+                "engine_used": parsed_doc["source_type"],
+                "confidence": 0.90 if parsed_doc["ocr_applied"] else 0.99,
+                "ai_metadata": {},
+            }
+            parser_meta = {
+                "source_type": parsed_doc["source_type"],
+                "ocr_applied": parsed_doc["ocr_applied"],
+                "total_pages": parsed_doc["total_pages"],
+                **structured["stats"],
+            }
+
         classified = classify_3_axes_and_9_parts(
             fname,
-            extracted,
+            extracted_hybrid,
             project_code=req.project_code,
             default_gate=req.gate_code,
         )
@@ -844,7 +1283,9 @@ def scan_local_folder(req: ScanFolderRequest):
             "sha256": file_hash,
             "is_duplicate": is_duplicate,
             "duplicate_of": seen_hashes[file_hash] if is_duplicate else None,
-            "preview_text": extracted.get("text", "")[:500],
+            "preview_text": raw_text[:500],
+            "meta": parser_meta,
+            "legal_nodes": structured["legal_nodes"],
             **classified
         })
 
