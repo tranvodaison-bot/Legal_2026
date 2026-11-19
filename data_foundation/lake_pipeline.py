@@ -1,6 +1,6 @@
 r"""
 Tầng 2: DATA LAKE — Kiến trúc Medallion (Bronze -> Silver Parquet -> Gold Parquet Marts)
-lưu trữ cục bộ trên SSD (mặc định E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl\)
+lưu trữ cục bộ trong .local_data/vbpl/ của dự án (khóa trong .gitignore)
 và đồng bộ sang Tầng 3 (SQLite Star Schema + FTS5).
 """
 

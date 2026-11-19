@@ -22,7 +22,8 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Local Data Lake, SQLite Warehouse & Runtime Exports (must stay outside Git on SSD E:\)
+# Local Data Lake, SQLite Warehouse & Runtime Exports (Option B: inside .local_data/, excluded from Git)
+.local_data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

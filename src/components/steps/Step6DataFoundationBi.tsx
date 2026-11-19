@@ -537,7 +537,7 @@ export const Step6DataFoundationBi: React.FC<Step6DataFoundationBiProps> = ({ ct
             </div>
             {!isSidecarConnected && (
               <p className="text-[11px] text-amber-300">
-                Cần khởi chạy Local Sidecar (`python desktop-sidecar/local_scanner_engine.py` cổng `:8008`) để đọc tệp trực tiếp trên ổ cứng và ghi xuống SSD `E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl\`.
+                Cần khởi chạy Local Sidecar (`python -B desktop-sidecar/local_scanner_engine.py` cổng `:8008`) để đọc tệp trực tiếp trên ổ cứng và ghi xuống `.local_data/vbpl/`.
               </p>
             )}
           </div>
@@ -548,7 +548,7 @@ export const Step6DataFoundationBi: React.FC<Step6DataFoundationBiProps> = ({ ct
               <div className="text-xs font-extrabold text-amber-300">01_bronze (Raw Immutable)</div>
               <div className="text-[11px] font-mono text-slate-400 break-all">
                 {overview.lake_status?.storage_layers.bronze.path ||
-                  'E:\\2. AI_System\\LEX_PMO_Data_Foundation\\vbpl\\01_bronze'}
+                  '.local_data/vbpl/01_bronze'}
               </div>
               <div className="text-xs text-slate-200 pt-1">
                 {overview.lake_status
@@ -587,7 +587,7 @@ export const Step6DataFoundationBi: React.FC<Step6DataFoundationBiProps> = ({ ct
               <div className="text-xs font-extrabold text-cyan-300">04_warehouse (SQLite WAL + FTS5)</div>
               <div className="text-[11px] font-mono text-slate-400 break-all">
                 {overview.lake_status?.storage_layers.warehouse_sqlite.path ||
-                  'E:\\2. AI_System\\LEX_PMO_Data_Foundation\\vbpl\\04_warehouse\\vbpl_warehouse.sqlite'}
+                  '.local_data/vbpl/04_warehouse/vbpl_warehouse.sqlite'}
               </div>
               <div className="text-xs text-slate-200 pt-1">
                 {overview.lake_status

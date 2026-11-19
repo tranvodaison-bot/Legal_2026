@@ -15,11 +15,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
 if (-not $DataLakeRoot) {
-    if (Test-Path 'E:\') {
-        $DataLakeRoot = 'E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl'
-    } else {
-        $DataLakeRoot = Join-Path $env:LOCALAPPDATA 'LEX_PMO_Data_Foundation\vbpl'
-    }
+    $DataLakeRoot = Join-Path $RepoRoot '.local_data\vbpl'
 }
 
 Write-Host '====================================================================' -ForegroundColor Cyan

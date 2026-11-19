@@ -3,7 +3,7 @@
 - **Cập nhật gần nhất:** 2026-11-19
 - **Nguồn gốc duy nhất (SSOT):** `https://github.com/tranvodaison-bot/Legal_2026.git` (nhánh `main`)
 - **Xưởng Build duy nhất (Máy chính):** `E:\4. AI_PROJECT\2_Project\5_LEGAL_2026`
-- **Data Lake SSD (Single-User):** `E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl`
+- **Data Lake Local (Single-User · Phương án B):** `E:\4. AI_PROJECT\2_Project\5_LEGAL_2026\.local_data\vbpl` *(khóa trong `.gitignore`, độc lập với mọi máy)*
 
 ## 1. Các hạng mục Đã hoàn thành & Kiểm chứng Xanh
 1. **Quy tắc đặt tên VBPL thống nhất 100%** (`2c647a0`): `[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]` + làm sạch trích yếu (`BH`, tỷ lệ `1/500`, `LuatXayDung`) + Smart Tags gợi ý tương tác ở Bước 1, giữ nguyên 100% `Step2LegalMatrix.tsx`.

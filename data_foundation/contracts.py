@@ -10,13 +10,15 @@ import os
 import re
 import unicodedata
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_LAKE_ROOT = os.getenv(
     "LEX_DATA_LAKE_ROOT",
-    r"E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl",
+    str(_REPO_ROOT / ".local_data" / "vbpl"),
 )
 
 VBPL_DOMAIN_CODES = [

@@ -6,7 +6,7 @@
 ## 1. Quy tắc 1 Nguồn Gốc Duy Nhất (Zero Fragmentation)
 - **Code & Trí nhớ dự án:** Chỉ chỉnh sửa trong bản clone local trên SSD (trên máy chính là `E:\4. AI_PROJECT\2_Project\5_LEGAL_2026`) và đồng bộ qua GitHub (`git pull` đầu phiên, `git push` sau khi Pass 100% test).
 - **CẤM sửa code trên Google Drive (`G:\`)**: Google Drive chỉ lưu tài liệu Spec, `_Archive` và file nén snapshot `.zip` của Data Lake (`08_DATA_BACKUPS/`).
-- **Kho dữ liệu chạy thật (Ngoài Git):** Mặc định đặt trên SSD cục bộ tại `E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl\` (cấu hình đổi theo máy qua biến môi trường `LEX_DATA_LAKE_ROOT`).
+- **Kho dữ liệu chạy thật (Ngoài Git — Phương án B):** Mặc định đặt gọn ngay trong thư mục dự án tại `.local_data\vbpl\` (khóa chặt trong `.gitignore` và `tsconfig.json`; có thể đổi qua biến môi trường `LEX_DATA_LAKE_ROOT`). Trước khi xóa thư mục repo để clone lại, bắt buộc chạy `scripts/backup_data_lake.ps1 -Mode Backup`.
 - **Tách biệt dự án anh em:** Không gộp hay ghi đè `E:\4. AI_PROJECT\2_Project\2_LEGAL` (đó là repo độc lập `github.com/tranvodaison-bot/LEGAL`).
 
 ## 2. Lằn Ranh Đỏ Nghiệp Vụ của `Legal_2026`

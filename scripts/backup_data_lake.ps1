@@ -9,7 +9,7 @@
 param(
     [ValidateSet('Backup', 'Restore')]
     [string]$Mode = 'Backup',
-    [string]$DataLakeRoot = $(if ($env:LEX_DATA_LAKE_ROOT) { $env:LEX_DATA_LAKE_ROOT } else { 'E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl' }),
+    [string]$DataLakeRoot = $(if ($env:LEX_DATA_LAKE_ROOT) { $env:LEX_DATA_LAKE_ROOT } else { Join-Path (Split-Path -Parent $PSScriptRoot) '.local_data\vbpl' }),
     [string]$BackupDir = 'G:\My Drive\01_AI_SYSTEM\09_Apps_Project\LEX_PMO_OS_v3.0_SSOT_Project\08_DATA_BACKUPS',
     [string]$SnapshotZip = ''
 )

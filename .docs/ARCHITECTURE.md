@@ -4,7 +4,7 @@
 
 - **Code & AI Memory SSOT:** `https://github.com/tranvodaison-bot/Legal_2026.git` (nhánh `main` → Vercel Auto-Deploy).
 - **Local Build & Dev Workshop (Máy chính):** `E:\4. AI_PROJECT\2_Project\5_LEGAL_2026` (máy khác chỉ cần `git clone` và chạy `scripts/bootstrap.ps1`).
-- **Local Runtime Data Lake (Ngoài Git):** `%LEX_DATA_LAKE_ROOT%` (mặc định `E:\2. AI_System\LEX_PMO_Data_Foundation\vbpl\`).
+- **Local Runtime Data Lake (Ngoài Git — Phương án B):** `%LEX_DATA_LAKE_ROOT%` (mặc định `<repo_root>\.local_data\vbpl\`, khóa trong `.gitignore`, tự động chạy trên mọi máy/mọi ổ đĩa).
 - **Cloud Backup & Specs (Google Drive `G:\`):** Chỉ lưu tài liệu đặc tả và gói backup nén `.zip` tạo bởi `scripts/backup_data_lake.ps1`.
 
 ## 2. Kiến trúc Ứng dụng Web (React 19 + TypeScript + Vite 8 + Vercel API)
