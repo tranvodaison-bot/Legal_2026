@@ -1,185 +1,311 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { TAXONOMY_3D, LEGAL_CATEGORY_TREE } from "../../data/lexPmoData";
 import {
-  TAXONOMY_3D,
-  LEGAL_CATEGORY_TREE,
-  INITIAL_LEGAL_DOCS,
-  CROSS_EXAM_TOPICS,
-  INITIAL_GATES,
-  QAQC_PROCESSES,
-  INITIAL_EMPLOYEES,
-  INITIAL_APPROVAL_WORKFLOWS,
-  INITIAL_RACI_TASKS,
-  INITIAL_ASSETS,
-  INITIAL_AUDIT_LOGS,
-  LAW_ROADMAPS,
-  INITIAL_QAQC_CONTROLS,
-} from "../../data/lexPmoData";
-import {
-  AiLegalGapAnalysis,
   AnalyzedFileItem,
   ApprovalWorkflowItem,
-  ArticlePersonalNoteItem,
-  AuditLogEntry,
   CdeIsoStatus,
-  EmployeeUser,
-  FavoriteComparePair,
   FolderNamingPresetCode,
   FunctionalDomainCode,
-  GateCrossLockEvaluation,
-  GateCrossLockReason,
   GateWorkflowStatus,
-  LawRoadmapPillar,
-  LawRoadmapTierType,
-  LegalCutoffFilterMode,
-  LegalDiffCategory,
   LegalDocument,
-  NamingFormState,
-  PendingDigitalSignoff,
+  LegalNode,
   ProjectArchetypeCode,
-  ProjectArchetypeItem,
-  ProjectAssetItem,
-  ProjectLegalMilestones,
   QaQcGateControlItem,
   QlvbNamingGroupCode,
-  RaciTaskItem,
-  RbacRoleCode,
-  RenameLogEntry,
   StageGateItem,
-  StageGatePhaseProgress,
-  StageGateProgressSummary,
-  VbplBreadcrumbPath,
-  VbplNavigationLevel,
 } from "../../types/lexPmoTypes";
-import {
-  classifyProjectCutoffRegime,
-  DEFAULT_PROJECT_MILESTONES_MAP,
-  evaluateLegalDocumentCutoff,
-  PRESET_LEGACY_2023_2024,
-  PRESET_NEW_2026,
-} from "../../utils/legalCutoffEngine";
-import {
-  CDE_ISO_19650_META,
-  CDE_ISO_19650_PIPELINE,
-  computeFullSha256Hex,
-  FOUR_PARTY_ROLES,
-  getRaciActionPermissions,
-} from "../../utils/rbacRaciHelpers";
+import { CDE_ISO_19650_META, CDE_ISO_19650_PIPELINE } from "../../utils/rbacRaciHelpers";
 import {
   buildFileNameByRule,
   buildStandardFolderPath,
-  cleanDocNumber,
   computeSha256Short,
   createSampleBatchItems,
   detectQlvbGroup,
   extractOcrZonesFromText,
-  extractTextFromFileEnhanced,
-  formatFileSize,
   parseVietnameseLegalText,
-  removeVietnameseTones,
   smartAnalyzeFile3D,
-  toPascalCaseVN,
-  validateBatchFileName,
 } from "../../utils/legalParser";
-import {
-  DIFF_CATEGORY_META,
-  extractLocalSemanticCues,
-  splitTextByHighlightTargets,
-} from "../../utils/legalCompareHighlighter";
-import { AiLegalGapAnalysisCard } from "../AiLegalGapAnalysisCard";
-import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
-import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
-import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
+import type { StepContextType } from "../../App";
 
-const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
-  HTKT: "🛣️",
-  DAN_DUNG: "🏢",
-  KCN: "🏭",
-  CCN: "⚙️",
-  FTZ: "🚢",
-  PPP_BT: "🤝",
-};
-
-type ProjectPhaseFilter = "ALL" | "CHUAN_BI" | "THUC_HIEN" | "KET_THUC";
-
-const PROJECT_PHASE_META: {
-  id: Exclude<ProjectPhaseFilter, "ALL">;
-  label: string;
-  shortLabel: string;
-  icon: string;
-  gates: string[];
-  gateRangeLabel: string;
-  desc: string;
-  activeClass: string;
-  badgeClass: string;
-}[] = [
-  {
-    id: "CHUAN_BI",
-    label: "Chuẩn bị",
-    shortLabel: "Chuẩn bị",
-    icon: "📋",
-    gates: ["G0", "G1", "G2", "G3", "G4", "G5", "G6"],
-    gateRangeLabel: "G0–G6",
-    desc: "Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS",
-    activeClass: "bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs",
-    badgeClass: "bg-sky-500/20 text-sky-300 border-sky-500/40",
-  },
-  {
-    id: "THUC_HIEN",
-    label: "Thực hiện",
-    shortLabel: "Thực hiện",
-    icon: "🏗️",
-    gates: ["G7", "G8", "G9", "G10", "G11", "G12", "G13"],
-    gateRangeLabel: "G7–G13",
-    desc: "TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT",
-    activeClass: "bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs",
-    badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-  },
-  {
-    id: "KET_THUC",
-    label: "Kết thúc",
-    shortLabel: "Kết thúc",
-    icon: "🏁",
-    gates: ["G14", "G15"],
-    gateRangeLabel: "G14–G15",
-    desc: "Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành",
-    activeClass: "bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs",
-    badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-  },
+const VALID_PROJECT_AXES: ProjectArchetypeCode[] = [
+  "HTKT",
+  "DAN_DUNG",
+  "KCN",
+  "CCN",
+  "FTZ",
+  "PPP_BT",
 ];
 
-function matchesDocProjectPhase(doc: LegalDocument, phase: ProjectPhaseFilter): boolean {
-  if (phase === "ALL") return true;
-  if (phase === "CHUAN_BI") {
-    return (
-      doc.linkedGates.some(g => ["G0", "G1", "G2", "G3", "G4", "G5", "G6"].includes(g)) ||
-      ["DTU", "QHDD"].includes(doc.primaryDomain)
-    );
-  }
-  if (phase === "THUC_HIEN") {
-    return (
-      doc.linkedGates.some(g => ["G7", "G8", "G9", "G10", "G11", "G12", "G13"].includes(g)) ||
-      ["DTH", "QLHD", "QLCP", "QLCL", "VLXD", "TCVN", "QCVN", "ATLD"].includes(doc.primaryDomain)
-    );
-  }
-  if (phase === "KET_THUC") {
-    return (
-      doc.linkedGates.some(g => ["G14", "G15"].includes(g)) ||
-      doc.primaryDomain === "TQT" ||
-      doc.secondaryDomains.includes("TQT")
-    );
-  }
-  return true;
+const VALID_DOMAINS: FunctionalDomainCode[] = [
+  "QLCL",
+  "HDXD",
+  "QLHD",
+  "QLCP",
+  "VLXD",
+  "TCVN",
+  "QCVN",
+  "DTH",
+  "TQT",
+  "PCCC",
+  "QHDD",
+  "ATLD",
+  "DTU",
+];
+
+const VALID_CDE_STATUSES: CdeIsoStatus[] = ["S0", "S1", "A1", "B1"];
+
+const VALID_GATE_STATUSES: GateWorkflowStatus[] = [
+  "DRAFT",
+  "IN_REVIEW",
+  "APPROVED",
+  "HARD_STOP_BLOCKED",
+];
+
+const CSV_TEMPLATES = [
+  {
+    id: "vbpl",
+    label: "Danh mục VBPL 3 Trục",
+    desc: "Nạp văn bản pháp luật, QCVN/TCVN & phân loại 3 Trục sang Bước 2",
+    fileName: "mau_danh_muc_vbpl_3truc.csv",
+    href: "/templates/mau_danh_muc_vbpl_3truc.csv",
+  },
+  {
+    id: "stage_gate",
+    label: "Stage-Gate Dự án (G0–G15)",
+    desc: "Cập nhật tiến độ Gate, RACI, tài chính IPC & checklist sang Bước 3",
+    fileName: "mau_stage_gate_du_an.csv",
+    href: "/templates/mau_stage_gate_du_an.csv",
+  },
+  {
+    id: "contract_itp",
+    label: "Hợp đồng, VLXD & ITP",
+    desc: "Nạp kiểm soát ITP, LAS-XD, CO/CQ và tờ trình VO sang Bước 3 & 4",
+    fileName: "mau_hop_dong_itp.csv",
+    href: "/templates/mau_hop_dong_itp.csv",
+  },
+] as const;
+
+type CsvSchemaKind = "VBPL_3TRUC" | "STAGE_GATE" | "CONTRACT_ITP" | "GENERIC_CSV";
+type AdvancedDrawerTab = "OCR_JSON" | "NAMING_8PART" | "BATCH_TOOLS";
+
+interface CsvImportSummary {
+  fileName: string;
+  schemaKind: CsvSchemaKind;
+  schemaLabel: string;
+  docsCount: number;
+  gatesCount: number;
+  qaqcCount: number;
+  workflowCount: number;
+  queueCount: number;
+  importedAt: string;
 }
 
-function matchesDossierProjectPhase(gateRef: string, phase: ProjectPhaseFilter): boolean {
-  if (phase === "ALL") return true;
-  if (phase === "CHUAN_BI") return ["G0", "G1", "G2", "G3", "G4", "G5", "G6"].includes(gateRef);
-  if (phase === "THUC_HIEN") return ["G7", "G8", "G9", "G10", "G11", "G12", "G13"].includes(gateRef);
-  if (phase === "KET_THUC") return ["G14", "G15"].includes(gateRef);
-  return true;
+interface ConfirmBannerSummary {
+  docsCount: number;
+  foldersCount: number;
+  gatesList: string[];
+  committedAt: string;
 }
 
-import type { StepContextType } from "../../App";
+/**
+ * Parse RFC-4180 UTF-8 CSV content (stripping UTF-8 BOM if present) into normalized headers and row objects.
+ */
+function parseCsvContent(rawText: string): {
+  headers: string[];
+  rows: Record<string, string>[];
+} {
+  const cleanText = rawText.replace(/^\uFEFF/, "");
+  const records: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < cleanText.length; i++) {
+    const ch = cleanText[i];
+    if (ch === '"') {
+      if (inQuotes && cleanText[i + 1] === '"') {
+        currentField += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      currentRow.push(currentField.trim());
+      currentField = "";
+    } else if ((ch === "\r" || ch === "\n") && !inQuotes) {
+      if (ch === "\r" && cleanText[i + 1] === "\n") {
+        i++;
+      }
+      currentRow.push(currentField.trim());
+      if (currentRow.some(cell => cell.length > 0)) {
+        records.push(currentRow);
+      }
+      currentRow = [];
+      currentField = "";
+    } else {
+      currentField += ch;
+    }
+  }
+
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some(cell => cell.length > 0)) {
+      records.push(currentRow);
+    }
+  }
+
+  if (records.length === 0) {
+    return { headers: [], rows: [] };
+  }
+
+  const headers = records[0].map(h => h.replace(/^\uFEFF/, "").trim().toLowerCase());
+  const rows = records.slice(1).map(cols => {
+    const rowObj: Record<string, string> = {};
+    headers.forEach((header, idx) => {
+      if (header) {
+        rowObj[header] = (cols[idx] || "").trim();
+      }
+    });
+    return rowObj;
+  });
+
+  return { headers, rows };
+}
+
+function parseListField(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[;,|]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function safeParseDomain(raw: string | undefined, fallback: FunctionalDomainCode): FunctionalDomainCode {
+  const upper = (raw || "").trim().toUpperCase() as FunctionalDomainCode;
+  return VALID_DOMAINS.includes(upper) ? upper : fallback;
+}
+
+function safeParseProjectAxes(
+  raw: string | undefined,
+  fallback: ProjectArchetypeCode[]
+): ProjectArchetypeCode[] {
+  const parsed = parseListField(raw)
+    .map(v => v.toUpperCase() as ProjectArchetypeCode)
+    .filter(v => VALID_PROJECT_AXES.includes(v));
+  return parsed.length > 0 ? Array.from(new Set(parsed)) : fallback;
+}
+
+function safeParseCdeStatus(raw: string | undefined, fallback: CdeIsoStatus): CdeIsoStatus {
+  const upper = (raw || "").trim().toUpperCase() as CdeIsoStatus;
+  return VALID_CDE_STATUSES.includes(upper) ? upper : fallback;
+}
+
+function safeParseGateStatus(
+  raw: string | undefined,
+  fallback: GateWorkflowStatus
+): GateWorkflowStatus {
+  const upper = (raw || "").trim().toUpperCase() as GateWorkflowStatus;
+  return VALID_GATE_STATUSES.includes(upper) ? upper : fallback;
+}
+
+function parseNumericVnd(raw: string | undefined, fallback = 0): number {
+  if (!raw) return fallback;
+  const cleaned = raw.replace(/[^\d.-]/g, "");
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function inferIndustryAndSubSector(
+  primaryDomain: FunctionalDomainCode,
+  requestedGroupId?: string,
+  requestedSubCode?: string
+): { industryGroupId: string; subSectorCode: string; subSectorLabel: string } {
+  if (requestedGroupId) {
+    const matchedGroup = LEGAL_CATEGORY_TREE.find(g => g.id === requestedGroupId);
+    if (matchedGroup) {
+      const matchedSub =
+        matchedGroup.children.find(c => c.code === requestedSubCode) || matchedGroup.children[0];
+      return {
+        industryGroupId: matchedGroup.id,
+        subSectorCode: matchedSub?.code || requestedSubCode || "XD_XAYDUNG",
+        subSectorLabel: matchedSub?.name || "Xây dựng",
+      };
+    }
+  }
+
+  if (primaryDomain === "DTH") {
+    return {
+      industryGroupId: "IND-XAYDUNG-DAUTHAU",
+      subSectorCode: "XD_DAUTHAU",
+      subSectorLabel: "Đấu thầu",
+    };
+  }
+  if (primaryDomain === "DTU") {
+    return {
+      industryGroupId: "IND-DOANHNGHIEP",
+      subSectorCode: "DN_DTU",
+      subSectorLabel: "Đầu tư Hạ tầng KCN · KKT · FTZ",
+    };
+  }
+  if (primaryDomain === "TQT") {
+    return {
+      industryGroupId: "IND-KETOAN",
+      subSectorCode: "KT_QT",
+      subSectorLabel: "Kiểm toán & Quyết toán vốn đầu tư",
+    };
+  }
+  if (primaryDomain === "PCCC" || primaryDomain === "ATLD") {
+    return {
+      industryGroupId: "IND-TTHC",
+      subSectorCode: "TTHC_LIENTHONG",
+      subSectorLabel: "Thủ tục hành chính - liên thông",
+    };
+  }
+  return {
+    industryGroupId: "IND-XAYDUNG-DAUTHAU",
+    subSectorCode: "XD_XAYDUNG",
+    subSectorLabel: "Xây dựng",
+  };
+}
+
+function buildLegalNodesForImport(params: {
+  docNumber: string;
+  title: string;
+  lineage: string;
+  status: string;
+  linkedGates: string[];
+}): LegalNode[] {
+  const sampleText = [
+    `Số: ${params.docNumber}`,
+    "Chương I. THÔNG TIN CHUNG & PHẠM VI ÁP DỤNG",
+    `Điều 1. Trích yếu nội dung văn bản`,
+    params.title,
+    `Điều 2. Định hướng kiểm soát & Ánh xạ Stage-Gate (${params.linkedGates.join(", ") || "G12"})`,
+    `${params.lineage || "Nạp trực tiếp từ dữ liệu CSV thực tế."}\nTrạng thái hiệu lực: ${params.status}`,
+  ].join("\n");
+  return parseVietnameseLegalText(sampleText);
+}
+
+/**
+ * Upsert incoming LegalDocument records into existing list by matching ssotFileName or docNumber.
+ */
+function mergeLegalDocs(prev: LegalDocument[], incoming: LegalDocument[]): LegalDocument[] {
+  const next = [...prev];
+  for (let i = incoming.length - 1; i >= 0; i--) {
+    const doc = incoming[i];
+    const existingIdx = next.findIndex(
+      d =>
+        d.ssotFileName.toLowerCase() === doc.ssotFileName.toLowerCase() ||
+        (doc.docNumber && d.docNumber.toLowerCase() === doc.docNumber.toLowerCase() && doc.docNumber !== "01")
+    );
+    if (existingIdx >= 0) {
+      next[existingIdx] = { ...next[existingIdx], ...doc, id: next[existingIdx].id };
+    } else {
+      next.unshift(doc);
+    }
+  }
+  return next;
+}
 
 export interface Step1CdeIngestionProps {
   ctx: StepContextType;
@@ -187,609 +313,2337 @@ export interface Step1CdeIngestionProps {
 
 export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => {
   const {
-    activeTab, setActiveTab,
-    isSidebarCollapsed, setIsSidebarCollapsed,
-    isStep2SidebarExpanded, setIsStep2SidebarExpanded,
-    sidebarWidthPx, setSidebarWidthPx,
-    isCol1SubDomainMenuOpen, setIsCol1SubDomainMenuOpen,
-    col1ViewMode, setCol1ViewMode,
-    expandedStandaloneSubDomains, setExpandedStandaloneSubDomains,
-    expandedStandaloneProjects, setExpandedStandaloneProjects,
-    projectCardSubTab, setProjectCardSubTab,
-    vbplProjectPhaseFilter, setVbplProjectPhaseFilter,
-    projectDocGroupMode, setProjectDocGroupMode,
-    expandedProjectGates, setExpandedProjectGates,
-    vbplGateFilter, setVbplGateFilter,
-    globalSearch, setGlobalSearch,
-    activeDragSplitter, setActiveDragSplitter,
-    workspaceMainRef,
-    step1LeftPct, setStep1LeftPct,
-    vbplCol1Pct, setVbplCol1Pct,
-    vbplCol2Pct, setVbplCol2Pct,
-    isVbplCol1Collapsed, setIsVbplCol1Collapsed,
-    isVbplCol2Collapsed, setIsVbplCol2Collapsed,
-    step3Col1Pct, setStep3Col1Pct,
-    step3Col2Pct, setStep3Col2Pct,
-    step4Col1Pct, setStep4Col1Pct,
-    step4Col2Pct, setStep4Col2Pct,
-    startResizeSplitter, renderVerticalSplitter,
-    activeProjectArchetype, setActiveProjectArchetype,
-    activeProjectName, setActiveProjectName,
-    employees, setEmployees,
-    currentActorId, setCurrentActorId,
-    currentActor, raciPerms,
-    pendingDigitalSignoff, setPendingDigitalSignoff,
-    gateTvgsVerifiedMap, setGateTvgsVerifiedMap,
-    projectProfiles, setProjectProfiles,
-    legalDocs, setLegalDocs,
-    gates, setGates,
-    approvalWorkflows, setApprovalWorkflows,
-    raciTasks, setRaciTasks,
-    projectAssets, setProjectAssets,
-    qaqcControlRecords, setQaqcControlRecords,
-    voAppendixApproved, setVoAppendixApproved,
-    voState, setVoState,
-    chronoDates, setChronoDates,
-    auditLogs, setAuditLogs,
-    toastMsg, setToastMsg,
-    showToast, recordAuditLog,
-    currentArchetypeMeta, chronoAuditStatus,
-    formatVndBillions, calcDaysUntilReference,
-    isDragging, setIsDragging,
-    isAnalyzingFile, setIsAnalyzingFile,
-    deepScanReadMode, setDeepScanReadMode,
-    batchNamingStandard, setBatchNamingStandard,
-    folderNamingPreset, setFolderNamingPreset,
-    batchFilterKind, setBatchFilterKind,
-    batchFilterCde, setBatchFilterCde,
-    batchFindText, setBatchFindText,
-    batchReplaceText, setBatchReplaceText,
-    batchSuffixInput, setBatchSuffixInput,
-    activeBatchItemId, setActiveBatchItemId,
-    step1RightSubTab, setStep1RightSubTab,
-    readerKeywordSearch, setReaderKeywordSearch,
-    droppedFilesQueue, setDroppedFilesQueue,
-    renameLogs, setRenameLogs,
-    activeRawFile, setActiveRawFile,
-    fileInputRef, folderInputRef,
-    namingForm, setNamingForm,
-    generatedFileName, currentOcrZones, parsedPreviewNodes,
-    validatedBatchQueue, duplicateHashItems, filteredBatchQueue,
-    toggleProjectAxis, toggleSecondaryDomain, toggleLinkedGate,
-    handleProcessFiles, handleChangeCdeStatus, handleDuplicateSha256Action,
-    handleRecomputeBatchNames, handleBatchFindReplaceAndFormat,
-    handleCommitBatchRename, handleUndoRenameLog,
-    handleExportBatchRenameArtifact, handleDownloadRenamedFile,
-    vbplSubMode, setVbplSubMode,
-    categorySearch, setCategorySearch,
-    filterTreeByActiveProject, setFilterTreeByActiveProject,
-    expandedCatGroups, setExpandedCatGroups,
-    expandedIndustryDocCatalog, setExpandedIndustryDocCatalog,
-    expandedSubDomains, setExpandedSubDomains,
-    expandedProjectGroups, setExpandedProjectGroups,
-    vbplIndustryGroupFilter, setVbplIndustryGroupFilter,
-    vbplSubSectorFilter, setVbplSubSectorFilter,
-    vbplDomainFilter, setVbplDomainFilter,
-    vbplProjectFilter, setVbplProjectFilter,
-    pane2SubTab, setPane2SubTab,
-    exactMatchAccent, setExactMatchAccent,
-    filterDocType, setFilterDocType,
-    filterValidityPeriod, setFilterValidityPeriod,
-    selectedDocId, setSelectedDocId,
-    expandedInlineDocId, setExpandedInlineDocId,
-    bookmarkedDocIds, setBookmarkedDocIds,
-    recentDocIds, setRecentDocIds,
-    activeNodeId, setActiveNodeId,
-    rightReaderMode, setRightReaderMode,
-    readerFontSize, setReaderFontSize,
-    selectedCrossExamId, setSelectedCrossExamId,
-    selectedRoadmapPillarId, setSelectedRoadmapPillarId,
-    roadmapTierFilter, setRoadmapTierFilter,
-    isCol2CompactMode, setIsCol2CompactMode,
-    techStandardQuickFilter, setTechStandardQuickFilter,
-    compareLeftDocId, setCompareLeftDocId,
-    compareLeftNodeId, setCompareLeftNodeId,
-    compareRightDocId, setCompareRightDocId,
-    compareRightNodeId, setCompareRightNodeId,
-    highlightTextDiff, setHighlightTextDiff,
-    semanticHighlightEnabled, setSemanticHighlightEnabled,
-    compareCategoryFilter, setCompareCategoryFilter,
-    aiCompareCache, setAiCompareCache,
-    lastCompletedAiPairKey, setLastCompletedAiPairKey,
-    isAiCompareLoading, setIsAiCompareLoading,
-    aiCompareError, setAiCompareError,
-    favoriteComparePairs, setFavoriteComparePairs,
-    showFavoritesDrawer, setShowFavoritesDrawer,
-    editingFavNoteId, setEditingFavNoteId,
-    favNoteDraft, setFavNoteDraft,
-    handleToggleFavoriteComparePair, handleSaveFavoritePairNote,
-    projectLegalDatesMap, setProjectLegalDatesMap,
-    legalCutoffMode, setLegalCutoffMode,
-    activeProjectMilestones, activeProjectCutoffRegime,
-    applyProjectMilestonePreset, updateProjectMilestoneField,
-    articlePersonalNotes, setArticlePersonalNotes,
-    editingNoteKey, setEditingNoteKey,
-    noteDraftText, setNoteDraftText,
-    noteDraftSharedToGate, setNoteDraftSharedToGate,
-    noteDraftTargetGates, setNoteDraftTargetGates,
-    noteDraftProjectScope, setNoteDraftProjectScope,
-    filterOnlyNotedNodes, setFilterOnlyNotedNodes,
-    getArticleNoteKey, openArticleNoteEditor, toggleDraftTargetGate,
-    saveArticlePersonalNote, toggleShareNoteToGate, deleteArticlePersonalNote,
-    resolveRoadmapPillarIdForDoc, openLawRoadmapForDoc,
-    getSelectableArticleNodes, handleChangeCompareDoc,
-    sendArticleToCompare, swapCompareSides,
-    normalizeCompareWord, renderWordDiffChunk, renderDiffHighlightedText,
-    handleRunAiLegalCompare, activeIndustryGroup, activeSubSector,
-    handleSaveToSSOT, toggleBookmarkDoc, handleSelectDoc, handleSelectDocFromColumn1,
-    isDocQcvn, isDocTcvn, qcvnTcvnCounts,
-    filteredLegalDocs, currentLegalDoc, vbplBreadcrumbPath,
-    handleBreadcrumbToRoot, handleBreadcrumbToIndustry,
-    handleBreadcrumbToSubSector, handleBreadcrumbToDocument,
-    handleBreadcrumbStepBack, jumpToArticleNode,
-    selectedGateCode, setSelectedGateCode,
-    checkedAuditItems, setCheckedAuditItems,
-    projectGateStatusMap, setProjectGateStatusMap,
-    evaluateGateCrossLock, projectScopedGates,
-    currentGate, currentStep, currentGateCrossLock, stageGateProgressSummary,
-    gateRiskAiReports, setGateRiskAiReports,
-    analyzingGateStepKey, setAnalyzingGateStepKey,
-    handleAnalyzeStepRiskByAI,
-    selectedProcessId, setSelectedProcessId,
-    selectedFlowStepIdx, setSelectedFlowStepIdx,
-    showFormPreviewModal, setShowFormPreviewModal,
-    customDiaryEntries, setCustomDiaryEntries,
-    currentProcess, currentFlowStep,
-    step5SubMode, setStep5SubMode,
-    enterpriseModuleTab, setEnterpriseModuleTab,
-    selectedD3UnitFilter, setSelectedD3UnitFilter,
-    filteredApprovalWorkflows,
-    handleUpdateGateStatus, handleTvgsVerifyGate,
-    handleSubmitGateIpcPayment, handleToggleQaQcControl,
-    handleRenewProjectBonds, handleApproveWorkflow,
-    handleCreateVoOrRfiRequest, handleAdvanceTaskStatus, handleCalibrateAsset,
-    activeAiAgent, setActiveAiAgent,
-    aiPromptInput, setAiPromptInput,
-    aiOutputText, setAiOutputText,
-    aiEngineSource, setAiEngineSource,
-    isAiRunning, setIsAiRunning,
-    AI_AGENTS_LIST, runMultiAgentAnalysis,
+    activeTab,
+    setActiveTab,
+    activeProjectArchetype,
+    setActiveProjectArchetype,
+    activeProjectName,
+    currentActor,
+    gates,
+    setGates,
+    setProjectGateStatusMap,
+    setLegalDocs,
+    setQaqcControlRecords,
+    setApprovalWorkflows,
+    setVoState,
+    setSelectedDocId,
+    setExpandedInlineDocId,
+    setVbplIndustryGroupFilter,
+    setVbplSubSectorFilter,
+    setVbplDomainFilter,
+    setVbplProjectFilter,
+    setPane2SubTab,
+    setFilterDocType,
+    setFilterValidityPeriod,
+    setRecentDocIds,
+    setSelectedGateCode,
+    showToast,
+    recordAuditLog,
+    isDragging,
+    setIsDragging,
+    isAnalyzingFile,
+    setIsAnalyzingFile,
+    deepScanReadMode,
+    setDeepScanReadMode,
+    batchNamingStandard,
+    folderNamingPreset,
+    batchFilterKind,
+    setBatchFilterKind,
+    batchFilterCde,
+    setBatchFilterCde,
+    batchFindText,
+    setBatchFindText,
+    batchReplaceText,
+    setBatchReplaceText,
+    batchSuffixInput,
+    setBatchSuffixInput,
+    activeBatchItemId,
+    setActiveBatchItemId,
+    readerKeywordSearch,
+    setReaderKeywordSearch,
+    droppedFilesQueue,
+    setDroppedFilesQueue,
+    renameLogs,
+    activeRawFile,
+    setActiveRawFile,
+    fileInputRef,
+    folderInputRef,
+    namingForm,
+    setNamingForm,
+    generatedFileName,
+    currentOcrZones,
+    parsedPreviewNodes,
+    validatedBatchQueue,
+    duplicateHashItems,
+    filteredBatchQueue,
+    toggleProjectAxis,
+    toggleSecondaryDomain,
+    toggleLinkedGate,
+    handleProcessFiles,
+    handleChangeCdeStatus,
+    handleDuplicateSha256Action,
+    handleRecomputeBatchNames,
+    handleBatchFindReplaceAndFormat,
+    handleCommitBatchRename,
+    handleUndoRenameLog,
+    handleExportBatchRenameArtifact,
+    handleDownloadRenamedFile,
+    handleSaveToSSOT,
   } = ctx;
 
+  // Local Progressive Disclosure UI state (Drawer/Accordion mặc định ĐÓNG)
+  const [isAdvancedDrawerOpen, setIsAdvancedDrawerOpen] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState<AdvancedDrawerTab>("BATCH_TOOLS");
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState<CsvImportSummary | null>(null);
+  const [confirmBannerResult, setConfirmBannerResult] = useState<ConfirmBannerSummary | null>(null);
+
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+  const templateMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isTemplateMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setIsTemplateMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [isTemplateMenuOpen]);
+
+  useEffect(() => {
+    if (!isAdvancedDrawerOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsAdvancedDrawerOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isAdvancedDrawerOpen]);
+
+  // Derived metrics for Confirmation Bar & Table
+  const selectedItems = useMemo(
+    () => validatedBatchQueue.filter(item => item.selected !== false),
+    [validatedBatchQueue]
+  );
+
+  const selectedFileCount = useMemo(
+    () => selectedItems.filter(item => item.itemKind !== "FOLDER").length,
+    [selectedItems]
+  );
+
+  const selectedFolderCount = useMemo(
+    () => selectedItems.filter(item => item.itemKind === "FOLDER").length,
+    [selectedItems]
+  );
+
+  const invalidSelectedItems = useMemo(
+    () => selectedItems.filter(item => item.validationStatus !== "OK"),
+    [selectedItems]
+  );
+
+  const selectedLinkedGates = useMemo(() => {
+    const set = new Set<string>();
+    selectedItems.forEach(item => {
+      (item.suggestion.linkedGates || []).forEach(g => set.add(g));
+    });
+    return Array.from(set).sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ""), 10) || 0;
+      const nb = parseInt(b.replace(/\D/g, ""), 10) || 0;
+      return na - nb;
+    });
+  }, [selectedItems]);
+
+  const allQueueSelected =
+    droppedFilesQueue.length > 0 && droppedFilesQueue.every(i => i.selected !== false);
+
+  const activeBatchItem = useMemo(
+    () => validatedBatchQueue.find(i => i.id === activeBatchItemId) || null,
+    [validatedBatchQueue, activeBatchItemId]
+  );
+
+  const selectItemAndOpenDetails = (item: AnalyzedFileItem, openDrawer: boolean) => {
+    setActiveBatchItemId(item.id);
+    setActiveRawFile(item.rawFile);
+    setNamingForm(prev => ({
+      ...prev,
+      ...item.suggestion,
+      rawContentToParse: item.extractedText || prev.rawContentToParse,
+    }));
+    if (openDrawer) {
+      setAdvancedTab("OCR_JSON");
+      setIsAdvancedDrawerOpen(true);
+    }
+  };
+
+  /**
+   * Build a clean AnalyzedFileItem from a CSV row so it appears in Khối 2 review table.
+   */
+  const createQueueItemFromCsvRow = async (params: {
+    index: number;
+    originalName: string;
+    proposedName: string;
+    extractedText: string;
+    primaryDomain: FunctionalDomainCode;
+    secondaryDomains: FunctionalDomainCode[];
+    projectAxes: ProjectArchetypeCode[];
+    linkedGates: string[];
+    linkedQAQC: string[];
+    docType: string;
+    issuer: string;
+    industry: string;
+    rawNumber: string;
+    year: string;
+    rawSummary: string;
+    cdeStatus: CdeIsoStatus;
+    sourceLabel: string;
+  }): Promise<AnalyzedFileItem> => {
+    const qlvbGroup: QlvbNamingGroupCode =
+      batchNamingStandard === "SSOT_9PART"
+        ? "SSOT_9PART"
+        : detectQlvbGroup(params.docType, params.primaryDomain);
+
+    const safeProposedName =
+      params.proposedName && params.proposedName.length <= 120
+        ? params.proposedName
+        : buildFileNameByRule({
+            group: qlvbGroup,
+            industry: params.industry,
+            docType: params.docType,
+            issuer: params.issuer,
+            rawNumber: params.rawNumber,
+            year: params.year,
+            primaryDomain: params.primaryDomain,
+            rawSummary: params.rawSummary,
+            appendixSuffix: "",
+            ext: "pdf",
+            projectCode: params.projectAxes[0] || activeProjectArchetype,
+          });
+
+    const proposedFolderPath = buildStandardFolderPath({
+      preset: folderNamingPreset,
+      originalFolder: params.sourceLabel,
+      projectCode: params.projectAxes[0] || activeProjectArchetype,
+      primaryDomain: params.primaryDomain,
+      gateCode: params.linkedGates[0] || "G12",
+      year: params.year,
+      qlvbGroup,
+      industry: params.industry,
+    });
+
+    const sha256Hash = await computeSha256Short(
+      `${params.index}|${params.originalName}|${safeProposedName}|${params.extractedText}`
+    );
+
+    return {
+      id: `CSV-${Date.now().toString(36).toUpperCase()}-${params.index + 1}`,
+      rawFile: null,
+      itemKind: "FILE",
+      originalName: params.originalName,
+      originalFolderPath: params.sourceLabel,
+      proposedFolderPath,
+      extractedText: params.extractedText,
+      suggestion: {
+        industry: params.industry,
+        docType: params.docType,
+        issuer: params.issuer,
+        rawNumber: params.rawNumber,
+        year: params.year,
+        primaryDomain: params.primaryDomain,
+        rawSummary: params.rawSummary,
+        appendixSuffix: "",
+        ext: "pdf",
+        projectAxes: params.projectAxes,
+        secondaryDomains: params.secondaryDomains,
+        linkedGates: params.linkedGates,
+        linkedQAQC: params.linkedQAQC,
+      },
+      proposedName: safeProposedName,
+      qlvbGroup,
+      cdeStatus: params.cdeStatus,
+      sha256Hash,
+      fileSizeLabel: "CSV Row",
+      readStatsLabel: `CSV · ${params.sourceLabel}`,
+      ocrZones: extractOcrZonesFromText(params.originalName, params.extractedText),
+      selected: true,
+      isCommitted: true,
+    };
+  };
+
+  /**
+   * Parse UTF-8 CSV data and dispatch real records into Step 1 queue, Step 2 (VBPL) & Step 3 (Stage-Gate).
+   */
+  const handleLiveCsvImport = async (rawText: string, fileName: string) => {
+    setIsImportingCsv(true);
+    try {
+      const { headers, rows } = parseCsvContent(rawText);
+      if (headers.length === 0 || rows.length === 0) {
+        showToast("File CSV trống hoặc không đúng định dạng cột!");
+        return;
+      }
+
+      const headerSet = new Set(headers);
+      let schemaKind: CsvSchemaKind = "GENERIC_CSV";
+      let schemaLabel = "Bảng dữ liệu CSV Tổng quát";
+
+      if (
+        headerSet.has("ssot_file_name") &&
+        (headerSet.has("doc_number") || headerSet.has("industry_group_id"))
+      ) {
+        schemaKind = "VBPL_3TRUC";
+        schemaLabel = "Danh mục VBPL 3 Trục";
+      } else if (
+        headerSet.has("gate_code") &&
+        (headerSet.has("gate_name") || headerSet.has("step_code") || headerSet.has("gate_status"))
+      ) {
+        schemaKind = "STAGE_GATE";
+        schemaLabel = "Tiến độ Stage-Gate Dự án";
+      } else if (
+        headerSet.has("record_id") &&
+        (headerSet.has("record_kind") || headerSet.has("gate_ref"))
+      ) {
+        schemaKind = "CONTRACT_ITP";
+        schemaLabel = "Hợp đồng, VLXD & ITP QA/QC";
+      }
+
+      const importedDocs: LegalDocument[] = [];
+      const importedQueueItems: AnalyzedFileItem[] = [];
+      let gatesUpdatedCount = 0;
+      let qaqcUpdatedCount = 0;
+      let workflowUpdatedCount = 0;
+      let firstImportedGateCode: string | null = null;
+
+      if (schemaKind === "VBPL_3TRUC") {
+        for (let idx = 0; idx < rows.length; idx++) {
+          const row = rows[idx];
+          const ssotName =
+            row.ssot_file_name ||
+            `XD_${row.doc_type || "ND"}_${row.issuer_code || "CP"}_${idx + 1}_${
+              row.issue_year || "2026"
+            }_QLCL_VanBan.pdf`;
+          const analyzed = smartAnalyzeFile3D(ssotName, `${row.title || ""}\n${row.lineage || ""}`);
+          const primaryDomain = safeParseDomain(row.primary_domain, analyzed.primaryDomain);
+          const secondaryDomainsRaw = parseListField(row.secondary_domains)
+            .map(d => safeParseDomain(d, primaryDomain))
+            .filter(Boolean);
+          const secondaryDomains = Array.from(
+            new Set<FunctionalDomainCode>([primaryDomain, ...secondaryDomainsRaw])
+          );
+          const projectAxes = safeParseProjectAxes(row.project_axes, analyzed.projectAxes);
+          const linkedGates = parseListField(row.linked_gates).map(g => g.toUpperCase());
+          const effectiveGates = linkedGates.length > 0 ? linkedGates : analyzed.linkedGates;
+          const linkedQAQC = parseListField(row.linked_qaqc);
+          const docNumber = row.doc_number || analyzed.rawNumber;
+          const title = row.title || ssotName;
+          const status = row.status || "Còn hiệu lực năm 2026";
+          const lineage =
+            row.lineage || `Nạp trực tiếp từ file CSV (${fileName}) — Dòng ${idx + 1}`;
+          const { industryGroupId, subSectorCode, subSectorLabel } = inferIndustryAndSubSector(
+            primaryDomain,
+            row.industry_group_id,
+            row.sub_sector_code
+          );
+
+          const nodes = buildLegalNodesForImport({
+            docNumber,
+            title,
+            lineage,
+            status,
+            linkedGates: effectiveGates,
+          });
+
+          const docObj: LegalDocument = {
+            id: `DOC-CSV-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+            ssotFileName: ssotName,
+            docNumber,
+            docType: row.doc_type || analyzed.docType,
+            issuer: row.issuer_code || analyzed.issuer,
+            year: row.issue_year || analyzed.year,
+            issueDate: row.issue_date || `01/01/${row.issue_year || "2026"}`,
+            effectiveDate: row.effective_date || `01/07/${row.issue_year || "2026"}`,
+            industryGroupId,
+            subSectorCode,
+            subSectorLabel,
+            primaryDomain,
+            title,
+            shortSummary: title.length > 64 ? `${title.slice(0, 61)}...` : title,
+            status,
+            validityPeriod:
+              row.validity_period === "UPCOMING" || row.validity_period === "Sắp có hiệu lực"
+                ? "UPCOMING"
+                : "EFFECTIVE",
+            isAmended: false,
+            chapterCount: Math.max(1, nodes.filter(n => n.level === "Chương").length),
+            articleCount: Math.max(1, nodes.filter(n => n.level === "Điều").length),
+            clauseTotalCount: nodes.length * 3,
+            projectAxes,
+            secondaryDomains,
+            linkedGates: effectiveGates,
+            linkedQAQC,
+            lineage,
+            nodes,
+          };
+          importedDocs.push(docObj);
+
+          const queueItem = await createQueueItemFromCsvRow({
+            index: idx,
+            originalName: ssotName,
+            proposedName: ssotName,
+            extractedText: nodes.map(n => `${n.code} ${n.title}\n${n.content}`).join("\n"),
+            primaryDomain,
+            secondaryDomains,
+            projectAxes,
+            linkedGates: effectiveGates,
+            linkedQAQC,
+            docType: docObj.docType,
+            issuer: docObj.issuer,
+            industry: row.industry_code || analyzed.industry,
+            rawNumber: docNumber,
+            year: docObj.year,
+            rawSummary: title,
+            cdeStatus: safeParseCdeStatus(row.cde_status, "S1"),
+            sourceLabel: fileName,
+          });
+          importedQueueItems.push(queueItem);
+        }
+      } else if (schemaKind === "STAGE_GATE") {
+        const nextGateStatusPatches: Array<{
+          archetype: ProjectArchetypeCode;
+          gateCode: string;
+          status: GateWorkflowStatus;
+        }> = [];
+        const gateUpdates = new Map<string, StageGateItem>();
+
+        gates.forEach(g => {
+          gateUpdates.set(g.gate, { ...g, steps: g.steps.map(s => ({ ...s })) });
+        });
+
+        for (let idx = 0; idx < rows.length; idx++) {
+          const row = rows[idx];
+          const gateCode = (row.gate_code || "G12").toUpperCase();
+          if (!firstImportedGateCode) firstImportedGateCode = gateCode;
+
+          const archetypeList = safeParseProjectAxes(row.project_archetype, [
+            activeProjectArchetype,
+          ]);
+          const rowArchetype = archetypeList[0];
+          const gateStatus = safeParseGateStatus(row.gate_status, "IN_REVIEW");
+          const functionalTags = parseListField(row.functional_tags)
+            .map(d => safeParseDomain(d, "QLCL"))
+            .filter(Boolean);
+          const effectiveTags: FunctionalDomainCode[] =
+            functionalTags.length > 0 ? functionalTags : ["QLCL"];
+          const checklistItems = parseListField(row.audit_checklist);
+
+          const existingGate = gateUpdates.get(gateCode);
+          const stepCode = row.step_code || `${gateCode}.1`;
+          const stepTitle = row.step_title || row.gate_name || `Kiểm soát ${gateCode}`;
+          const ssotTemplate =
+            row.ssot_template || `XD_QD_CDT_${gateCode}_2026_${effectiveTags[0]}_HoSoStageGate.pdf`;
+
+          const newStep = {
+            code: stepCode,
+            title: stepTitle,
+            mandatory: row.mandatory || "Bắt buộc",
+            raci: {
+              CDT: row.raci_cdt || "A",
+              BQLDA: row.raci_bqlda || "R",
+              TVTK: row.raci_tvtk || "C",
+              TVGS: row.raci_tvgs || "C",
+              NhaThau: row.raci_nhathau || "I",
+              CoQuanNN: row.co_quan_nn || "Sở XD / Ban QLDA",
+            },
+            ssotTemplate,
+            riskFlag: row.risk_flag || "Kiểm soát tính đồng bộ pháp lý và thanh toán.",
+            auditChecklist:
+              checklistItems.length > 0
+                ? checklistItems
+                : ["Hồ sơ pháp lý đầy đủ theo quy định Stage-Gate"],
+          };
+
+          if (existingGate) {
+            const stepIdx = existingGate.steps.findIndex(s => s.code === stepCode);
+            const updatedSteps = [...existingGate.steps];
+            if (stepIdx >= 0) {
+              updatedSteps[stepIdx] = { ...updatedSteps[stepIdx], ...newStep };
+            } else {
+              updatedSteps.unshift(newStep);
+            }
+
+            const existingFp = existingGate.financialProfile || {
+              allocatedContractVnd: 100_000_000_000,
+              acceptedValueVnd: 50_000_000_000,
+              disbursedValueVnd: 50_000_000_000,
+            };
+
+            gateUpdates.set(gateCode, {
+              ...existingGate,
+              name: row.gate_name || existingGate.name,
+              status: gateStatus,
+              assignedLeadId: row.assigned_lead_id || existingGate.assignedLeadId,
+              functionalTags: Array.from(new Set([...existingGate.functionalTags, ...effectiveTags])),
+              financialProfile: {
+                allocatedContractVnd: parseNumericVnd(
+                  row.allocated_contract_vnd,
+                  existingFp.allocatedContractVnd
+                ),
+                acceptedValueVnd: parseNumericVnd(
+                  row.accepted_value_vnd,
+                  existingFp.acceptedValueVnd
+                ),
+                disbursedValueVnd: parseNumericVnd(
+                  row.disbursed_value_vnd,
+                  existingFp.disbursedValueVnd
+                ),
+                ipcTrancheCode: row.ipc_tranche_code || existingFp.ipcTrancheCode,
+                ipcTitle: row.step_title || existingFp.ipcTitle,
+              },
+              steps: updatedSteps,
+            });
+          } else {
+            const defaultNotes = VALID_PROJECT_AXES.reduce(
+              (acc, code) => ({
+                ...acc,
+                [code]: `${stepTitle} (${row.phase || "Stage-Gate"})`,
+              }),
+              {} as Record<ProjectArchetypeCode, string>
+            );
+            gateUpdates.set(gateCode, {
+              gate: gateCode,
+              phase: row.phase || "Giai đoạn II: Thực hiện dự án",
+              name: row.gate_name || `Cổng kiểm soát ${gateCode}`,
+              stepsCount: 1,
+              functionalTags: effectiveTags,
+              status: gateStatus,
+              assignedLeadId: row.assigned_lead_id || "EMP-01",
+              financialProfile: {
+                allocatedContractVnd: parseNumericVnd(row.allocated_contract_vnd, 50_000_000_000),
+                acceptedValueVnd: parseNumericVnd(row.accepted_value_vnd, 25_000_000_000),
+                disbursedValueVnd: parseNumericVnd(row.disbursed_value_vnd, 15_000_000_000),
+                ipcTrancheCode: row.ipc_tranche_code || `IPC-${gateCode}`,
+                ipcTitle: stepTitle,
+              },
+              projectNotes: defaultNotes,
+              steps: [newStep],
+            });
+          }
+
+          nextGateStatusPatches.push({ archetype: rowArchetype, gateCode, status: gateStatus });
+          gatesUpdatedCount += 1;
+
+          const analyzed = smartAnalyzeFile3D(ssotTemplate, `${stepTitle}\n${row.risk_flag || ""}`);
+          const primaryDomain = effectiveTags[0] || analyzed.primaryDomain;
+          const { industryGroupId, subSectorCode, subSectorLabel } =
+            inferIndustryAndSubSector(primaryDomain);
+          const lineage = `Stage-Gate ${gateCode} (${rowArchetype}) · ${row.mandatory || ""} · ${
+            row.risk_flag || ""
+          }`;
+          const nodes = buildLegalNodesForImport({
+            docNumber: row.ipc_tranche_code || `${gateCode}-${stepCode}`,
+            title: stepTitle,
+            lineage,
+            status: `Trạng thái Gate: ${gateStatus}`,
+            linkedGates: [gateCode],
+          });
+
+          importedDocs.push({
+            id: `DOC-SG-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+            ssotFileName: ssotTemplate,
+            docNumber: row.ipc_tranche_code || `${gateCode}/${stepCode}`,
+            docType: analyzed.docType,
+            issuer: analyzed.issuer,
+            year: "2026",
+            issueDate: "15/11/2026",
+            effectiveDate: "15/11/2026",
+            industryGroupId,
+            subSectorCode,
+            subSectorLabel,
+            primaryDomain,
+            title: `${gateCode} · ${stepTitle}`,
+            shortSummary: stepTitle,
+            status: `Stage-Gate: ${gateStatus}`,
+            validityPeriod: "EFFECTIVE",
+            isAmended: false,
+            chapterCount: 1,
+            articleCount: 2,
+            clauseTotalCount: 4,
+            projectAxes: [rowArchetype],
+            secondaryDomains: effectiveTags,
+            linkedGates: [gateCode],
+            linkedQAQC: [],
+            lineage,
+            nodes,
+          });
+
+          const queueItem = await createQueueItemFromCsvRow({
+            index: idx,
+            originalName: ssotTemplate,
+            proposedName: ssotTemplate,
+            extractedText: `${gateCode}: ${stepTitle}\nRủi ro: ${row.risk_flag || ""}\nChecklist: ${
+              row.audit_checklist || ""
+            }`,
+            primaryDomain,
+            secondaryDomains: effectiveTags,
+            projectAxes: [rowArchetype],
+            linkedGates: [gateCode],
+            linkedQAQC: [],
+            docType: analyzed.docType,
+            issuer: analyzed.issuer,
+            industry: analyzed.industry,
+            rawNumber: stepCode,
+            year: "2026",
+            rawSummary: stepTitle,
+            cdeStatus: gateStatus === "APPROVED" ? "A1" : "S1",
+            sourceLabel: fileName,
+          });
+          importedQueueItems.push(queueItem);
+        }
+
+        setGates(Array.from(gateUpdates.values()));
+        setProjectGateStatusMap(prev => {
+          const next = { ...prev };
+          nextGateStatusPatches.forEach(p => {
+            next[p.archetype] = {
+              ...(next[p.archetype] || {}),
+              [p.gateCode]: p.status,
+            };
+          });
+          return next;
+        });
+
+        const importedArchetypes = new Set(nextGateStatusPatches.map(p => p.archetype));
+        if (!importedArchetypes.has(activeProjectArchetype) && nextGateStatusPatches[0]) {
+          setActiveProjectArchetype(nextGateStatusPatches[0].archetype);
+        }
+        const preferredGate =
+          nextGateStatusPatches.find(p => p.archetype === activeProjectArchetype)?.gateCode ||
+          firstImportedGateCode;
+        if (preferredGate) setSelectedGateCode(preferredGate);
+      } else if (schemaKind === "CONTRACT_ITP") {
+        const qaqcBatch: QaQcGateControlItem[] = [];
+        const workflowBatch: ApprovalWorkflowItem[] = [];
+
+        for (let idx = 0; idx < rows.length; idx++) {
+          const row = rows[idx];
+          const recordId = row.record_id || `CSV-REC-${idx + 1}`;
+          const recordKind = (row.record_kind || "ITP").toUpperCase();
+          const gateRef = (row.gate_ref || "G12").toUpperCase();
+          if (!firstImportedGateCode) firstImportedGateCode = gateRef;
+          const archetype = safeParseProjectAxes(row.project_archetype, [activeProjectArchetype])[0];
+          const domain = safeParseDomain(row.domain, "QLCL");
+          const ssotName =
+            row.ssot_file_name ||
+            `XD_BBNT_TVGS_${idx + 1}_2026_${domain}_HoSoKiemSoat.pdf`;
+          const title = row.title || row.code || ssotName;
+          const detailNote = row.detail_note || "Nạp trực tiếp từ dữ liệu CSV thực tế.";
+
+          if (["ITP", "CO_CQ_QCVN16", "LAS_XD", "RFI"].includes(recordKind)) {
+            const qaqcItem: QaQcGateControlItem = {
+              id: recordId,
+              kind: recordKind as QaQcGateControlItem["kind"],
+              code: row.code || recordId,
+              title,
+              gateRef,
+              processId: row.process_id || "QT-01",
+              projectAxes: [archetype],
+              status:
+                row.status?.toUpperCase() === "CLOSED_VERIFIED"
+                  ? "CLOSED_VERIFIED"
+                  : "OPEN_PENDING",
+              detailNote,
+            };
+            qaqcBatch.push(qaqcItem);
+            qaqcUpdatedCount += 1;
+          } else {
+            const rawStatus = (row.status || "PENDING_REVIEW").toUpperCase();
+            const wfStatus: ApprovalWorkflowItem["status"] =
+              rawStatus === "CDT_APPROVED" ||
+              rawStatus === "TVGS_VERIFIED" ||
+              rawStatus === "REJECTED_HOLD"
+                ? (rawStatus as ApprovalWorkflowItem["status"])
+                : "PENDING_REVIEW";
+
+            const wfItem: ApprovalWorkflowItem = {
+              id: recordId,
+              docCode: row.code || recordId,
+              title,
+              gateRef,
+              domain,
+              requesterId: row.requester_id || "EMP-02",
+              approverId: row.approver_id || "EMP-01",
+              status: wfStatus,
+              submittedAt: row.work_inspection_date || "18/11/2026",
+              ssotFileName: ssotName,
+              projectCode: archetype,
+              financialImpactVnd:
+                parseNumericVnd(row.vo_amount_vnd) || parseNumericVnd(row.contract_value_vnd),
+              bottleneckReason: detailNote,
+            };
+            workflowBatch.push(wfItem);
+            workflowUpdatedCount += 1;
+
+            if (row.contract_type || row.vo_outside_scope) {
+              setVoState(prev => ({
+                contractType: row.contract_type || prev.contractType,
+                isOutsideScope: row.vo_outside_scope || prev.isOutsideScope,
+                exceedsPkgPrice: row.exceeds_pkg_price || prev.exceedsPkgPrice,
+                affectsSafetyPCCC: row.affects_safety_pccc || prev.affectsSafetyPCCC,
+              }));
+            }
+          }
+
+          const analyzed = smartAnalyzeFile3D(ssotName, `${title}\n${detailNote}`);
+          const { industryGroupId, subSectorCode, subSectorLabel } = inferIndustryAndSubSector(domain);
+          const nodes = buildLegalNodesForImport({
+            docNumber: row.code || recordId,
+            title,
+            lineage: `${recordKind} · Gate ${gateRef} · ${detailNote}`,
+            status: row.status || "Đang kiểm soát",
+            linkedGates: [gateRef],
+          });
+
+          importedDocs.push({
+            id: `DOC-ITP-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+            ssotFileName: ssotName,
+            docNumber: row.code || recordId,
+            docType: analyzed.docType,
+            issuer: analyzed.issuer,
+            year: "2026",
+            issueDate: row.material_sample_date || "15/11/2026",
+            effectiveDate: row.work_inspection_date || "16/11/2026",
+            industryGroupId,
+            subSectorCode,
+            subSectorLabel,
+            primaryDomain: domain,
+            title,
+            shortSummary: title,
+            status: row.status || "Đang kiểm soát",
+            validityPeriod: "EFFECTIVE",
+            isAmended: false,
+            chapterCount: 1,
+            articleCount: 2,
+            clauseTotalCount: 4,
+            projectAxes: [archetype],
+            secondaryDomains: [domain],
+            linkedGates: [gateRef],
+            linkedQAQC: row.process_id ? [row.process_id] : [],
+            lineage: `${recordKind} (${archetype}) · ${detailNote}`,
+            nodes,
+          });
+
+          const queueItem = await createQueueItemFromCsvRow({
+            index: idx,
+            originalName: ssotName,
+            proposedName: ssotName,
+            extractedText: `${row.code || recordId}: ${title}\n${detailNote}`,
+            primaryDomain: domain,
+            secondaryDomains: [domain],
+            projectAxes: [archetype],
+            linkedGates: [gateRef],
+            linkedQAQC: row.process_id ? [row.process_id] : [],
+            docType: analyzed.docType,
+            issuer: analyzed.issuer,
+            industry: analyzed.industry,
+            rawNumber: row.code || recordId,
+            year: "2026",
+            rawSummary: title,
+            cdeStatus: row.status?.toUpperCase() === "CLOSED_VERIFIED" ? "A1" : "S1",
+            sourceLabel: fileName,
+          });
+          importedQueueItems.push(queueItem);
+        }
+
+        if (qaqcBatch.length > 0) {
+          setQaqcControlRecords(prev => {
+            const next = [...prev];
+            qaqcBatch.forEach(item => {
+              const existingIdx = next.findIndex(q => q.id === item.id || q.code === item.code);
+              if (existingIdx >= 0) next[existingIdx] = item;
+              else next.unshift(item);
+            });
+            return next;
+          });
+        }
+
+        if (workflowBatch.length > 0) {
+          setApprovalWorkflows(prev => {
+            const next = [...prev];
+            workflowBatch.forEach(item => {
+              const existingIdx = next.findIndex(w => w.id === item.id);
+              if (existingIdx >= 0) next[existingIdx] = item;
+              else next.unshift(item);
+            });
+            return next;
+          });
+        }
+
+        if (firstImportedGateCode) {
+          setSelectedGateCode(firstImportedGateCode);
+        }
+      } else {
+        // Generic CSV fallback
+        for (let idx = 0; idx < rows.length; idx++) {
+          const row = rows[idx];
+          const rawName =
+            row.ssot_file_name ||
+            row.file_name ||
+            row.ten_file ||
+            row.name ||
+            row.title ||
+            row.trich_yeu ||
+            `HoSo_CSV_${idx + 1}.pdf`;
+          const rawSummary = row.title || row.trich_yeu || row.summary || rawName;
+          const rawContent = Object.entries(row)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join("\n");
+          const analyzed = smartAnalyzeFile3D(rawName, rawContent);
+          const primaryDomain = safeParseDomain(
+            row.primary_domain || row.domain || row.linh_vuc,
+            analyzed.primaryDomain
+          );
+          const gateCol = row.gate_code || row.gate_ref || row.gate || row.linked_gates;
+          const gatesParsed = parseListField(gateCol).map(g => g.toUpperCase());
+          const linkedGates = gatesParsed.length > 0 ? gatesParsed : analyzed.linkedGates;
+          if (!firstImportedGateCode && linkedGates[0]) firstImportedGateCode = linkedGates[0];
+          const projectAxes = safeParseProjectAxes(
+            row.project_axes || row.project_archetype,
+            analyzed.projectAxes
+          );
+          const { industryGroupId, subSectorCode, subSectorLabel } =
+            inferIndustryAndSubSector(primaryDomain);
+          const nodes = buildLegalNodesForImport({
+            docNumber: row.doc_number || row.so_hieu || analyzed.rawNumber,
+            title: rawSummary,
+            lineage: `Nạp từ CSV (${fileName})`,
+            status: row.status || "Còn hiệu lực năm 2026",
+            linkedGates,
+          });
+
+          const proposedName = buildFileNameByRule({
+            group: batchNamingStandard,
+            industry: analyzed.industry,
+            docType: row.doc_type || analyzed.docType,
+            issuer: row.issuer_code || analyzed.issuer,
+            rawNumber: row.doc_number || row.so_hieu || analyzed.rawNumber,
+            year: row.issue_year || analyzed.year,
+            primaryDomain,
+            rawSummary,
+            appendixSuffix: "",
+            ext: analyzed.ext,
+            projectCode: projectAxes[0] || activeProjectArchetype,
+          });
+
+          importedDocs.push({
+            id: `DOC-GEN-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+            ssotFileName: proposedName,
+            docNumber: row.doc_number || row.so_hieu || analyzed.rawNumber,
+            docType: row.doc_type || analyzed.docType,
+            issuer: row.issuer_code || analyzed.issuer,
+            year: row.issue_year || analyzed.year,
+            issueDate: row.issue_date || "18/11/2026",
+            effectiveDate: row.effective_date || "18/11/2026",
+            industryGroupId,
+            subSectorCode,
+            subSectorLabel,
+            primaryDomain,
+            title: rawSummary,
+            shortSummary: rawSummary,
+            status: row.status || "Còn hiệu lực năm 2026",
+            validityPeriod: "EFFECTIVE",
+            isAmended: false,
+            chapterCount: 1,
+            articleCount: 2,
+            clauseTotalCount: 4,
+            projectAxes,
+            secondaryDomains: [primaryDomain],
+            linkedGates,
+            linkedQAQC: [],
+            lineage: `Nạp trực tiếp từ file CSV (${fileName})`,
+            nodes,
+          });
+
+          const queueItem = await createQueueItemFromCsvRow({
+            index: idx,
+            originalName: rawName,
+            proposedName,
+            extractedText: rawContent,
+            primaryDomain,
+            secondaryDomains: [primaryDomain],
+            projectAxes,
+            linkedGates,
+            linkedQAQC: [],
+            docType: row.doc_type || analyzed.docType,
+            issuer: row.issuer_code || analyzed.issuer,
+            industry: analyzed.industry,
+            rawNumber: row.doc_number || row.so_hieu || analyzed.rawNumber,
+            year: row.issue_year || analyzed.year,
+            rawSummary,
+            cdeStatus: safeParseCdeStatus(row.cde_status, "S1"),
+            sourceLabel: fileName,
+          });
+          importedQueueItems.push(queueItem);
+        }
+        if (firstImportedGateCode) setSelectedGateCode(firstImportedGateCode);
+      }
+
+      if (importedDocs.length > 0) {
+        setLegalDocs(prev => mergeLegalDocs(prev, importedDocs));
+        setSelectedDocId(importedDocs[0].id);
+        setExpandedInlineDocId(importedDocs[0].id);
+        setVbplIndustryGroupFilter("ALL");
+        setVbplSubSectorFilter("ALL");
+        setVbplDomainFilter("ALL");
+        setVbplProjectFilter("ALL");
+        setPane2SubTab("DOCS");
+        setFilterDocType("ALL");
+        setFilterValidityPeriod("ALL");
+        setRecentDocIds(prev => [
+          importedDocs[0].id,
+          ...prev.filter(id => id !== importedDocs[0].id),
+        ]);
+      }
+
+      if (importedQueueItems.length > 0) {
+        setDroppedFilesQueue(prev => [...importedQueueItems, ...prev]);
+        const firstQ = importedQueueItems[0];
+        setActiveBatchItemId(firstQ.id);
+        setNamingForm(prev => ({
+          ...prev,
+          ...firstQ.suggestion,
+          rawContentToParse: firstQ.extractedText,
+        }));
+      }
+
+      const summary: CsvImportSummary = {
+        fileName,
+        schemaKind,
+        schemaLabel,
+        docsCount: importedDocs.length,
+        gatesCount: gatesUpdatedCount,
+        qaqcCount: qaqcUpdatedCount,
+        workflowCount: workflowUpdatedCount,
+        queueCount: importedQueueItems.length,
+        importedAt: new Date().toLocaleTimeString("vi-VN"),
+      };
+      setCsvImportResult(summary);
+
+      await recordAuditLog({
+        module: "INGEST_3D",
+        action: `Nạp CSV thực tế [${schemaLabel}] từ "${fileName}": ${importedDocs.length} VBPL, ${gatesUpdatedCount} Stage-Gate, ${qaqcUpdatedCount + workflowUpdatedCount} QA/QC-HĐ`,
+        entityRef: fileName,
+        newState: "LIVE_CSV_IMPORTED",
+      });
+
+      showToast(
+        `Đã nạp ${rows.length} dòng từ "${fileName}" và cập nhật thẳng sang Bước 2 & Bước 3!`
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Lỗi đọc file CSV";
+      showToast(`Không thể đọc file CSV: ${msg}`);
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
+
+  const handleCsvFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const text = await file.text();
+    await handleLiveCsvImport(text, file.name);
+  };
+
+  const handleQuickLoadTemplateCsv = async (tpl: (typeof CSV_TEMPLATES)[number]) => {
+    setIsTemplateMenuOpen(false);
+    try {
+      const res = await fetch(tpl.href);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      await handleLiveCsvImport(text, tpl.fileName);
+    } catch {
+      showToast(`Không thể tải trực tiếp ${tpl.fileName}. Vui lòng tải file xuống và nạp lại.`);
+    }
+  };
+
+  const handleLoadSampleBatch = () => {
+    const samples = createSampleBatchItems(
+      activeProjectArchetype,
+      batchNamingStandard,
+      folderNamingPreset
+    );
+    setDroppedFilesQueue(samples);
+    const first = samples.find(s => s.itemKind === "FILE") || samples[0];
+    if (first) {
+      setActiveBatchItemId(first.id);
+      setActiveRawFile(first.rawFile);
+      setNamingForm(prev => ({
+        ...prev,
+        ...first.suggestion,
+        rawContentToParse: first.extractedText,
+      }));
+    }
+    showToast("Đã nạp thử 8 hồ sơ & thư mục mẫu để kiểm duyệt!");
+  };
+
+  const handleConfirmAndIngest = async () => {
+    if (droppedFilesQueue.length === 0) {
+      await handleSaveToSSOT();
+      setConfirmBannerResult({
+        docsCount: 1,
+        foldersCount: 0,
+        gatesList: namingForm.linkedGates,
+        committedAt: new Date().toLocaleTimeString("vi-VN"),
+      });
+      if (namingForm.linkedGates[0]) {
+        setSelectedGateCode(namingForm.linkedGates[0]);
+      }
+      return;
+    }
+
+    if (selectedItems.length === 0) {
+      showToast("Vui lòng tích chọn ít nhất 1 mục trong bảng để nạp vào hệ thống!");
+      return;
+    }
+
+    if (invalidSelectedItems.length > 0) {
+      await handleCommitBatchRename();
+      return;
+    }
+
+    await handleCommitBatchRename();
+    if (selectedLinkedGates.length > 0) {
+      setSelectedGateCode(selectedLinkedGates[0]);
+    }
+    setConfirmBannerResult({
+      docsCount: selectedFileCount,
+      foldersCount: selectedFolderCount,
+      gatesList: selectedLinkedGates,
+      committedAt: new Date().toLocaleTimeString("vi-VN"),
+    });
+  };
+
+  const handleApplyNamingFormToActiveRow = () => {
+    if (!activeBatchItemId) {
+      showToast("Chưa chọn dòng nào trong bảng để cập nhật!");
+      return;
+    }
+    setDroppedFilesQueue(prev =>
+      prev.map(item => {
+        if (item.id !== activeBatchItemId) return item;
+        const nextSuggestion = {
+          ...item.suggestion,
+          industry: namingForm.industry,
+          docType: namingForm.docType,
+          issuer: namingForm.issuer,
+          rawNumber: namingForm.rawNumber,
+          year: namingForm.year,
+          primaryDomain: namingForm.primaryDomain,
+          rawSummary: namingForm.rawSummary,
+          appendixSuffix: namingForm.appendixSuffix,
+          ext: namingForm.ext,
+          projectAxes: namingForm.projectAxes,
+          secondaryDomains: namingForm.secondaryDomains,
+          linkedGates: namingForm.linkedGates,
+          linkedQAQC: namingForm.linkedQAQC,
+        };
+        const nextName =
+          item.itemKind === "FOLDER"
+            ? item.proposedName
+            : buildFileNameByRule({
+                group: item.qlvbGroup || batchNamingStandard,
+                industry: nextSuggestion.industry,
+                docType: nextSuggestion.docType,
+                issuer: nextSuggestion.issuer,
+                rawNumber: nextSuggestion.rawNumber,
+                year: nextSuggestion.year,
+                primaryDomain: nextSuggestion.primaryDomain,
+                rawSummary: nextSuggestion.rawSummary,
+                appendixSuffix: nextSuggestion.appendixSuffix,
+                ext: nextSuggestion.ext,
+                projectCode: activeProjectArchetype,
+                ktSubType: item.ktSubType,
+                tkStageDept: item.tkStageDept,
+                tkDocCode: item.tkDocCode,
+                tkRevision: item.tkRevision,
+              });
+        return {
+          ...item,
+          suggestion: nextSuggestion,
+          proposedName: nextName,
+          extractedText: namingForm.rawContentToParse,
+        };
+      })
+    );
+    showToast("Đã cập nhật tên chuẩn & phân loại 3 Trục vào dòng đang chọn!");
+  };
+
+  if (activeTab !== "STEP1_INGEST") return null;
+
   return (
-    <>
-          {activeTab === 'STEP1_INGEST' && (
-            <div className="h-full flex flex-col lg:flex-row overflow-hidden">
-              {/* Cột Trái: Đọc File/Folder Đa năng + Bảng Đổi Tên File/Folder Hàng Loạt + Gắn nhãn 3 Trục */}
-              <div
-                style={{ width: `${step1LeftPct}%` }}
-                className="w-full lg:shrink-0 p-4 overflow-y-auto space-y-3.5 min-w-[300px]"
+    <div className="h-full overflow-y-auto bg-slate-950 text-slate-100">
+      <div className="max-w-[1560px] mx-auto px-4 py-5 md:px-6 md:py-6 space-y-5">
+        {/* Header Tối giản */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 text-sm">
+                1
+              </span>
+              <span>Tiếp nhận & Chuẩn hóa Hồ sơ Dự án (CDE)</span>
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Tải tài liệu hoặc nhập dữ liệu thực tế từ file CSV, kiểm duyệt tên chuẩn trước khi đưa sang Bước 2 (Tra cứu VBPL) và Bước 3 (Stage-Gate).
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+              Dự án: <b className="text-amber-400">[{activeProjectArchetype}]</b>{" "}
+              <span className="hidden sm:inline">{activeProjectName}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* =================================================================
+            KHỐI 1 (TRÊN CÙNG): VÙNG NẠP DỮ LIỆU — 2 THẺ TRỰC QUAN (70% / 30%)
+           ================================================================= */}
+        <section aria-label="Vùng nạp dữ liệu" className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+          {/* Thẻ Trái (70%): Kéo-Thả File/Thư mục lớn, thoáng */}
+          <div
+            onDragOver={e => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={e => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleProcessFiles(e.dataTransfer.files);
+              }
+            }}
+            className={`lg:col-span-7 rounded-2xl border-2 border-dashed p-6 md:p-7 transition-all flex flex-col justify-center items-center text-center min-h-[210px] ${
+              isDragging
+                ? "border-emerald-400 bg-emerald-500/10 shadow-lg shadow-emerald-500/10"
+                : "border-slate-700 bg-slate-900/60 hover:border-amber-400/70 hover:bg-slate-900/80"
+            }`}
+          >
+            {/* Hidden file & folder inputs */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.doc,.txt,.md,.csv,.tsv,.json,.xml,.html,.xlsx,.xls,.dwg"
+              className="hidden"
+              onChange={e => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleProcessFiles(e.target.files);
+                }
+              }}
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+              className="hidden"
+              onChange={e => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleProcessFiles(e.target.files);
+                }
+              }}
+            />
+
+            <div className="h-12 w-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-2xl mb-3">
+              {isAnalyzingFile ? "⏳" : "📂"}
+            </div>
+            <h2 className="text-sm md:text-base font-bold text-white">
+              {isAnalyzingFile
+                ? "Đang đọc nội dung & chuẩn hóa tên hồ sơ..."
+                : "Kéo & thả File hoặc Thư mục dự án vào đây"}
+            </h2>
+            <p className="text-xs text-slate-400 max-w-xl mt-1">
+              Hỗ trợ PDF, Word, Excel, CAD (.dwg). Hệ thống tự động bóc tách trích yếu, gắn nhãn 3 Trục, kiểm tra trùng lặp SHA-256 và đề xuất tên chuẩn CDE.
+            </p>
+
+            {/* Chỉ hiển thị 2 nút chính */}
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs md:text-sm transition shadow-md cursor-pointer inline-flex items-center gap-2"
               >
-                {/* 1. TRUNG TÂM ĐỌC FILE & THƯ MỤC ĐA NĂNG (MULTI-FORMAT & FOLDER READER) */}
-                <div
-                  onDragOver={e => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                  }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={e => {
-                    e.preventDefault();
-                    setIsDragging(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      handleProcessFiles(e.dataTransfer.files);
-                    }
-                  }}
-                  className={`rounded-xl border-2 border-dashed p-3.5 transition-all space-y-3 ${
-                    isDragging
-                      ? 'border-emerald-400 bg-emerald-500/15'
-                      : 'border-amber-500/50 bg-slate-900/80 hover:border-amber-400'
-                  }`}
+                <span>📄 Chọn File (PDF, Word)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => folderInputRef.current?.click()}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-bold text-xs md:text-sm transition cursor-pointer inline-flex items-center gap-2"
+              >
+                <span>📁 Chọn Cả Thư Mục</span>
+              </button>
+            </div>
+
+            {/* Link nhỏ nạp thử dữ liệu mẫu */}
+            <button
+              type="button"
+              onClick={handleLoadSampleBatch}
+              className="mt-3.5 text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-4 cursor-pointer"
+            >
+              Nạp thử dữ liệu mẫu
+            </button>
+          </div>
+
+          {/* Thẻ Phải (30%): Nạp Dữ Liệu Thực Tế (CSV/Excel) */}
+          <div className="lg:col-span-3 rounded-2xl border border-emerald-500/35 bg-slate-900/80 p-5 flex flex-col justify-between gap-4 min-h-[210px]">
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,.tsv,.txt"
+              className="hidden"
+              onChange={handleCsvFileSelected}
+            />
+
+            <div className="space-y-1.5">
+              <h2 className="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+                <span>📊 Nạp Dữ Liệu Thực Tế (CSV/Excel)</span>
+              </h2>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Nhập nhanh file CSV (UTF-8) để đổ thẳng danh mục VBPL, tiến độ Stage-Gate hoặc ITP vào Bước 2 & Bước 3.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Dropdown 3 file mẫu trong /templates/ */}
+              <div className="relative" ref={templateMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateMenuOpen(prev => !prev)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition flex items-center justify-between cursor-pointer"
                 >
-                  {/* Input chọn nhiều File */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.doc,.txt,.md,.csv,.tsv,.json,.xml,.html,.xlsx,.xls,.dwg"
-                    className="hidden"
-                    onChange={e => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleProcessFiles(e.target.files);
-                      }
-                    }}
-                  />
-                  {/* Input chọn cả Thư mục (webkitdirectory) */}
-                  <input
-                    ref={folderInputRef}
-                    type="file"
-                    multiple
-                    {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
-                    className="hidden"
-                    onChange={e => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleProcessFiles(e.target.files);
-                      }
-                    }}
-                  />
+                  <span>📥 Tải File Mẫu</span>
+                  <span className="text-slate-400 text-[10px]">
+                    {isTemplateMenuOpen ? "▲" : "▼"}
+                  </span>
+                </button>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-11 w-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shrink-0">
-                        {isAnalyzingFile ? '⏳' : '📂'}
+                {isTemplateMenuOpen && (
+                  <div className="absolute left-0 right-0 mt-1.5 z-30 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 space-y-1">
+                    {CSV_TEMPLATES.map(tpl => (
+                      <div
+                        key={tpl.id}
+                        className="rounded-lg p-2 hover:bg-slate-800/90 transition flex items-center justify-between gap-2"
+                      >
+                        <a
+                          href={tpl.href}
+                          download={tpl.fileName}
+                          onClick={() => {
+                            setIsTemplateMenuOpen(false);
+                            showToast(`Đang tải biểu mẫu ${tpl.fileName} (UTF-8 BOM)`);
+                          }}
+                          className="min-w-0 flex-1 block"
+                        >
+                          <div className="text-xs font-semibold text-emerald-300 truncate">
+                            📥 {tpl.label}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">{tpl.desc}</div>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickLoadTemplateCsv(tpl)}
+                          title={`Nạp thử dữ liệu từ ${tpl.fileName} vào ứng dụng`}
+                          className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shrink-0 cursor-pointer"
+                        >
+                          Nạp thử
+                        </button>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-extrabold uppercase text-amber-400">
-                            BƯỚC 1.1 — ĐỌC FILE / THƯ MỤC ĐA NĂNG & BÓC TÁCH OCR 4 VÙNG
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[10px]">
-                            PDF · DOCX · TXT · CSV · JSON · XML · XLSX · DWG
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-300 mt-0.5">
-                          Kéo-thả nhiều <b>File</b> hoặc cả <b>Thư mục dự án</b> để đọc nội dung, tính mã băm{' '}
-                          <span className="text-sky-300 font-mono">SHA-256</span>, nhận diện 4 vùng OCR (V1–V4) & đổi tên hàng loạt.
-                        </p>
-                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Nút chính Nạp File CSV Thực Tế */}
+              <button
+                type="button"
+                disabled={isImportingCsv}
+                onClick={() => csvInputRef.current?.click()}
+                className="w-full px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold text-xs md:text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>{isImportingCsv ? "⏳ Đang phân tích CSV..." : "📤 Nạp File CSV Thực Tế"}</span>
+              </button>
+            </div>
+
+            {csvImportResult && (
+              <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/40 px-3 py-2 text-[11px] text-emerald-200 space-y-1">
+                <div className="font-semibold truncate">
+                  ✓ Đã nạp: <span className="text-white">{csvImportResult.fileName}</span>
+                </div>
+                <div className="text-[10px] text-emerald-300/90 flex flex-wrap gap-x-2">
+                  <span>• {csvImportResult.docsCount} VBPL (Bước 2)</span>
+                  {(csvImportResult.gatesCount > 0 ||
+                    csvImportResult.qaqcCount > 0 ||
+                    csvImportResult.workflowCount > 0) && (
+                    <span>
+                      •{" "}
+                      {csvImportResult.gatesCount > 0
+                        ? `${csvImportResult.gatesCount} Stage-Gate`
+                        : `${csvImportResult.qaqcCount + csvImportResult.workflowCount} ITP/HĐ`}{" "}
+                      (Bước 3)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* =================================================================
+            KHỐI 2 (Ở GIỮA): BẢNG KIỂM DUYỆT GỌN GÀNG (5 CỘT)
+           ================================================================= */}
+        <section
+          aria-label="Bảng kiểm duyệt hồ sơ"
+          className="rounded-2xl border border-slate-800 bg-slate-900/75 shadow-xl overflow-hidden"
+        >
+          {/* Header Bảng & Bộ lọc nhanh */}
+          <div className="px-4 py-3.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-sm font-bold text-white">
+                Danh sách hồ sơ kiểm duyệt ({validatedBatchQueue.length})
+              </h2>
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px] flex-wrap">
+                {(
+                  [
+                    { id: "ALL", label: `Tất cả (${validatedBatchQueue.length})` },
+                    {
+                      id: "FILE",
+                      label: `File (${validatedBatchQueue.filter(i => i.itemKind !== "FOLDER").length})`,
+                    },
+                    {
+                      id: "FOLDER",
+                      label: `Thư mục (${validatedBatchQueue.filter(i => i.itemKind === "FOLDER").length})`,
+                    },
+                    {
+                      id: "ISSUE",
+                      label: `Cần kiểm tra (${
+                        validatedBatchQueue.filter(i => i.validationStatus !== "OK").length
+                      })`,
+                    },
+                    {
+                      id: "DUP_HASH",
+                      label: `Trùng SHA (${duplicateHashItems.length})`,
+                    },
+                  ] as const
+                ).map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setBatchFilterKind(tab.id)}
+                    className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                      batchFilterKind === tab.id
+                        ? tab.id === "DUP_HASH"
+                          ? "bg-rose-500 text-white font-bold"
+                          : "bg-amber-500 text-slate-950 font-bold"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={batchFilterCde}
+                onChange={e => setBatchFilterCde(e.target.value as "ALL" | CdeIsoStatus)}
+                aria-label="Lọc trạng thái CDE"
+                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+              >
+                <option value="ALL">CDE: Tất cả</option>
+                {CDE_ISO_19650_PIPELINE.map(code => (
+                  <option key={code} value={code}>
+                    {CDE_ISO_19650_META[code].shortLabel} (
+                    {validatedBatchQueue.filter(i => (i.cdeStatus || "S0") === code).length})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const nextSelected = !allQueueSelected;
+                  setDroppedFilesQueue(prev => prev.map(i => ({ ...i, selected: nextSelected })));
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer"
+              >
+                {allQueueSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              </button>
+
+              {droppedFilesQueue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDroppedFilesQueue([]);
+                    setConfirmBannerResult(null);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-medium cursor-pointer"
+                >
+                  Xóa danh sách
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Cảnh báo trùng mã băm SHA-256 (chỉ hiển thị khi phát hiện trùng) */}
+          {duplicateHashItems.length > 0 && (
+            <div className="mx-4 mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="text-rose-200">
+                <b className="text-rose-300">
+                  ⚠️ Phát hiện {duplicateHashItems.length} tệp trùng nội dung (SHA-256):
+                </b>{" "}
+                <span className="font-mono text-amber-300">
+                  {duplicateHashItems
+                    .slice(0, 2)
+                    .map(d => d.originalName)
+                    .join(", ")}
+                  {duplicateHashItems.length > 2 ? ` (+${duplicateHashItems.length - 2})` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDuplicateSha256Action("DESELECT")}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                >
+                  Bỏ chọn bản trùng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDuplicateSha256Action("REMOVE")}
+                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs cursor-pointer"
+                >
+                  Xóa bản trùng
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bảng 5 Cột Gọn Gàng */}
+          {filteredBatchQueue.length === 0 ? (
+            <div className="p-10 text-center space-y-2">
+              <div className="text-2xl">📭</div>
+              <p className="text-sm text-slate-300 font-medium">
+                Chưa có hồ sơ nào trong danh sách hiển thị.
+              </p>
+              <p className="text-xs text-slate-500">
+                Hãy kéo thả File/Thư mục ở phía trên, nạp file CSV thực tế hoặc{" "}
+                <button
+                  type="button"
+                  onClick={handleLoadSampleBatch}
+                  className="text-emerald-400 hover:underline font-semibold cursor-pointer"
+                >
+                  nạp thử dữ liệu mẫu
+                </button>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                  <tr>
+                    <th className="py-3 pl-4 pr-2 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allQueueSelected}
+                        aria-label="Chọn tất cả hồ sơ"
+                        onChange={e =>
+                          setDroppedFilesQueue(prev =>
+                            prev.map(i => ({ ...i, selected: e.target.checked }))
+                          )
+                        }
+                        className="accent-amber-500 cursor-pointer"
+                      />
+                    </th>
+                    <th className="py-3 px-3 min-w-[210px]">Tên gốc</th>
+                    <th className="py-3 px-3 min-w-[290px]">Tên chuẩn tự động đề xuất</th>
+                    <th className="py-3 px-3 min-w-[210px]">Phân loại 3 Trục & Gate</th>
+                    <th className="py-3 pl-3 pr-4 min-w-[230px] text-right">
+                      Trạng thái CDE (S0/S1/A1) & Chi tiết
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-xs">
+                  {filteredBatchQueue.map(item => {
+                    const isFolder = item.itemKind === "FOLDER";
+                    const isRowActive = activeBatchItemId === item.id;
+                    const isValid = item.validationStatus === "OK";
+                    const cdeCode: CdeIsoStatus = item.cdeStatus || "S0";
+                    const cdeMeta = CDE_ISO_19650_META[cdeCode];
+                    const axes = item.suggestion.projectAxes || [];
+                    const gatesList = item.suggestion.linkedGates || [];
+
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => selectItemAndOpenDetails(item, false)}
+                        className={`transition cursor-pointer ${
+                          item.duplicateHashOf
+                            ? "bg-rose-950/25 hover:bg-rose-950/40"
+                            : isRowActive
+                            ? "bg-slate-800/70"
+                            : "hover:bg-slate-800/40"
+                        }`}
+                      >
+                        {/* Cột 1: [Checkbox] */}
+                        <td
+                          className="py-3 pl-4 pr-2 text-center align-top"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.selected !== false}
+                            aria-label={`Chọn ${item.originalName}`}
+                            onChange={e =>
+                              setDroppedFilesQueue(prev =>
+                                prev.map(q =>
+                                  q.id === item.id ? { ...q, selected: e.target.checked } : q
+                                )
+                              )
+                            }
+                            className="mt-1 accent-amber-500 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* Cột 2: Tên gốc */}
+                        <td className="py-3 px-3 align-top max-w-[260px]">
+                          <div className="flex items-start gap-2">
+                            <span className="text-base leading-none mt-0.5 shrink-0">
+                              {isFolder ? "📁" : "📄"}
+                            </span>
+                            <div className="min-w-0">
+                              <div
+                                className="font-semibold text-slate-100 truncate"
+                                title={item.originalName}
+                              >
+                                {item.originalName}
+                              </div>
+                              <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                                {item.fileSizeLabel || "Tệp"} · {item.readStatsLabel || "Đã đọc"}
+                              </div>
+                              {item.duplicateHashOf && (
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/50 text-rose-300 text-[10px] font-semibold">
+                                  Trùng SHA-256
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Cột 3: Tên chuẩn tự động đề xuất */}
+                        <td
+                          className="py-3 px-3 align-top"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <input
+                            type="text"
+                            value={item.proposedName}
+                            aria-label={`Tên chuẩn đề xuất cho ${item.originalName}`}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setDroppedFilesQueue(prev =>
+                                prev.map(q =>
+                                  q.id === item.id ? { ...q, proposedName: val } : q
+                                )
+                              );
+                            }}
+                            className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 font-mono text-xs text-emerald-300 focus:outline-none"
+                          />
+                          <div className="flex items-center justify-between gap-2 mt-1 text-[11px]">
+                            <span
+                              className="text-slate-400 truncate"
+                              title={item.proposedFolderPath}
+                            >
+                              📂 {item.proposedFolderPath}
+                            </span>
+                            <span
+                              className={`shrink-0 font-medium ${
+                                isValid ? "text-emerald-400" : "text-rose-400"
+                              }`}
+                            >
+                              {isValid ? "✓ Chuẩn" : `⚠ ${item.validationMessage}`}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Cột 4: Phân loại 3 Trục & Gate */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/35 text-rose-300 font-semibold text-[10px]">
+                              {item.suggestion.docType} · {item.suggestion.issuer}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 font-semibold text-[10px]">
+                              {item.suggestion.primaryDomain}
+                            </span>
+                            {axes.slice(0, 2).map(ax => (
+                              <span
+                                key={ax}
+                                className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/35 text-sky-300 text-[10px]"
+                              >
+                                {ax}
+                              </span>
+                            ))}
+                            {axes.length > 2 && (
+                              <span className="text-[10px] text-slate-400">
+                                +{axes.length - 2}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                            {gatesList.slice(0, 3).map(g => (
+                              <span
+                                key={g}
+                                className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 font-mono text-[10px] font-bold"
+                              >
+                                {g}
+                              </span>
+                            ))}
+                            {gatesList.length > 3 && (
+                              <span className="text-[10px] text-slate-400">
+                                +{gatesList.length - 3} Gate
+                              </span>
+                            )}
+                            {item.isCommitted && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
+                                ✓ Đã lưu
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Cột 5: Trạng thái CDE (S0/S1/A1) & Nút "⚙️ Chi tiết" */}
+                        <td
+                          className="py-3 pl-3 pr-4 align-top text-right"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                            <select
+                              value={cdeCode}
+                              aria-label={`Trạng thái CDE cho ${item.originalName}`}
+                              onChange={e =>
+                                handleChangeCdeStatus(item.id, e.target.value as CdeIsoStatus)
+                              }
+                              title={cdeMeta.description}
+                              className={`rounded-lg px-2 py-1 text-[11px] font-bold border cursor-pointer focus:outline-none ${cdeMeta.badgeClass}`}
+                            >
+                              <option value="S0" className="bg-slate-900 text-amber-200">
+                                S0 · WIP
+                              </option>
+                              <option value="S1" className="bg-slate-900 text-sky-300">
+                                S1 · Shared
+                              </option>
+                              <option value="A1" className="bg-slate-900 text-emerald-300">
+                                A1 · Published
+                              </option>
+                              <option value="B1" className="bg-slate-900 text-purple-300">
+                                B1 · Archived
+                              </option>
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => selectItemAndOpenDetails(item, true)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-[11px] font-semibold transition cursor-pointer whitespace-nowrap"
+                            >
+                              ⚙️ Chi tiết
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* =================================================================
+              2. THANH XÁC NHẬN RÕ RÀNG (CUỐI BẢNG)
+             ================================================================= */}
+          <div className="px-4 py-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-xs md:text-sm text-slate-200">
+                {droppedFilesQueue.length === 0 ? (
+                  <span>
+                    Chưa có file trong bảng — bấm xác nhận để lưu biểu mẫu nhập tay sang{" "}
+                    <b className="text-emerald-400">Bước 2 (Tra cứu VBPL)</b> &{" "}
+                    <b className="text-amber-400">Bước 3 (Stage-Gate)</b>.
+                  </span>
+                ) : (
+                  <span>
+                    Sẽ cập nhật <b className="text-emerald-400">{selectedFileCount} hồ sơ văn bản</b>{" "}
+                    {selectedFolderCount > 0 && (
+                      <span>
+                        (+ <b className="text-sky-300">{selectedFolderCount} thư mục</b>){" "}
+                      </span>
+                    )}
+                    sang <b className="text-emerald-400">Bước 2 (Tra cứu VBPL)</b> và đồng bộ{" "}
+                    <b className="text-amber-400">
+                      {selectedLinkedGates.length} cổng Stage-Gate
+                      {selectedLinkedGates.length > 0
+                        ? ` (${selectedLinkedGates.slice(0, 5).join(", ")}${
+                            selectedLinkedGates.length > 5 ? "..." : ""
+                          })`
+                        : ""}
+                    </b>{" "}
+                    sang <b className="text-amber-400">Bước 3 (Stage-Gate)</b>.
+                  </span>
+                )}
+              </div>
+
+              {invalidSelectedItems.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-amber-300">
+                  <span>
+                    ⚠️ Có {invalidSelectedItems.length} mục đang chọn chưa đạt chuẩn hoặc bị trùng SHA-256.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const invalidIds = new Set(invalidSelectedItems.map(i => i.id));
+                      setDroppedFilesQueue(prev =>
+                        prev.map(i => (invalidIds.has(i.id) ? { ...i, selected: false } : i))
+                      );
+                      showToast(`Đã bỏ chọn ${invalidSelectedItems.length} mục chưa đạt chuẩn!`);
+                    }}
+                    className="underline font-semibold text-amber-200 hover:text-white cursor-pointer"
+                  >
+                    Bỏ chọn mục lỗi
+                  </button>
+                </div>
+              )}
+
+              {confirmBannerResult && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-emerald-300">
+                  <span>
+                    ✓ Đã nạp lúc {confirmBannerResult.committedAt}: {confirmBannerResult.docsCount}{" "}
+                    hồ sơ đã sẵn sàng.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("STEP2_VBPL")}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-semibold cursor-pointer"
+                  >
+                    Mở Bước 2 (Tra cứu VBPL) →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("STEP3_PLAN")}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-semibold cursor-pointer"
+                  >
+                    Mở Bước 3 (Stage-Gate) →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleConfirmAndIngest}
+              className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm transition shadow-lg shadow-emerald-500/20 cursor-pointer whitespace-nowrap"
+            >
+              ✅ Xác Nhận & Nạp Vào Hệ Thống
+            </button>
+          </div>
+        </section>
+
+        {/* =================================================================
+            KHỐI 3 (THU GỌN - MẶC ĐỊNH ĐÓNG): ACCORDION "CẤU HÌNH NÂNG CAO & CHI TIẾT OCR"
+           ================================================================= */}
+        <section aria-label="Cấu hình nâng cao và chi tiết OCR">
+          <button
+            type="button"
+            onClick={() => setIsAdvancedDrawerOpen(prev => !prev)}
+            className="w-full px-4 py-3 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-left transition cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">⚙️</span>
+              <div>
+                <div className="text-xs md:text-sm font-bold text-slate-200">
+                  Cấu hình nâng cao & Chi tiết OCR
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Chỉnh tay 8 thành phần tên file, 4 vùng OCR V1–V4 & JSON Metadata
+                </div>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-semibold text-amber-300 shrink-0">
+              {isAdvancedDrawerOpen ? "Đóng ngăn cấu hình ✕" : "Mở cấu hình nâng cao ›"}
+            </span>
+          </button>
+        </section>
+      </div>
+
+      {/* ===================================================================
+          NGĂN TRƯỢT (SLIDE-OVER DRAWER): CẤU HÌNH NÂNG CAO & CHI TIẾT OCR
+          Mặc định ĐÓNG, mở khi bấm "⚙️ Chi tiết" ở bảng hoặc Accordion ở cuối
+         =================================================================== */}
+      {isAdvancedDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsAdvancedDrawerOpen(false)}
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-[2px]"
+          />
+
+          {/* Slide-over Panel */}
+          <aside className="relative z-10 w-full max-w-3xl h-full bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
+            {/* Drawer Header */}
+            <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>⚙️ Cấu hình nâng cao & Chi tiết OCR</span>
+                </h3>
+                <p className="text-xs text-slate-400 truncate mt-0.5">
+                  {activeBatchItem
+                    ? `Đang xem mục: ${activeBatchItem.originalName}`
+                    : `Chuẩn đặt tên hiện hành: ${batchNamingStandard} · ${currentActor.fullName}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdvancedDrawerOpen(false)}
+                className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm cursor-pointer shrink-0"
+                aria-label="Đóng ngăn cấu hình nâng cao"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Drawer Sub-Tabs */}
+            <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-900/50 grid grid-cols-3 gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAdvancedTab("OCR_JSON")}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
+                  advancedTab === "OCR_JSON"
+                    ? "bg-emerald-500 text-slate-950"
+                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                }`}
+              >
+                👁️ OCR V1–V4 & JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvancedTab("NAMING_8PART")}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
+                  advancedTab === "NAMING_8PART"
+                    ? "bg-amber-500 text-slate-950"
+                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                }`}
+              >
+                ✏️ Chỉnh tay 8 thành phần
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvancedTab("BATCH_TOOLS")}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
+                  advancedTab === "BATCH_TOOLS"
+                    ? "bg-sky-500 text-slate-950"
+                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                }`}
+              >
+                🛠️ Hàng loạt & Script .PS1
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* TAB 1: 4 VÙNG OCR (V1-V4) + NỘI DUNG + AST + JSON METADATA */}
+              {advancedTab === "OCR_JSON" && (
+                <div className="space-y-4">
+                  {/* 4 Vùng OCR V1-V4 */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase text-amber-400">
+                        🎯 Bóc tách 4 Vùng Tọa độ OCR (V1–V4)
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-bold">
+                        Độ tin cậy: {currentOcrZones.confidence}%
+                      </span>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>📄</span>
-                        <span>Chọn Nhiều File</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => folderInputRef.current && folderInputRef.current.click()}
-                        className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>📁</span>
-                        <span>Đọc Cả Thư Mục</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const samples = createSampleBatchItems(
-                            activeProjectArchetype,
-                            batchNamingStandard,
-                            folderNamingPreset
-                          );
-                          setDroppedFilesQueue(samples);
-                          const first = samples.find(s => s.itemKind === 'FILE') || samples[0];
-                          if (first) {
-                            setActiveBatchItemId(first.id);
-                            setNamingForm(prev => ({
-                              ...prev,
-                              ...first.suggestion,
-                              rawContentToParse: first.extractedText,
-                            }));
-                          }
-                          showToast(
-                            'Đã nạp bộ mẫu 6 File & 2 Thư mục dự án để kiểm thử đổi tên hàng loạt!'
-                          );
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-emerald-300 font-semibold text-xs transition"
-                      >
-                        ⚡ Nạp Lô Mẫu (8 mục)
-                      </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                        <div className="text-[10px] font-mono text-sky-400">
+                          [V1] CƠ QUAN BAN HÀNH (Góc trên trái)
+                        </div>
+                        <div className="font-semibold text-white mt-0.5">
+                          {currentOcrZones.v1Issuer}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                        <div className="text-[10px] font-mono text-rose-400">
+                          [V2] SỐ HIỆU & NGÀY BAN HÀNH (Góc trên phải)
+                        </div>
+                        <div className="font-semibold text-white mt-0.5">
+                          {currentOcrZones.v2NumberDate}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
+                        <div className="text-[10px] font-mono text-amber-400">
+                          [V3] TÊN LOẠI & TRÍCH YẾU NỘI DUNG (Trung tâm)
+                        </div>
+                        <div className="font-semibold text-emerald-300 mt-0.5">
+                          {currentOcrZones.v3TitleSummary}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
+                        <div className="text-[10px] font-mono text-purple-400">
+                          [V4] THẨM QUYỀN KÝ & HIỆU LỰC (Chân văn bản)
+                        </div>
+                        <div className="text-slate-200 mt-0.5">
+                          {currentOcrZones.v4SignerValidity}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Thanh cấu hình Chế độ Đọc File & Quy tắc Đặt tên Hàng loạt */}
-                  <div className="pt-2 border-t border-slate-800/90 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                    <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2 flex items-center justify-between gap-2">
+                  {/* Trình đọc nội dung & Tìm từ khóa */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-xs font-bold uppercase text-emerald-400">
+                        Nội dung văn bản bóc tách ({parsedPreviewNodes.length} Chương/Điều)
+                      </h4>
+                      <input
+                        type="text"
+                        value={readerKeywordSearch}
+                        onChange={e => setReaderKeywordSearch(e.target.value)}
+                        placeholder="Tìm từ khóa trong văn bản..."
+                        className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white"
+                      />
+                    </div>
+                    {readerKeywordSearch.trim() && (
+                      <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200">
+                        Tìm thấy{" "}
+                        <b>
+                          {namingForm.rawContentToParse
+                            .toLowerCase()
+                            .split(readerKeywordSearch.trim().toLowerCase()).length - 1}
+                        </b>{" "}
+                        vị trí khớp "{readerKeywordSearch}".
+                      </div>
+                    )}
+                    <textarea
+                      rows={7}
+                      value={namingForm.rawContentToParse}
+                      onChange={e =>
+                        setNamingForm({ ...namingForm, rawContentToParse: e.target.value })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Cây Chương-Mục-Điều */}
+                  {parsedPreviewNodes.length > 0 && (
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                      <h4 className="text-xs font-bold uppercase text-amber-400">
+                        🌳 Cấu trúc Chương · Mục · Điều ({parsedPreviewNodes.length})
+                      </h4>
+                      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        {parsedPreviewNodes.map(node => (
+                          <div
+                            key={node.id}
+                            className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-xs"
+                          >
+                            <span className="font-mono font-bold text-sky-300">
+                              {node.level}: {node.code}
+                            </span>{" "}
+                            <span className="text-white font-semibold">{node.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* JSON Metadata 3 Trục */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase text-slate-300">
+                        Siêu dữ liệu JSON 3 Trục (3D Metadata SSOT)
+                      </h4>
+                      <span className="text-[11px] font-mono text-amber-400">REG_Master Ready</span>
+                    </div>
+                    <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-sky-300 overflow-x-auto">
+                      {JSON.stringify(
+                        {
+                          ssot_file_name: generatedFileName,
+                          naming_standard: batchNamingStandard,
+                          folder_preset: folderNamingPreset,
+                          axis_1_legal_group: namingForm.docType,
+                          axis_2_project_types: namingForm.projectAxes,
+                          axis_3_functional_domains: namingForm.secondaryDomains,
+                          generated_stage_gates: namingForm.linkedGates,
+                          generated_qaqc_flows: namingForm.linkedQAQC,
+                          actor_rbac: `${currentActor.fullName} (${currentActor.rbacRole})`,
+                        },
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: CHỈNH TAY 8 THÀNH PHẦN & PHÂN LOẠI 3 TRỤC */}
+              {advancedTab === "NAMING_8PART" && (
+                <div className="space-y-4">
+                  {/* Tên file sinh tự động */}
+                  <div className="bg-slate-900 border border-amber-500/35 rounded-xl p-4 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase text-amber-400">
+                        Tên file chuẩn ({batchNamingStandard})
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedFileName);
+                            showToast("Đã copy tên file chuẩn!");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-amber-300 font-semibold cursor-pointer"
+                        >
+                          Copy tên
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadRenamedFile(activeRawFile, generatedFileName)}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold cursor-pointer"
+                        >
+                          {activeRawFile ? "Tải file đã đổi tên" : "Xuất bản thảo"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
+                      {generatedFileName}
+                    </div>
+                  </div>
+
+                  {/* 8 Thành phần tên file */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold uppercase text-rose-400">
+                      Chỉnh tay 8 Thành phần Tên File & Trục 1 (Pháp luật)
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
-                        <div className="text-[10px] font-mono uppercase text-slate-400">
-                          CHẾ ĐỘ ĐỌC NỘI DUNG:
-                        </div>
-                        <div className="text-[11px] font-semibold text-emerald-300">
+                        <label className="block text-[11px] text-slate-400 mb-1">1. [Ngành]</label>
+                        <select
+                          value={namingForm.industry}
+                          onChange={e => setNamingForm({ ...namingForm, industry: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                        >
+                          {TAXONOMY_3D.industries.map(item => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} — {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-rose-400 font-bold mb-1">
+                          2. [Loại VB]
+                        </label>
+                        <select
+                          value={namingForm.docType}
+                          onChange={e => setNamingForm({ ...namingForm, docType: e.target.value })}
+                          className="w-full bg-slate-950 border border-rose-500/60 rounded-lg px-2.5 py-2 text-xs text-rose-300 font-bold"
+                        >
+                          {TAXONOMY_3D.legalGroups.map(item => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} — {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">3. [Cơ quan]</label>
+                        <select
+                          value={namingForm.issuer}
+                          onChange={e => setNamingForm({ ...namingForm, issuer: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                        >
+                          {TAXONOMY_3D.issuers.map(item => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} — {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">4. [Số hiệu]</label>
+                        <input
+                          type="text"
+                          value={namingForm.rawNumber}
+                          onChange={e => setNamingForm({ ...namingForm, rawNumber: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">5. [Năm]</label>
+                        <input
+                          type="text"
+                          maxLength={4}
+                          value={namingForm.year}
+                          onChange={e => setNamingForm({ ...namingForm, year: e.target.value })}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-amber-400 font-bold mb-1">
+                          6. [Lĩnh vực chính]
+                        </label>
+                        <select
+                          value={namingForm.primaryDomain}
+                          onChange={e =>
+                            setNamingForm({
+                              ...namingForm,
+                              primaryDomain: e.target.value as FunctionalDomainCode,
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-2 text-xs text-amber-300 font-bold"
+                        >
+                          {TAXONOMY_3D.functionalDomains.map(item => (
+                            <option key={item.code} value={item.code}>
+                              {item.code} — {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          7. [Trích yếu] (tự chuyển PascalCase)
+                        </label>
+                        <input
+                          type="text"
+                          value={namingForm.rawSummary}
+                          onChange={e =>
+                            setNamingForm({ ...namingForm, rawSummary: e.target.value })
+                          }
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          8. [Hậu tố Phụ lục]
+                        </label>
+                        <input
+                          type="text"
+                          value={namingForm.appendixSuffix}
+                          onChange={e =>
+                            setNamingForm({ ...namingForm, appendixSuffix: e.target.value })
+                          }
+                          placeholder="PL01, V02, KY"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {activeBatchItemId && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleApplyNamingFormToActiveRow}
+                          className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer"
+                        >
+                          Áp dụng thay đổi vào dòng đang chọn
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Trục 2, Trục 3 & Gate */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+                    <div>
+                      <div className="text-xs font-bold uppercase text-sky-400 mb-2">
+                        Trục 2 — Loại hình Dự án áp dụng
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TAXONOMY_3D.projectTypes.map(pt => {
+                          const active = namingForm.projectAxes.includes(pt.code);
+                          return (
+                            <button
+                              key={pt.code}
+                              type="button"
+                              onClick={() => toggleProjectAxis(pt.code)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs border transition cursor-pointer ${
+                                active
+                                  ? "bg-sky-500/20 border-sky-400 text-sky-200 font-bold"
+                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                              }`}
+                            >
+                              {active ? "✓ " : "+ "}
+                              {pt.code}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-bold uppercase text-amber-400 mb-2">
+                        Trục 3 — Lĩnh vực Chức năng
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TAXONOMY_3D.functionalDomains.map(d => {
+                          const active = namingForm.secondaryDomains.includes(d.code);
+                          return (
+                            <button
+                              key={d.code}
+                              type="button"
+                              onClick={() => toggleSecondaryDomain(d.code)}
+                              className={`px-2 py-1 rounded-lg text-xs border transition cursor-pointer ${
+                                active
+                                  ? "bg-amber-500/20 border-amber-500 text-amber-300 font-bold"
+                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                              }`}
+                            >
+                              {active ? "✓ " : "+ "}
+                              {d.code}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-bold uppercase text-emerald-400 mb-2">
+                        Ánh xạ Stage-Gate (Bước 3)
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {gates.map(g => {
+                          const active = namingForm.linkedGates.includes(g.gate);
+                          return (
+                            <button
+                              key={g.gate}
+                              type="button"
+                              onClick={() => toggleLinkedGate(g.gate)}
+                              className={`px-2 py-1 rounded text-xs font-mono border transition cursor-pointer ${
+                                active
+                                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold"
+                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                              }`}
+                            >
+                              {active ? "✓ " : ""}
+                              {g.gate}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CÔNG CỤ HÀNG LOẠT, TÌM/THAY THẾ, SCRIPT .PS1 & NHẬT KÝ HOÀN TÁC */}
+              {advancedTab === "BATCH_TOOLS" && (
+                <div className="space-y-4">
+                  {/* Chế độ đọc & Quy chuẩn đặt tên */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold uppercase text-sky-400">
+                      Quy chuẩn đặt tên & Chế độ đọc tài liệu
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[11px] text-amber-400 font-semibold mb-1">
+                          Chuẩn đặt tên File hàng loạt
+                        </label>
+                        <select
+                          value={batchNamingStandard}
+                          onChange={e =>
+                            handleRecomputeBatchNames(
+                              e.target.value as QlvbNamingGroupCode,
+                              folderNamingPreset
+                            )
+                          }
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                        >
+                          <option value="SSOT_9PART">Chuẩn SSOT 9 Thành phần (3 Trục)</option>
+                          <option value="PL">Nhóm PL — Văn bản Pháp luật</option>
+                          <option value="HC">Nhóm HC — Văn bản Hành chính</option>
+                          <option value="KT">Nhóm KT — Kỹ thuật / Nghiệm thu</option>
+                          <option value="TK">Nhóm TK — Thiết kế / Bản vẽ / BIM</option>
+                          <option value="PLDA">Nhóm PLDA — Pháp lý Dự án & HĐ</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-sky-400 font-semibold mb-1">
+                          Chuẩn đổi tên Thư mục
+                        </label>
+                        <select
+                          value={folderNamingPreset}
+                          onChange={e =>
+                            handleRecomputeBatchNames(
+                              batchNamingStandard,
+                              e.target.value as FolderNamingPresetCode
+                            )
+                          }
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                        >
+                          <option value="STAGE_GATE_ISO">
+                            ISO 19650 Stage-Gate ({activeProjectArchetype}_G12_CDE)
+                          </option>
+                          <option value="QLVB_5GROUP">Theo 5 Nhóm QLVB</option>
+                          <option value="AXIS_3D_STANDARD">Theo Tọa độ 3 Trục</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs">
+                      <div>
+                        <div className="font-semibold text-emerald-300">
                           {deepScanReadMode
-                            ? '🔍 Deep Scan (15 trang + OCR V1-V4)'
-                            : '⚡ Quick Scan (3 trang đầu)'}
+                            ? "🔍 Deep Scan (15 trang PDF + OCR V1–V4)"
+                            : "⚡ Quick Scan (3 trang đầu)"}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Bật Deep Scan để đọc sâu văn bản nhiều trang khi kéo-thả file mới
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setDeepScanReadMode(prev => !prev)}
-                        className={`px-2 py-1 rounded text-[10px] font-mono font-bold border transition ${
+                        className={`px-3 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
                           deepScanReadMode
-                            ? 'bg-emerald-500 text-slate-950 border-emerald-300'
-                            : 'bg-slate-800 text-slate-300 border-slate-700'
+                            ? "bg-emerald-500 text-slate-950 border-emerald-300"
+                            : "bg-slate-800 text-slate-300 border-slate-700"
                         }`}
                       >
-                        {deepScanReadMode ? 'BẬT' : 'TẮT'}
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2">
-                      <label className="block text-[10px] font-mono uppercase text-amber-400 mb-0.5">
-                        CHUẨN ĐẶT TÊN FILE HÀNG LOẠT:
-                      </label>
-                      <select
-                        value={batchNamingStandard}
-                        onChange={e =>
-                          handleRecomputeBatchNames(
-                            e.target.value as QlvbNamingGroupCode,
-                            folderNamingPreset
-                          )
-                        }
-                        className="w-full bg-transparent text-[11px] font-semibold text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="SSOT_9PART" className="bg-slate-900">
-                          Chuẩn SSOT 9 Thành phần (3 Trục)
-                        </option>
-                        <option value="PL" className="bg-slate-900">
-                          Nhóm PL — Văn bản Pháp luật (QLVB v0.1)
-                        </option>
-                        <option value="HC" className="bg-slate-900">
-                          Nhóm HC — Văn bản Hành chính (Pad 001)
-                        </option>
-                        <option value="KT" className="bg-slate-900">
-                          Nhóm KT — Kỹ thuật / Nghiệm thu / TT
-                        </option>
-                        <option value="TK" className="bg-slate-900">
-                          Nhóm TK — Hồ sơ Thiết kế / Bản vẽ / BIM
-                        </option>
-                        <option value="PLDA" className="bg-slate-900">
-                          Nhóm PLDA — Pháp lý Dự án & Hợp đồng
-                        </option>
-                      </select>
-                    </div>
-
-                    <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2">
-                      <label className="block text-[10px] font-mono uppercase text-sky-400 mb-0.5">
-                        CHUẨN ĐỔI TÊN THƯ MỤC (FOLDER):
-                      </label>
-                      <select
-                        value={folderNamingPreset}
-                        onChange={e =>
-                          handleRecomputeBatchNames(
-                            batchNamingStandard,
-                            e.target.value as FolderNamingPresetCode
-                          )
-                        }
-                        className="w-full bg-transparent text-[11px] font-semibold text-white focus:outline-none cursor-pointer"
-                      >
-                        <option value="STAGE_GATE_ISO" className="bg-slate-900">
-                          ISO 19650 Stage-Gate ({activeProjectArchetype}_G12_CDE/QLCL_...)
-                        </option>
-                        <option value="QLVB_5GROUP" className="bg-slate-900">
-                          Theo 5 Nhóm QLVB (2026_{activeProjectArchetype}/KT_QLCL_...)
-                        </option>
-                        <option value="AXIS_3D_STANDARD" className="bg-slate-900">
-                          Theo Tọa độ 3 Trục (XD_{activeProjectArchetype}_QLCL_2026/...)
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Thanh tải nhanh 3 Biểu mẫu CSV chuẩn SSOT (UTF-8 BOM) */}
-                  <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="text-[10px] font-mono uppercase text-emerald-400 font-bold">
-                      📥 BỘ BIỂU MẪU CSV CHUẨN SSOT (UTF-8 BOM):
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <a
-                        href="/templates/mau_danh_muc_vbpl_3truc.csv"
-                        download="mau_danh_muc_vbpl_3truc.csv"
-                        onClick={() =>
-                          showToast('Đang tải biểu mẫu CSV: Danh mục VBPL 3 Trục (UTF-8 BOM)')
-                        }
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
-                      >
-                        📥 Mẫu VBPL 3 Trục (.csv)
-                      </a>
-                      <a
-                        href="/templates/mau_stage_gate_du_an.csv"
-                        download="mau_stage_gate_du_an.csv"
-                        onClick={() =>
-                          showToast('Đang tải biểu mẫu CSV: Stage-Gate Dự án (UTF-8 BOM)')
-                        }
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
-                      >
-                        📥 Mẫu Stage-Gate Dự án (.csv)
-                      </a>
-                      <a
-                        href="/templates/mau_hop_dong_itp.csv"
-                        download="mau_hop_dong_itp.csv"
-                        onClick={() =>
-                          showToast('Đang tải biểu mẫu CSV: Hợp đồng & ITP (UTF-8 BOM)')
-                        }
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] transition inline-flex items-center gap-1"
-                      >
-                        📥 Mẫu Hợp đồng & ITP (.csv)
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. BẢNG ĐỔI TÊN FILE & FOLDER HÀNG LOẠT + TRẠNG THÁI CDE ISO 19650 + CHECK TRÙNG SHA-256 */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-extrabold uppercase text-emerald-400">
-                        ⚡ BẢNG QUẢN LÝ FILE/FOLDER CDE ISO 19650 ({validatedBatchQueue.length} MỤC)
-                      </span>
-                      <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono flex-wrap">
-                        {(
-                          [
-                            { id: 'ALL', label: `Tất cả (${validatedBatchQueue.length})` },
-                            {
-                              id: 'FOLDER',
-                              label: `📁 Thư mục (${
-                                validatedBatchQueue.filter(i => i.itemKind === 'FOLDER').length
-                              })`,
-                            },
-                            {
-                              id: 'FILE',
-                              label: `📄 File (${
-                                validatedBatchQueue.filter(i => i.itemKind !== 'FOLDER').length
-                              })`,
-                            },
-                            {
-                              id: 'ISSUE',
-                              label: `⚠️ Lỗi (${
-                                validatedBatchQueue.filter(i => i.validationStatus !== 'OK').length
-                              })`,
-                            },
-                            {
-                              id: 'DUP_HASH',
-                              label: `🧬 Trùng SHA (${duplicateHashItems.length})`,
-                            },
-                          ] as const
-                        ).map(tab => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setBatchFilterKind(tab.id)}
-                            className={`px-2 py-0.5 rounded transition ${
-                              batchFilterKind === tab.id
-                                ? tab.id === 'DUP_HASH'
-                                  ? 'bg-rose-500 text-white font-bold'
-                                  : 'bg-amber-500 text-slate-950 font-bold'
-                                : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateSha256Action('SIMULATE_DUP')}
-                        title="Nạp thử 1 tệp trùng nội dung/mã băm SHA-256 để kiểm tra cảnh báo chống trùng lặp"
-                        className="px-2 py-1 rounded bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 text-[10px] font-mono font-bold"
-                      >
-                        🧬 Test trùng SHA-256
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allSelected = droppedFilesQueue.every(i => i.selected !== false);
-                          setDroppedFilesQueue(prev =>
-                            prev.map(i => ({ ...i, selected: !allSelected }))
-                          );
-                        }}
-                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-mono"
-                      >
-                        ☑️ Chọn/Bỏ tất cả
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDroppedFilesQueue([])}
-                        className="px-2 py-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px]"
-                      >
-                        🗑️ Xóa lô
+                        {deepScanReadMode ? "ĐANG BẬT" : "ĐANG TẮT"}
                       </button>
                     </div>
                   </div>
 
-                  {/* Thanh lọc Trạng thái CDE ISO 19650: S0 -> S1 -> A1 -> B1 */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/90 border border-slate-800 text-[10px] font-mono">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-sky-400 font-bold uppercase mr-1">
-                        🏛️ Luồng CDE ISO 19650:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setBatchFilterCde('ALL')}
-                        className={`px-2 py-0.5 rounded border transition ${
-                          batchFilterCde === 'ALL'
-                            ? 'bg-slate-200 text-slate-950 border-white font-bold'
-                            : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
-                        }`}
-                      >
-                        Tất cả ({validatedBatchQueue.length})
-                      </button>
-                      {CDE_ISO_19650_PIPELINE.map((code, idx) => {
-                        const meta = CDE_ISO_19650_META[code];
-                        const cnt = validatedBatchQueue.filter(
-                          i => (i.cdeStatus || 'S0') === code
-                        ).length;
-                        return (
-                          <React.Fragment key={code}>
-                            {idx > 0 && <span className="text-slate-600">→</span>}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setBatchFilterCde(prev => (prev === code ? 'ALL' : code))
-                              }
-                              title={meta.description}
-                              className={`px-2 py-0.5 rounded border transition ${
-                                batchFilterCde === code
-                                  ? 'bg-amber-500 text-slate-950 border-amber-300 font-bold'
-                                  : `${meta.badgeClass} hover:opacity-90`
-                              }`}
-                            >
-                              {meta.shortLabel} ({cnt})
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                    <span className="text-slate-400 text-[9px]">
-                      S0 (WIP) → S1 (Shared) → A1 (Published) → B1 (Archived)
-                    </span>
-                  </div>
-
-                  {/* CẢNH BÁO TRÙNG LẶP NỘI DUNG / MÃ BĂM SHA-256 KHI NẠP LÔ FILE MỚI */}
-                  {duplicateHashItems.length > 0 && (
-                    <div className="p-2.5 rounded-xl bg-rose-950/70 border-2 border-rose-500/70 flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <div className="space-y-0.5 flex-1 min-w-[220px]">
-                        <div className="font-extrabold text-rose-300 flex items-center gap-1.5">
-                          <span>⚠️</span>
-                          <span>
-                            Cảnh báo Trùng lặp Nội dung / Mã băm SHA-256 ({duplicateHashItems.length} mục)
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-rose-100">
-                          Phát hiện tệp trùng mã băm SHA-256:{' '}
-                          <b className="font-mono text-amber-300">
-                            {duplicateHashItems
-                              .slice(0, 2)
-                              .map(d => `${d.originalName} (SHA: ${d.sha256Hash})`)
-                              .join(', ')}
-                            {duplicateHashItems.length > 2
-                              ? ` và ${duplicateHashItems.length - 2} mục khác`
-                              : ''}
-                          </b>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateSha256Action('DESELECT')}
-                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[10px]"
-                        >
-                          Bỏ chọn bản trùng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateSha256Action('REMOVE')}
-                          className="px-2.5 py-1 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-bold text-[10px]"
-                        >
-                          Xóa bản trùng khỏi lô
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Thanh Công cụ Biến đổi Hàng loạt: Tìm & Thay thế | Hậu tố | Đánh số tự động */}
-                  <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/90 grid grid-cols-1 xl:grid-cols-12 gap-2 items-center text-xs">
-                    <div className="xl:col-span-6 flex items-center gap-1.5">
+                  {/* Tìm & Thay thế, Gắn hậu tố, Đánh số */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+                    <h4 className="text-xs font-bold uppercase text-amber-400">
+                      Đổi tên hàng loạt (Áp dụng cho {selectedItems.length} mục đang chọn)
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-2">
                       <input
                         type="text"
                         value={batchFindText}
                         onChange={e => setBatchFindText(e.target.value)}
                         placeholder="Tìm từ khóa (VD: KCN, 2025)..."
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white"
+                        className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
                       />
                       <span className="text-slate-500">→</span>
                       <input
@@ -797,826 +2651,107 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         value={batchReplaceText}
                         onChange={e => setBatchReplaceText(e.target.value)}
                         placeholder="Thay bằng..."
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white"
+                        className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
                       />
                       <button
                         type="button"
-                        onClick={() => handleBatchFindReplaceAndFormat('FIND_REPLACE')}
-                        className="px-2.5 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold text-[11px] shrink-0"
+                        onClick={() => handleBatchFindReplaceAndFormat("FIND_REPLACE")}
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold cursor-pointer"
                       >
                         Thay thế
                       </button>
                     </div>
 
-                    <div className="xl:col-span-4 flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <input
                         type="text"
                         value={batchSuffixInput}
                         onChange={e => setBatchSuffixInput(e.target.value)}
                         placeholder="Hậu tố: PL01, V02, KY..."
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white font-mono"
+                        className="flex-1 min-w-[160px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono"
                       />
                       <button
                         type="button"
-                        onClick={() => handleBatchFindReplaceAndFormat('APPLY_SUFFIX')}
-                        className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-[11px] shrink-0"
+                        onClick={() => handleBatchFindReplaceAndFormat("APPLY_SUFFIX")}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold cursor-pointer"
                       >
-                        +Hậu tố
+                        + Gắn hậu tố
                       </button>
-                    </div>
-
-                    <div className="xl:col-span-2 flex justify-end">
                       <button
                         type="button"
-                        onClick={() => handleBatchFindReplaceAndFormat('AUTO_NUMBER')}
-                        title="Đánh lại số thứ tự 001, 002, 003... cho toàn bộ các mục đang chọn"
-                        className="w-full px-2 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-mono font-semibold text-[11px]"
+                        onClick={() => handleBatchFindReplaceAndFormat("AUTO_NUMBER")}
+                        className="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-semibold cursor-pointer"
                       >
                         🔢 Đánh số 001..N
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Danh sách các dòng File & Folder trong lô (Kèm cột Trạng thái CDE ISO 19650) */}
-                  {filteredBatchQueue.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg">
-                      Chưa có File hoặc Thư mục nào trong bộ lọc này. Hãy kéo-thả File/Folder hoặc bấm{' '}
-                      <b className="text-emerald-400">"⚡ Nạp Lô Mẫu (8 mục)"</b> ở trên.
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-                      {filteredBatchQueue.map(item => {
-                        const isRowActive = activeBatchItemId === item.id;
-                        const isFolder = item.itemKind === 'FOLDER';
-                        const isValid = item.validationStatus === 'OK';
-                        const cdeCode: CdeIsoStatus = item.cdeStatus || 'S0';
-                        const cdeMeta = CDE_ISO_19650_META[cdeCode];
-
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => {
-                              setActiveBatchItemId(item.id);
-                              setActiveRawFile(item.rawFile);
-                              setNamingForm(prev => ({
-                                ...prev,
-                                ...item.suggestion,
-                                rawContentToParse: item.extractedText || prev.rawContentToParse,
-                              }));
-                            }}
-                            className={`p-2.5 rounded-lg border transition cursor-pointer ${
-                              item.duplicateHashOf
-                                ? 'bg-rose-950/35 border-rose-500/70'
-                                : isRowActive
-                                ? 'bg-[#10233f] border-amber-400 shadow-md'
-                                : 'bg-slate-950/90 border-slate-800 hover:border-slate-600'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2 min-w-0 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={item.selected !== false}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    setDroppedFilesQueue(prev =>
-                                      prev.map(q =>
-                                        q.id === item.id ? { ...q, selected: e.target.checked } : q
-                                      )
-                                    );
-                                  }}
-                                  onClick={e => e.stopPropagation()}
-                                  className="mt-1 accent-amber-500 cursor-pointer shrink-0"
-                                />
-
-                                <div className="min-w-0 flex-1 space-y-1.5">
-                                  {/* Dòng 1: Loại mục + Nhóm QLVB + Thư mục + Cột Trạng thái CDE (ISO 19650) */}
-                                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-mono">
-                                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded font-bold ${
-                                          isFolder
-                                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                        }`}
-                                      >
-                                        {isFolder ? '📁 FOLDER' : '📄 FILE'}
-                                      </span>
-
-                                      <select
-                                        value={item.qlvbGroup || batchNamingStandard}
-                                        onClick={e => e.stopPropagation()}
-                                        onChange={e => {
-                                          const nextGrp = e.target.value as QlvbNamingGroupCode;
-                                          setDroppedFilesQueue(prev =>
-                                            prev.map(q => {
-                                              if (q.id !== item.id) return q;
-                                              const nextName =
-                                                q.itemKind === 'FOLDER'
-                                                  ? q.proposedName
-                                                  : buildFileNameByRule({
-                                                      group: nextGrp,
-                                                      industry: q.suggestion.industry,
-                                                      docType: q.suggestion.docType,
-                                                      issuer: q.suggestion.issuer,
-                                                      rawNumber: q.suggestion.rawNumber,
-                                                      year: q.suggestion.year,
-                                                      primaryDomain: q.suggestion.primaryDomain,
-                                                      rawSummary: q.suggestion.rawSummary,
-                                                      appendixSuffix: q.suggestion.appendixSuffix,
-                                                      ext: q.suggestion.ext,
-                                                      projectCode: activeProjectArchetype,
-                                                      ktSubType: q.ktSubType,
-                                                      tkStageDept: q.tkStageDept,
-                                                      tkDocCode: q.tkDocCode,
-                                                      tkRevision: q.tkRevision,
-                                                    });
-                                              return {
-                                                ...q,
-                                                qlvbGroup: nextGrp,
-                                                proposedName: nextName,
-                                              };
-                                            })
-                                          );
-                                        }}
-                                        className="bg-slate-900 border border-slate-700 rounded px-1 py-0.2 text-[10px] text-emerald-300 font-bold"
-                                      >
-                                        <option value="SSOT_9PART">9-PART</option>
-                                        <option value="PL">Nhóm PL</option>
-                                        <option value="HC">Nhóm HC</option>
-                                        <option value="KT">Nhóm KT</option>
-                                        <option value="TK">Nhóm TK</option>
-                                        <option value="PLDA">Nhóm PLDA</option>
-                                      </select>
-
-                                      <span className="text-slate-400 truncate max-w-[240px]">
-                                        📂 {item.originalFolderPath || 'Gốc'} →{' '}
-                                        <b className="text-sky-300">{item.proposedFolderPath}</b>
-                                      </span>
-                                    </div>
-
-                                    {/* CỘT TRẠNG THÁI CDE (ISO 19650): S0 -> S1 -> A1 -> B1 */}
-                                    <div
-                                      className="flex items-center gap-1 shrink-0"
-                                      onClick={e => e.stopPropagation()}
-                                    >
-                                      <span className="text-[9px] text-slate-400 uppercase">CDE:</span>
-                                      <select
-                                        value={cdeCode}
-                                        onChange={e =>
-                                          handleChangeCdeStatus(
-                                            item.id,
-                                            e.target.value as CdeIsoStatus
-                                          )
-                                        }
-                                        title={`Trạng thái CDE (ISO 19650): ${cdeMeta.description}`}
-                                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold border cursor-pointer focus:outline-none ${cdeMeta.badgeClass}`}
-                                      >
-                                        <option value="S0" className="bg-slate-900 text-amber-200">
-                                          S0 · WIP (Đang soạn thảo)
-                                        </option>
-                                        <option value="S1" className="bg-slate-900 text-sky-300">
-                                          S1 · Shared (Phối hợp 4 bên)
-                                        </option>
-                                        <option value="A1" className="bg-slate-900 text-emerald-300">
-                                          A1 · Published (Đã duyệt thi công)
-                                        </option>
-                                        <option value="B1" className="bg-slate-900 text-purple-300">
-                                          B1 · Archived (Hồ sơ hoàn công)
-                                        </option>
-                                      </select>
-                                      {cdeMeta.nextCode && (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleChangeCdeStatus(item.id, cdeMeta.nextCode!)
-                                          }
-                                          title={cdeMeta.nextActionLabel || undefined}
-                                          className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/40 text-[9px] font-bold transition"
-                                        >
-                                          → {cdeMeta.nextCode}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Dòng 2: Tên gốc -> Ô sửa trực tiếp Tên mới */}
-                                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1.5 items-center text-xs">
-                                    <div
-                                      className="md:col-span-5 text-slate-400 truncate text-[11px]"
-                                      title={item.originalName}
-                                    >
-                                      Gốc: <span className="text-slate-200">{item.originalName}</span>
-                                    </div>
-                                    <div className="md:col-span-7 flex items-center gap-1">
-                                      <span className="text-emerald-400 font-mono text-[11px] shrink-0">
-                                        →
-                                      </span>
-                                      <input
-                                        type="text"
-                                        value={item.proposedName}
-                                        onClick={e => e.stopPropagation()}
-                                        onChange={e => {
-                                          const val = e.target.value;
-                                          setDroppedFilesQueue(prev =>
-                                            prev.map(q =>
-                                              q.id === item.id ? { ...q, proposedName: val } : q
-                                            )
-                                          );
-                                        }}
-                                        className="w-full bg-slate-900/90 border border-slate-700 focus:border-emerald-400 rounded px-2 py-0.5 font-mono text-[11px] text-emerald-300 focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {/* Dòng 3: Metadata đọc file, OCR confidence, SHA256, Duplicate Hash & Trạng thái kiểm tra */}
-                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[10px] font-mono">
-                                    <div className="flex flex-wrap items-center gap-2 text-slate-400">
-                                      <span>📊 {item.readStatsLabel || 'Đã đọc'}</span>
-                                      <span>·</span>
-                                      <span>
-                                        OCR:{' '}
-                                        <b className="text-amber-300">
-                                          {item.ocrZones?.confidence || 95}%
-                                        </b>
-                                      </span>
-                                      <span>·</span>
-                                      <span
-                                        className={
-                                          item.duplicateHashOf ? 'text-rose-300 font-bold' : ''
-                                        }
-                                      >
-                                        SHA256: {item.sha256Hash || '8F4EA12B'}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      {item.duplicateHashOf && (
-                                        <span className="px-1.5 py-0.2 rounded bg-rose-500 text-white font-extrabold animate-pulse">
-                                          🧬 TRÙNG SHA-256 ({item.duplicateSourceKind === 'IN_REPO' ? 'Kho SSOT' : 'Trong lô'})
-                                        </span>
-                                      )}
-                                      {item.isCommitted && (
-                                        <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
-                                          ✓ Đã lưu kho
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded font-bold ${
-                                          isValid
-                                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/50'
-                                            : 'bg-rose-950 text-rose-300 border border-rose-600/60'
-                                        }`}
-                                      >
-                                        {item.validationStatus}: {item.validationMessage}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  handleDownloadRenamedFile(item.rawFile, item.proposedName);
-                                }}
-                                className="px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] shrink-0 whitespace-nowrap"
-                              >
-                                ⬇️ Tải
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Thanh Nút Thực thi Đổi tên Hàng loạt & Xuất Script */}
-                  <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={handleCommitBatchRename}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition flex items-center gap-1.5 shadow-md"
+                        onClick={() => handleDuplicateSha256Action("SIMULATE_DUP")}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 font-semibold cursor-pointer"
                       >
-                        <span>✅</span>
-                        <span>
-                          Đổi Tên & Lưu Kho Hàng Loạt (
-                          {validatedBatchQueue.filter(i => i.selected !== false).length} mục)
-                        </span>
+                        🧬 Test trùng SHA
                       </button>
+                    </div>
+                  </div>
 
+                  {/* Xuất Script .PS1 & Bảng đối chiếu CSV */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5 text-xs">
+                    <h4 className="text-xs font-bold uppercase text-emerald-400">
+                      Xuất Script đổi tên ổ cứng & Bảng đối chiếu
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => handleExportBatchRenameArtifact('PS1')}
-                        title="Tải xuống Script PowerShell (.ps1) để chạy đổi tên File & Folder trực tiếp trên máy tính"
-                        className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold text-xs transition"
+                        onClick={() => handleExportBatchRenameArtifact("PS1")}
+                        className="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold cursor-pointer"
                       >
-                        💻 Xuất Script .PS1 (Ổ cứng)
+                        💻 Xuất Script .PS1 (PowerShell)
                       </button>
-
                       <button
                         type="button"
-                        onClick={() => handleExportBatchRenameArtifact('CSV')}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-semibold text-xs transition"
+                        onClick={() => handleExportBatchRenameArtifact("CSV")}
+                        className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-bold cursor-pointer"
                       >
-                        📊 Xuất Bảng CSV
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setStep1RightSubTab('RENAME_LOG')}
-                      className="text-[11px] font-mono text-amber-300 hover:underline"
-                    >
-                      📜 Nhật ký Hoàn tác ({renameLogs.length}) ›
-                    </button>
-                  </div>
-                </div>
-
-                {/* Kết quả Sinh Tên File Chuẩn cho Mục Đang Chọn */}
-                <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl p-3.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <span className="text-[11px] font-mono uppercase text-amber-400 font-semibold">
-                      ĐỊNH DANH TÊN FILE CHUẨN ĐANG CHỌN ({batchNamingStandard}):
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedFileName);
-                          showToast('Đã copy tên file chuẩn!');
-                        }}
-                        className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-semibold px-2.5 py-1 rounded-md whitespace-nowrap"
-                      >
-                        Copy Tên File
-                      </button>
-                      <button
-                        onClick={() => handleDownloadRenamedFile(activeRawFile, generatedFileName)}
-                        className="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-2.5 py-1 rounded-md whitespace-nowrap"
-                      >
-                        {activeRawFile ? 'Tải File Đã Đổi Tên' : 'Xuất Bản Thảo SSOT'}
+                        📊 Xuất Bảng đối chiếu .CSV
                       </button>
                     </div>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
-                    {generatedFileName}
-                  </div>
-                </div>
 
-                {/* Cấu hình 9 Thành phần & TRỤC 1 (Nhóm Pháp luật) */}
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 border-b border-slate-800 pb-2">
-                    TRỤC 1 (NHÓM PHÁP LUẬT): Luật · Nghị định · Thông tư · Nghị quyết · Văn bản hợp nhất · QCVN/TCVN
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">1. [Ngành]</label>
-                      <select
-                        value={namingForm.industry}
-                        onChange={e => setNamingForm({ ...namingForm, industry: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
-                      >
-                        {TAXONOMY_3D.industries.map(item => (
-                          <option key={item.code} value={item.code}>
-                            {item.code} — {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-rose-400 font-bold mb-1">
-                        2. [Loại_VB] (Nhóm Pháp luật)
-                      </label>
-                      <select
-                        value={namingForm.docType}
-                        onChange={e => setNamingForm({ ...namingForm, docType: e.target.value })}
-                        className="w-full bg-slate-950 border border-rose-500/60 rounded-lg px-2.5 py-2 text-xs text-rose-300 font-bold"
-                      >
-                        {TAXONOMY_3D.legalGroups.map(item => (
-                          <option key={item.code} value={item.code}>
-                            {item.code} — {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">3. [Cơ Quan]</label>
-                      <select
-                        value={namingForm.issuer}
-                        onChange={e => setNamingForm({ ...namingForm, issuer: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
-                      >
-                        {TAXONOMY_3D.issuers.map(item => (
-                          <option key={item.code} value={item.code}>
-                            {item.code} — {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">4. [Số_Hiệu]</label>
-                      <input
-                        type="text"
-                        value={namingForm.rawNumber}
-                        onChange={e => setNamingForm({ ...namingForm, rawNumber: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">5. [Năm] (YYYY)</label>
-                      <input
-                        type="text"
-                        maxLength={4}
-                        value={namingForm.year}
-                        onChange={e => setNamingForm({ ...namingForm, year: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono tabular-nums"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] text-amber-400 font-bold mb-1">
-                        6. [Lĩnh_Vực Chức năng]
-                      </label>
-                      <select
-                        value={namingForm.primaryDomain}
-                        onChange={e =>
-                          setNamingForm({ ...namingForm, primaryDomain: e.target.value as FunctionalDomainCode })
-                        }
-                        className="w-full bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-2 text-xs text-amber-300 font-bold"
-                      >
-                        {TAXONOMY_3D.functionalDomains.map(item => (
-                          <option key={item.code} value={item.code}>
-                            {item.code} — {item.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div className="md:col-span-8">
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        7. [Trích_Yếu] (Chuyển PascalCase tự động)
-                      </label>
-                      <input
-                        type="text"
-                        value={namingForm.rawSummary}
-                        onChange={e => setNamingForm({ ...namingForm, rawSummary: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
-                      />
-                    </div>
-                    <div className="md:col-span-4">
-                      <label className="block text-[11px] text-slate-400 mb-1">8. [Hậu tố Phụ lục/Phần]</label>
-                      <input
-                        type="text"
-                        value={namingForm.appendixSuffix}
-                        onChange={e => setNamingForm({ ...namingForm, appendixSuffix: e.target.value })}
-                        placeholder="VD: PL01, PLIIa, KY"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* TRỤC 2 (NHÓM DỰ ÁN) & TRỤC 3 (NHÓM CHỨC NĂNG) */}
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">
-                      TRỤC 2 (NHÓM DỰ ÁN ÁP DỤNG): Hạ tầng kỹ thuật · Dân dụng · KCN · CCN · FTZ · PPP/BT
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {TAXONOMY_3D.projectTypes.map(pt => {
-                        const active = namingForm.projectAxes.includes(pt.code);
-                        return (
-                          <button
-                            key={pt.code}
-                            type="button"
-                            onClick={() => toggleProjectAxis(pt.code)}
-                            className={`p-2.5 rounded-lg border text-left transition flex items-start justify-between gap-2 ${
-                              active
-                                ? 'bg-sky-500/20 border-sky-400 text-sky-200'
-                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                            }`}
-                          >
-                            <div className="text-xs">
-                              <div className="font-bold font-mono text-white">
-                                {active ? '✓ ' : '+ '}[{pt.code}]
-                              </div>
-                              <div className="text-[11px] mt-0.5">{pt.name}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
-                      TRỤC 3 (NHÓM CHỨC NĂNG NGHIỆP VỤ): QLCL · HDXD · QLHD · QLCP · VLXD · TCVN · QCVN
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {TAXONOMY_3D.functionalDomains.map(d => {
-                        const active = namingForm.secondaryDomains.includes(d.code);
-                        return (
-                          <button
-                            key={d.code}
-                            type="button"
-                            onClick={() => toggleSecondaryDomain(d.code)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
-                              active
-                                ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                            }`}
-                          >
-                            {active ? '✓ ' : '+ '}
-                            <b>{d.code}</b> ({d.name})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
-                      ÁNH XẠ TỰ ĐỘNG SANG STAGE-GATE (BƯỚC 3) & QUY TRÌNH QA/QC (BƯỚC 4):
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {gates.map(g => {
-                        const active = namingForm.linkedGates.includes(g.gate);
-                        return (
-                          <button
-                            key={g.gate}
-                            type="button"
-                            onClick={() => toggleLinkedGate(g.gate)}
-                            className={`px-2.5 py-1 rounded text-xs font-mono border transition ${
-                              active
-                                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
-                                : 'bg-slate-950 border-slate-800 text-slate-400'
-                            }`}
-                          >
-                            {active ? '✓ ' : ''}
-                            {g.gate}: {g.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thanh kéo co giãn 2 cột Bước 1 */}
-              {renderVerticalSplitter({
-                id: 'STEP1_SPLIT',
-                onDoubleClickReset: () => {
-                  setStep1LeftPct(56);
-                  showToast('Đã đặt lại tỷ lệ 2 cột Bước 1 (56% : 44%)');
-                },
-                label: `${Math.round(step1LeftPct)}% : ${Math.round(100 - step1LeftPct)}%`,
-              })}
-
-              {/* Cột Phải: Trình Đọc File Chuyên sâu (4 vùng OCR V1-V4) + Cây Chương-Mục-Điều + Nhật ký Hoàn tác LOG_DOITEN */}
-              <div className="flex-1 min-w-[280px] p-4 bg-slate-900/30 overflow-y-auto space-y-3.5">
-                {/* Thanh chuyển đổi 3 chế độ ở Cột Phải Bước 1 */}
-                <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setStep1RightSubTab('OCR_READER')}
-                    className={`py-2 px-2 rounded-lg font-semibold transition truncate ${
-                      step1RightSubTab === 'OCR_READER'
-                        ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    👁️ Đọc File & 4 Vùng OCR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStep1RightSubTab('AST_CHAPTERS')}
-                    className={`py-2 px-2 rounded-lg font-semibold transition truncate ${
-                      step1RightSubTab === 'AST_CHAPTERS'
-                        ? 'bg-amber-500 text-slate-950 font-bold shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🌳 Chương-Mục-Điều ({parsedPreviewNodes.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStep1RightSubTab('RENAME_LOG')}
-                    className={`py-2 px-2 rounded-lg font-semibold transition truncate ${
-                      step1RightSubTab === 'RENAME_LOG'
-                        ? 'bg-sky-500 text-slate-950 font-bold shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    📜 Nhật ký Hoàn tác ({renameLogs.length})
-                  </button>
-                </div>
-
-                {/* TAB PHẢI 1: TRÌNH ĐỌC FILE & BÓC TÁCH 4 VÙNG TỌA ĐỘ OCR (V1..V4) */}
-                {step1RightSubTab === 'OCR_READER' && (
-                  <div className="space-y-3.5">
-                    {/* 4 Vùng Tọa độ OCR (CFG_OCR V1..V4) */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase text-amber-400">
-                          🎯 BÓC TÁCH TỰ ĐỘNG 4 VÙNG TỌA ĐỘ VĂN BẢN (CFG_OCR V1–V4)
-                        </span>
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[10px] font-bold">
-                          Độ tin cậy OCR: {currentOcrZones.confidence}%
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] font-mono text-sky-400">
-                            [V1] CƠ QUAN BAN HÀNH (Góc trên trái):
-                          </div>
-                          <div className="font-semibold text-white truncate mt-0.5">
-                            {currentOcrZones.v1Issuer}
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-lg bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] font-mono text-rose-400">
-                            [V2] SỐ HIỆU & NGÀY BAN HÀNH (Góc trên phải):
-                          </div>
-                          <div className="font-semibold text-white truncate mt-0.5">
-                            {currentOcrZones.v2NumberDate}
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
-                          <div className="text-[10px] font-mono text-amber-400">
-                            [V3] TÊN LOẠI & TRÍCH YẾU NỘI DUNG (Vùng trung tâm):
-                          </div>
-                          <div className="font-semibold text-emerald-300 line-clamp-2 mt-0.5">
-                            {currentOcrZones.v3TitleSummary}
-                          </div>
-                        </div>
-                        <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
-                          <div className="text-[10px] font-mono text-purple-400">
-                            [V4] THẨM QUYỀN KÝ, DẤU ĐỎ & HIỆU LỰC (Chân văn bản):
-                          </div>
-                          <div className="text-slate-200 truncate mt-0.5">
-                            {currentOcrZones.v4SignerValidity}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Khung đọc nội dung văn bản & Tìm kiếm từ khóa trong file */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-xs font-bold uppercase text-emerald-400">
-                          BƯỚC 1.2 — Trình Đọc Nội Dung File & Bóc Tách Điều Khoản
-                        </h3>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={readerKeywordSearch}
-                            onChange={e => setReaderKeywordSearch(e.target.value)}
-                            placeholder="Tìm trong nội dung file..."
-                            className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-white"
-                          />
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {namingForm.rawContentToParse.split('\n').length} dòng
-                          </span>
-                        </div>
-                      </div>
-
-                      {readerKeywordSearch.trim() && (
-                        <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200">
-                          🔍 Tìm thấy{' '}
-                          <b>
-                            {
-                              namingForm.rawContentToParse
-                                .toLowerCase()
-                                .split(readerKeywordSearch.trim().toLowerCase()).length - 1
-                            }
-                          </b>{' '}
-                          vị trí khớp từ khóa <b>"{readerKeywordSearch}"</b> trong văn bản đang đọc.
-                        </div>
-                      )}
-
-                      <textarea
-                        rows={10}
-                        value={namingForm.rawContentToParse}
-                        onChange={e =>
-                          setNamingForm({ ...namingForm, rawContentToParse: e.target.value })
-                        }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-emerald-500"
-                      />
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            handleSaveToSSOT();
-                            setActiveTab('STEP2_VBPL');
-                          }}
-                          className="py-2.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition whitespace-nowrap"
-                        >
-                          Lưu & Chuyển sang Bước 2 (VBPL)
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleSaveToSSOT();
-                            setActiveTab('STEP3_PLAN');
-                          }}
-                          className="py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition whitespace-nowrap"
-                        >
-                          Lưu & Chuyển sang Bước 3 (Stage-Gate)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB PHẢI 2: CÂY CẤU TRÚC CHƯƠNG - MỤC - ĐIỀU BÓC TÁCH TỰ ĐỘNG */}
-                {step1RightSubTab === 'AST_CHAPTERS' && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                  {/* Nhật ký Đổi tên & Hoàn tác (LOG_DOITEN) */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-amber-400">
-                        🌳 CÂY CẤU TRÚC CHƯƠNG · MỤC · ĐIỀU BÓC TÁCH TỪ FILE ({parsedPreviewNodes.length} MỤC)
-                      </span>
-                      <span className="text-[10px] font-mono text-emerald-400">AST Ready</span>
-                    </div>
-                    <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
-                      {parsedPreviewNodes.map(node => (
-                        <div
-                          key={node.id}
-                          className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
-                                node.level === 'Chương'
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                  : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                              }`}
-                            >
-                              {node.level}: {node.code}
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-400">
-                              {node.clauseCount} khoản/điểm
-                            </span>
-                          </div>
-                          {node.title && (
-                            <div className="text-xs font-bold text-white">{node.title}</div>
-                          )}
-                          {node.content && (
-                            <div className="text-[11px] text-slate-300 whitespace-pre-line">
-                              {node.content}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB PHẢI 3: NHẬT KÝ ĐỔI TÊN & HOÀN TÁC (LOG_DOITEN) */}
-                {step1RightSubTab === 'RENAME_LOG' && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-sky-400">
-                        📜 NHẬT KÝ ĐỔI TÊN FILE / FOLDER & HOÀN TÁC (LOG_DOITEN)
-                      </span>
+                      <h4 className="text-xs font-bold uppercase text-slate-300">
+                        📜 Nhật ký Hoàn tác (LOG_DOITEN · {renameLogs.length})
+                      </h4>
                       <span className="text-[10px] font-mono text-slate-400">
-                        SHA-256 Checksum Verified
+                        SHA-256 Verified
                       </span>
                     </div>
-                    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {renameLogs.map(log => (
                         <div
                           key={log.logId}
                           className={`p-2.5 rounded-lg border text-xs space-y-1 ${
                             log.isReverted
-                              ? 'bg-slate-950/50 border-slate-800 opacity-60'
-                              : 'bg-slate-950 border-slate-800'
+                              ? "bg-slate-950/50 border-slate-800 opacity-60"
+                              : "bg-slate-950 border-slate-800"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
                             <span className="text-amber-300 font-bold">
-                              {log.logId} · [{log.itemKind}] · {log.qlvbGroup} ·{' '}
-                              <span className="text-sky-300">CDE {log.cdeStatus || 'S0'}</span>
+                              {log.logId} · {log.qlvbGroup} · CDE {log.cdeStatus || "S0"}
                             </span>
                             <span className="text-slate-400">{log.timestamp}</span>
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">
-                            Tên cũ: <span className="text-slate-200">{log.oldName}</span>
+                            Cũ: {log.oldName}
                           </div>
                           <div className="text-[11px] font-mono text-emerald-400 truncate">
-                            Tên mới: {log.newName}
+                            Mới: {log.newName}
                           </div>
-                          <div className="text-[10px] font-mono text-sky-300 truncate">
-                            Folder: {log.oldFolderPath} → {log.newFolderPath}
-                          </div>
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px] font-mono">
-                            <span className="text-slate-400">
-                              SHA256: {log.sha256Before} · Bởi: {log.actorName}
+                          <div className="flex items-center justify-between pt-1 text-[10px]">
+                            <span className="text-slate-500 font-mono">
+                              SHA256: {log.sha256Before}
                             </span>
                             {log.isReverted ? (
                               <span className="text-rose-400 font-bold">Đã hoàn tác</span>
@@ -1624,9 +2759,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               <button
                                 type="button"
                                 onClick={() => handleUndoRenameLog(log)}
-                                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold"
+                                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold cursor-pointer"
                               >
-                                ↩️ Hoàn tác tên cũ
+                                ↩️ Hoàn tác
                               </button>
                             )}
                           </div>
@@ -1634,37 +2769,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Preview JSON Tọa độ 3 Trục */}
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase text-slate-300">
-                      Siêu dữ liệu Tọa độ 3 Trục (3D Metadata SSOT)
-                    </h4>
-                    <span className="text-[11px] font-mono text-amber-400">REG_Master Ready</span>
-                  </div>
-                  <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-sky-300 overflow-x-auto">
-                    {JSON.stringify(
-                      {
-                        ssot_file_name: generatedFileName,
-                        naming_standard: batchNamingStandard,
-                        folder_preset: folderNamingPreset,
-                        axis_1_legal_group: namingForm.docType,
-                        axis_2_project_types: namingForm.projectAxes,
-                        axis_3_functional_domains: namingForm.secondaryDomains,
-                        generated_stage_gates: namingForm.linkedGates,
-                        generated_qaqc_flows: namingForm.linkedQAQC,
-                        actor_rbac: `${currentActor.fullName} (${currentActor.rbacRole})`,
-                      },
-                      null,
-                      2
-                    )}
-                  </pre>
                 </div>
-              </div>
+              )}
             </div>
-          )}
-    </>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 };
