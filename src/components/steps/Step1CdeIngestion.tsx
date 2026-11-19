@@ -12,10 +12,13 @@ import {
   ProjectArchetypeCode,
   QaQcGateControlItem,
   QlvbNamingGroupCode,
+  SmartTagCategory,
+  SmartTagItem,
   StageGateItem,
 } from "../../types/lexPmoTypes";
 import { CDE_ISO_19650_META, CDE_ISO_19650_PIPELINE } from "../../utils/rbacRaciHelpers";
 import {
+  buildAutoSuggestedTags,
   buildFileNameByRule,
   buildStandardFolderPath,
   cleanDocNumber,
@@ -23,12 +26,20 @@ import {
   createSampleBatchItems,
   detectQlvbGroup,
   extractOcrZonesFromText,
-  inferDefaultGateForDoc,
-  isProjectDossierDocType,
+  inferSubSectorFromDomain,
   normalizeSsotDocType,
+  parseRawTagInput,
   parseVietnameseLegalText,
+  resolveDocTaxonomyFromTags,
   smartAnalyzeFile3D,
+  SMART_TAG_DOMAIN_CODES,
+  SMART_TAG_INDUSTRY_OPTIONS,
+  SMART_TAG_PROJECT_AXES,
+  SMART_TAG_STAGE_GATES,
+  SMART_TAG_SUB_SECTOR_OPTIONS,
+  SSOT_FILENAME_RULE_RE,
   stripRedundantSummaryPrefix,
+  syncSuggestionWithSmartTags,
   toPascalCaseVN,
 } from "../../utils/legalParser";
 import type { StepContextType } from "../../App";
@@ -238,39 +249,16 @@ function inferIndustryAndSubSector(
       };
     }
   }
-
-  if (primaryDomain === "DTH") {
-    return {
-      industryGroupId: "IND-XAYDUNG-DAUTHAU",
-      subSectorCode: "XD_DAUTHAU",
-      subSectorLabel: "Đấu thầu",
-    };
-  }
-  if (primaryDomain === "DTU") {
-    return {
-      industryGroupId: "IND-DOANHNGHIEP",
-      subSectorCode: "DN_DTU",
-      subSectorLabel: "Đầu tư Hạ tầng KCN · KKT · FTZ",
-    };
-  }
-  if (primaryDomain === "TQT") {
-    return {
-      industryGroupId: "IND-KETOAN",
-      subSectorCode: "KT_QT",
-      subSectorLabel: "Kiểm toán & Quyết toán vốn đầu tư",
-    };
-  }
-  if (primaryDomain === "PCCC" || primaryDomain === "ATLD") {
-    return {
-      industryGroupId: "IND-TTHC",
-      subSectorCode: "TTHC_LIENTHONG",
-      subSectorLabel: "Thủ tục hành chính - liên thông",
-    };
-  }
+  const inferred = inferSubSectorFromDomain(
+    primaryDomain,
+    undefined,
+    requestedGroupId,
+    requestedSubCode
+  );
   return {
-    industryGroupId: "IND-XAYDUNG-DAUTHAU",
-    subSectorCode: "XD_XAYDUNG",
-    subSectorLabel: "Xây dựng",
+    industryGroupId: inferred.industryGroupId,
+    subSectorCode: inferred.subSectorCode,
+    subSectorLabel: inferred.subSectorLabel,
   };
 }
 
@@ -404,6 +392,13 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [csvImportResult, setCsvImportResult] = useState<CsvImportSummary | null>(null);
   const [confirmBannerResult, setConfirmBannerResult] = useState<ConfirmBannerSummary | null>(null);
+  const [tagPickerRowId, setTagPickerRowId] = useState<string | null>(null);
+  const [drawerTagPickerOpen, setDrawerTagPickerOpen] = useState<boolean>(false);
+  const [newTagDraft, setNewTagDraft] = useState<string>("");
+  const [editingTagRef, setEditingTagRef] = useState<{ itemId: string; tagId: string } | null>(
+    null
+  );
+  const [editingTagDraft, setEditingTagDraft] = useState<string>("");
 
   const csvInputRef = useRef<HTMLInputElement | null>(null);
   const templateMenuRef = useRef<HTMLDivElement | null>(null);
@@ -472,67 +467,452 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
   );
 
   const normalizedFormDocType = normalizeSsotDocType(namingForm.docType);
-  const isFormProjectLayer = isProjectDossierDocType(normalizedFormDocType);
-  const formProjectCode = namingForm.projectAxes[0] || activeProjectArchetype;
-  const formResolvedGate = inferDefaultGateForDoc(
-    normalizedFormDocType,
-    namingForm.primaryDomain,
-    namingForm.linkedGates
-  );
   const formCleanedNumber = cleanDocNumber(namingForm.rawNumber, namingForm.year);
   const formStrippedSummary = stripRedundantSummaryPrefix(namingForm.rawSummary);
   const formSummaryPascal = toPascalCaseVN(namingForm.rawSummary, 40);
+
+  const getItemSmartTags = (item: AnalyzedFileItem): SmartTagItem[] =>
+    item.smartTags !== undefined
+      ? item.smartTags
+      : buildAutoSuggestedTags(
+          item.suggestion,
+          activeProjectArchetype,
+          item.isCommitted ? "CONFIRMED" : "SUGGESTED"
+        );
+
+  const updateRowSmartTags = (
+    itemId: string,
+    updater: (tags: SmartTagItem[], item: AnalyzedFileItem) => SmartTagItem[]
+  ) => {
+    const targetItem = droppedFilesQueue.find(i => i.id === itemId);
+    if (!targetItem) return;
+    const currentTags = getItemSmartTags(targetItem);
+    const nextTags = updater(currentTags, targetItem);
+    const syncedSuggestion = syncSuggestionWithSmartTags(targetItem.suggestion, nextTags);
+
+    setDroppedFilesQueue(prev =>
+      prev.map(item =>
+        item.id === itemId
+          ? {
+              ...item,
+              smartTags: nextTags,
+              suggestion: syncedSuggestion,
+            }
+          : item
+      )
+    );
+
+    if (itemId === activeBatchItemId) {
+      setNamingForm(prev => ({
+        ...prev,
+        industry: syncedSuggestion.industry,
+        projectAxes: syncedSuggestion.projectAxes,
+        secondaryDomains: syncedSuggestion.secondaryDomains,
+        linkedGates: syncedSuggestion.linkedGates,
+      }));
+    }
+  };
+
+  const handleApproveSmartTag = (itemId: string, tagId: string) => {
+    updateRowSmartTags(itemId, tags =>
+      tags.map(t => (t.id === tagId ? { ...t, status: "CONFIRMED" as const } : t))
+    );
+  };
+
+  const handleApproveAllRowTags = (itemId: string) => {
+    updateRowSmartTags(itemId, tags => tags.map(t => ({ ...t, status: "CONFIRMED" as const })));
+    showToast("Đã duyệt toàn bộ Smart Tags gợi ý thành nhãn chính thức!");
+  };
+
+  const handleRemoveSmartTag = (itemId: string, tagId: string) => {
+    updateRowSmartTags(itemId, tags => tags.filter(t => t.id !== tagId));
+  };
+
+  const handleAddSmartTag = (
+    itemId: string,
+    rawOrPreset: string | { category: SmartTagCategory; code: string; label: string }
+  ) => {
+    const parsed =
+      typeof rawOrPreset === "string" ? parseRawTagInput(rawOrPreset) : rawOrPreset;
+    if (!parsed.label.trim()) return;
+
+    updateRowSmartTags(itemId, tags => {
+      const existingIdx = tags.findIndex(
+        t =>
+          t.category === parsed.category &&
+          t.code.toUpperCase() === parsed.code.toUpperCase()
+      );
+      if (existingIdx >= 0) {
+        return tags.map((t, idx) =>
+          idx === existingIdx ? { ...t, status: "CONFIRMED" as const } : t
+        );
+      }
+      const nextTag: SmartTagItem = {
+        id: `TAG-${parsed.category}-${Date.now().toString(36)}-${tags.length + 1}`,
+        category: parsed.category,
+        code: parsed.code,
+        label: parsed.label,
+        status: "CONFIRMED",
+      };
+      return [...tags, nextTag];
+    });
+  };
+
+  const handleStartEditTag = (itemId: string, tag: SmartTagItem) => {
+    setEditingTagRef({ itemId, tagId: tag.id });
+    setEditingTagDraft(tag.label);
+  };
+
+  const handleCommitEditTag = (itemId: string, tagId: string) => {
+    const trimmed = editingTagDraft.trim();
+    setEditingTagRef(null);
+    if (!trimmed) return;
+    const parsed = parseRawTagInput(trimmed);
+    updateRowSmartTags(itemId, tags =>
+      tags.map(t =>
+        t.id === tagId
+          ? {
+              ...t,
+              category: parsed.category,
+              code: parsed.code,
+              label: parsed.label,
+              status: "CONFIRMED" as const,
+            }
+          : t
+      )
+    );
+  };
+
+  const getTagColorClasses = (category: SmartTagCategory, isSuggested: boolean): string => {
+    const borderStyle = isSuggested ? "border-dashed" : "border-solid";
+    switch (category) {
+      case "INDUSTRY":
+        return `${borderStyle} bg-indigo-500/15 border-indigo-400/60 text-indigo-200`;
+      case "SUB_SECTOR":
+        return `${borderStyle} bg-cyan-500/15 border-cyan-400/60 text-cyan-200`;
+      case "DOMAIN":
+        return `${borderStyle} bg-amber-500/15 border-amber-400/60 text-amber-200`;
+      case "PROJECT_AXIS":
+        return `${borderStyle} bg-sky-500/15 border-sky-400/60 text-sky-200`;
+      case "STAGE_GATE":
+        return `${borderStyle} bg-emerald-500/15 border-emerald-400/60 text-emerald-200 font-mono`;
+      default:
+        return `${borderStyle} bg-purple-500/15 border-purple-400/60 text-purple-200`;
+    }
+  };
+
+  const renderTagPickerPanel = (item: AnalyzedFileItem, onClose: () => void) => (
+    <div
+      onClick={e => e.stopPropagation()}
+      className="mt-2 p-2.5 rounded-xl bg-slate-950 border border-slate-700 shadow-2xl space-y-2 text-[11px]"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-bold text-amber-300">🏷️ Thêm nhanh hoặc nhập Tag tùy chỉnh</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-900 cursor-pointer"
+          aria-label="Đóng bảng chọn tag"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          value={newTagDraft}
+          onChange={e => setNewTagDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && newTagDraft.trim()) {
+              e.preventDefault();
+              handleAddSmartTag(item.id, newTagDraft);
+              setNewTagDraft("");
+            }
+          }}
+          placeholder="Nhập tag (VD: G14, KCN, XD_DAUTHAU, Gói XL-01)..."
+          className="flex-1 min-w-[140px] bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (!newTagDraft.trim()) return;
+            handleAddSmartTag(item.id, newTagDraft);
+            setNewTagDraft("");
+          }}
+          className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] cursor-pointer shrink-0"
+        >
+          + Thêm
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <div>
+          <div className="text-[10px] text-indigo-300 font-semibold mb-1">Ngành:</div>
+          <div className="flex flex-wrap gap-1">
+            {SMART_TAG_INDUSTRY_OPTIONS.map(opt => (
+              <button
+                key={opt.code}
+                type="button"
+                onClick={() =>
+                  handleAddSmartTag(item.id, {
+                    category: "INDUSTRY",
+                    code: opt.code,
+                    label: opt.label,
+                  })
+                }
+                className="px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-[10px] cursor-pointer"
+              >
+                + {opt.code}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] text-cyan-300 font-semibold mb-1">Lĩnh vực con & Chức năng:</div>
+          <div className="flex flex-wrap gap-1">
+            {SMART_TAG_SUB_SECTOR_OPTIONS.slice(0, 6).map(opt => (
+              <button
+                key={opt.code}
+                type="button"
+                onClick={() =>
+                  handleAddSmartTag(item.id, {
+                    category: "SUB_SECTOR",
+                    code: opt.code,
+                    label: opt.label,
+                  })
+                }
+                className="px-1.5 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-[10px] cursor-pointer"
+              >
+                + {opt.subSectorLabel}
+              </button>
+            ))}
+            {SMART_TAG_DOMAIN_CODES.slice(0, 8).map(dom => (
+              <button
+                key={dom}
+                type="button"
+                onClick={() =>
+                  handleAddSmartTag(item.id, {
+                    category: "DOMAIN",
+                    code: dom,
+                    label: `LV mở rộng: ${dom}`,
+                  })
+                }
+                className="px-1.5 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[10px] cursor-pointer"
+              >
+                + {dom}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] text-sky-300 font-semibold mb-1">Dự án / Loại hình DA:</div>
+          <div className="flex flex-wrap gap-1">
+            {SMART_TAG_PROJECT_AXES.map(ax => (
+              <button
+                key={ax}
+                type="button"
+                onClick={() =>
+                  handleAddSmartTag(item.id, {
+                    category: "PROJECT_AXIS",
+                    code: ax,
+                    label: `DA: ${ax}`,
+                  })
+                }
+                className="px-1.5 py-0.5 rounded bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-[10px] cursor-pointer"
+              >
+                + {ax}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] text-emerald-300 font-semibold mb-1">Stage-Gate (G0–G16):</div>
+          <div className="flex flex-wrap gap-1">
+            {SMART_TAG_STAGE_GATES.map(g => (
+              <button
+                key={g}
+                type="button"
+                onClick={() =>
+                  handleAddSmartTag(item.id, {
+                    category: "STAGE_GATE",
+                    code: g,
+                    label: `Gate ${g}`,
+                  })
+                }
+                className="px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-mono text-[10px] cursor-pointer"
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSmartTagsBlock = (item: AnalyzedFileItem, mode: "TABLE" | "DRAWER") => {
+    const tags = getItemSmartTags(item);
+    const suggestedCount = tags.filter(t => t.status === "SUGGESTED").length;
+    const isPickerOpen = mode === "TABLE" ? tagPickerRowId === item.id : drawerTagPickerOpen;
+
+    return (
+      <div className="space-y-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1">
+          {tags.map(tag => {
+            const isSuggested = tag.status === "SUGGESTED";
+            const isEditing =
+              editingTagRef?.itemId === item.id && editingTagRef?.tagId === tag.id;
+            const colorCls = getTagColorClasses(tag.category, isSuggested);
+
+            return (
+              <span
+                key={tag.id}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] transition ${colorCls}`}
+              >
+                {isSuggested && (
+                  <span
+                    className="text-[9px] text-amber-300 font-semibold shrink-0"
+                    title="Tag tự động gợi ý từ nội dung — bấm ✓ để chốt hoặc × để bỏ"
+                  >
+                    ✨ Gợi ý
+                  </span>
+                )}
+
+                {isEditing ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={editingTagDraft}
+                    onChange={e => setEditingTagDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCommitEditTag(item.id, tag.id);
+                      } else if (e.key === "Escape") {
+                        setEditingTagRef(null);
+                      }
+                    }}
+                    onBlur={() => handleCommitEditTag(item.id, tag.id)}
+                    aria-label="Chỉnh sửa tên tag"
+                    className="w-28 bg-slate-950 border border-amber-400 rounded px-1 py-0 text-[10px] text-white focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleStartEditTag(item.id, tag)}
+                    title="Bấm để chỉnh sửa tên tag trực tiếp"
+                    className="text-left hover:underline cursor-text font-medium"
+                  >
+                    {tag.label}
+                  </button>
+                )}
+
+                {isSuggested && !isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => handleApproveSmartTag(item.id, tag.id)}
+                    title="Đồng ý chốt thành tag chính thức"
+                    aria-label={`Đồng ý tag ${tag.label}`}
+                    className="px-1 rounded bg-emerald-500/25 hover:bg-emerald-500 text-emerald-200 hover:text-slate-950 font-bold text-[10px] leading-tight cursor-pointer"
+                  >
+                    ✓
+                  </button>
+                )}
+
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSmartTag(item.id, tag.id)}
+                    title="Xóa tag"
+                    aria-label={`Xóa tag ${tag.label}`}
+                    className="px-0.5 rounded hover:bg-rose-500/30 text-slate-300 hover:text-rose-200 font-bold text-[10px] leading-tight cursor-pointer"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => {
+              setNewTagDraft("");
+              if (mode === "TABLE") {
+                setTagPickerRowId(prev => (prev === item.id ? null : item.id));
+              } else {
+                setDrawerTagPickerOpen(prev => !prev);
+              }
+            }}
+            className="px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-[10px] font-semibold cursor-pointer"
+          >
+            + Thêm Tag
+          </button>
+
+          {suggestedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => handleApproveAllRowTags(item.id)}
+              title="Đồng ý tất cả tag gợi ý trên dòng này"
+              className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/45 text-emerald-300 text-[10px] font-bold cursor-pointer"
+            >
+              ✓ Duyệt ({suggestedCount})
+            </button>
+          )}
+        </div>
+
+        {isPickerOpen &&
+          renderTagPickerPanel(item, () => {
+            if (mode === "TABLE") setTagPickerRowId(null);
+            else setDrawerTagPickerOpen(false);
+          })}
+      </div>
+    );
+  };
 
   const renderSsotTwoLayerExamples = (compact = false) => (
     <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
-          📐 Chuẩn Đặt Tên SSOT 2 Lớp Gọn Nhẹ (Tự động cắt từ thừa · PascalCase ≤ 40 ký tự)
+          📐 Quy Tắc Đặt Tên Chuẩn Thống Nhất (PascalCase ≤ 40 ký tự · Thuộc tính mở rộng gắn Smart Tags)
         </span>
         <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-mono">
-          {isFormProjectLayer
-            ? `Đang chọn: Lớp 2 HSDA (7 TP · ${formProjectCode}_${formResolvedGate})`
-            : `Đang chọn: Lớp 1 VBPL/QC/TC (5 TP · ${normalizedFormDocType})`}
+          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}_${namingForm.primaryDomain}`}
         </span>
       </div>
       <div className={`grid grid-cols-1 ${compact ? "gap-2" : "md:grid-cols-2 gap-2.5"}`}>
         <div className="p-2.5 rounded-lg bg-slate-900/90 border border-emerald-500/30 space-y-1">
           <div className="text-[11px] font-bold text-emerald-300">
-            Lớp 1 · VBPL / Quy chuẩn / Tiêu chuẩn (5 thành phần)
-          </div>
-          <div className="text-[10px] text-slate-400">
-            Áp dụng: <span className="font-mono text-slate-200">LUAT, NQ, ND, TT, QCVN, TCVN, VBHN</span>
+            Công thức chuẩn áp dụng thống nhất (VBPL & Hồ sơ Dự án)
           </div>
           <div className="font-mono text-[10px] text-sky-300 break-all">
-            [LoạiVB]_[Năm]-[SốHiệu]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+            [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
           </div>
           <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
             <div className="font-mono text-emerald-400 break-all">
-              VD: ND_2026-207_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinh-PLIIa.pdf
+              VD 1: 207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf
             </div>
             <div className="font-mono text-emerald-400/90 break-all">
-              VD: TT_2026-12_QLCP_DinhMucDuToanXayDungCongTrinh.pdf
+              VD 2: 12-2026_TT_QLCP_DinhMucDuToanCongTrinh.pdf
+            </div>
+            <div className="font-mono text-amber-300 break-all">
+              VD 3: 018-2026_BBNT_QLCL_NghiemThuCotThepDamSanTang5-KY.docx
             </div>
           </div>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-amber-500/30 space-y-1">
-          <div className="text-[11px] font-bold text-amber-300">
-            Lớp 2 · Hồ sơ Dự án (7 thành phần)
+        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-sky-500/30 space-y-1">
+          <div className="text-[11px] font-bold text-sky-300">
+            Thuộc tính mở rộng (Tách thành Smart Tags / Labels)
           </div>
-          <div className="text-[10px] text-slate-400">
-            Áp dụng: <span className="font-mono text-slate-200">QD, TTr, HD, PLHD, BBNT, NKTC, BV</span>
-          </div>
-          <div className="font-mono text-[10px] text-sky-300 break-all">
-            [MãDA]_[Gate]_[LoạiHS]_[Năm]-[SốHiệu]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
-          </div>
-          <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
-            <div className="font-mono text-amber-300 break-all">
-              VD: KCN_G12_BBNT_2026-018_QLCL_NghiemThuCotThepDamSanTang5-KY.docx
-            </div>
-            <div className="font-mono text-amber-300/90 break-all">
-              VD: KCN_G11_HD_2026-45_QLHD_HaTangKyThuatKcn-V01.pdf
-            </div>
+          <div className="text-[10px] text-slate-300 leading-relaxed">
+            • <b>Ngành</b> (XD, BDS, TC, DN) &amp; <b>Lĩnh vực con</b> (XD_XAYDUNG, XD_DAUTHAU, DN_DTU...)
+            <br />• <b>Mã Dự án / Loại hình DA</b> (KCN, HTKT, DAN_DUNG, CCN, FTZ, PPP_BT)
+            <br />• <b>Stage-Gate G0–G16</b> (hiển thị ✨ Gợi ý viền đứt để duyệt ✓ / sửa / xóa ×)
           </div>
         </div>
       </div>
@@ -581,7 +961,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         : detectQlvbGroup(params.docType, params.primaryDomain);
 
     const safeProposedName =
-      params.proposedName && params.proposedName.length <= 120
+      params.proposedName &&
+      params.proposedName.length <= 120 &&
+      (qlvbGroup !== "SSOT_9PART" || SSOT_FILENAME_RULE_RE.test(params.proposedName))
         ? params.proposedName
         : buildFileNameByRule({
             group: qlvbGroup,
@@ -614,6 +996,18 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
       `${params.index}|${params.originalName}|${safeProposedName}|${params.extractedText}`
     );
 
+    const csvSmartTags = buildAutoSuggestedTags(
+      {
+        industry: params.industry,
+        primaryDomain: params.primaryDomain,
+        projectAxes: params.projectAxes,
+        secondaryDomains: params.secondaryDomains,
+        linkedGates: params.linkedGates,
+      },
+      activeProjectArchetype,
+      "SUGGESTED"
+    );
+
     return {
       id: `CSV-${Date.now().toString(36).toUpperCase()}-${params.index + 1}`,
       rawFile: null,
@@ -637,6 +1031,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         linkedGates: params.linkedGates,
         linkedQAQC: params.linkedQAQC,
       },
+      smartTags: csvSmartTags,
       proposedName: safeProposedName,
       qlvbGroup,
       cdeStatus: params.cdeStatus,
@@ -742,12 +1137,25 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             status,
             linkedGates: effectiveGates,
           });
+          const csvIndustry = row.industry_code || analyzed.industry;
+          const csvTags = buildAutoSuggestedTags(
+            {
+              industry: csvIndustry,
+              primaryDomain,
+              projectAxes,
+              secondaryDomains,
+              linkedGates: effectiveGates,
+            },
+            activeProjectArchetype,
+            "CONFIRMED"
+          );
+          const csvTaxonomy = resolveDocTaxonomyFromTags(primaryDomain, csvIndustry, csvTags);
 
           const docObj: LegalDocument = {
             id: `DOC-CSV-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
             ssotFileName: ssotName,
             docNumber,
-            docType: row.doc_type || analyzed.docType,
+            docType: normalizeSsotDocType(row.doc_type || analyzed.docType),
             issuer: row.issuer_code || analyzed.issuer,
             year: row.issue_year || analyzed.year,
             issueDate: row.issue_date || `01/01/${row.issue_year || "2026"}`,
@@ -771,6 +1179,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             secondaryDomains,
             linkedGates: effectiveGates,
             linkedQAQC,
+            tags: csvTaxonomy.tags,
             lineage,
             nodes,
           };
@@ -1231,7 +1640,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             id: `DOC-GEN-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
             ssotFileName: proposedName,
             docNumber: row.doc_number || row.so_hieu || analyzed.rawNumber,
-            docType: row.doc_type || analyzed.docType,
+            docType: normalizeSsotDocType(row.doc_type || analyzed.docType),
             issuer: row.issuer_code || analyzed.issuer,
             year: row.issue_year || analyzed.year,
             issueDate: row.issue_date || "18/11/2026",
@@ -1252,6 +1661,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             secondaryDomains: [primaryDomain],
             linkedGates,
             linkedQAQC: [],
+            tags: [
+              analyzed.industry,
+              subSectorCode,
+              ...projectAxes,
+              ...linkedGates,
+            ],
             lineage: `Nạp trực tiếp từ file CSV (${fileName})`,
             nodes,
           });
@@ -1462,9 +1877,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 tkDocCode: item.tkDocCode,
                 tkRevision: item.tkRevision,
               });
+        const nextTagsFromForm = [
+          ...buildAutoSuggestedTags(nextSuggestion, activeProjectArchetype, "CONFIRMED"),
+          ...(item.smartTags || []).filter(t => t.category === "CUSTOM"),
+        ];
         return {
           ...item,
           suggestion: nextSuggestion,
+          smartTags: nextTagsFromForm,
           proposedName: nextName,
           extractedText: namingForm.rawContentToParse,
         };
@@ -1862,9 +2282,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     </th>
                     <th className="py-3 px-3 min-w-[210px]">Tên gốc</th>
                     <th className="py-3 px-3 min-w-[290px]">Tên chuẩn tự động đề xuất</th>
-                    <th className="py-3 px-3 min-w-[210px]">Phân loại 3 Trục & Gate</th>
+                    <th className="py-3 px-3 min-w-[270px]">Phân loại &amp; Tags</th>
                     <th className="py-3 pl-3 pr-4 min-w-[230px] text-right">
-                      Trạng thái CDE (S0/S1/A1) & Chi tiết
+                      Trạng thái CDE (S0/S1/A1) &amp; Chi tiết
                     </th>
                   </tr>
                 </thead>
@@ -1875,8 +2295,6 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     const isValid = item.validationStatus === "OK";
                     const cdeCode: CdeIsoStatus = item.cdeStatus || "S0";
                     const cdeMeta = CDE_ISO_19650_META[cdeCode];
-                    const axes = item.suggestion.projectAxes || [];
-                    const gatesList = item.suggestion.linkedGates || [];
 
                     return (
                       <tr
@@ -1971,49 +2389,22 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           </div>
                         </td>
 
-                        {/* Cột 4: Phân loại 3 Trục & Gate */}
-                        <td className="py-3 px-3 align-top">
-                          <div className="flex flex-wrap items-center gap-1">
+                        {/* Cột 4: Phân loại & Tags (Smart Tags Gợi ý Tự động & Duyệt/Sửa/Xóa) */}
+                        <td className="py-3 px-3 align-top max-w-[360px]">
+                          <div className="flex flex-wrap items-center gap-1 mb-1.5">
                             <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/35 text-rose-300 font-semibold text-[10px]">
-                              {item.suggestion.docType} · {item.suggestion.issuer}
+                              {normalizeSsotDocType(item.suggestion.docType)} · {item.suggestion.issuer}
                             </span>
                             <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 font-semibold text-[10px]">
                               {item.suggestion.primaryDomain}
                             </span>
-                            {axes.slice(0, 2).map(ax => (
-                              <span
-                                key={ax}
-                                className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/35 text-sky-300 text-[10px]"
-                              >
-                                {ax}
-                              </span>
-                            ))}
-                            {axes.length > 2 && (
-                              <span className="text-[10px] text-slate-400">
-                                +{axes.length - 2}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                            {gatesList.slice(0, 3).map(g => (
-                              <span
-                                key={g}
-                                className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 font-mono text-[10px] font-bold"
-                              >
-                                {g}
-                              </span>
-                            ))}
-                            {gatesList.length > 3 && (
-                              <span className="text-[10px] text-slate-400">
-                                +{gatesList.length - 3} Gate
-                              </span>
-                            )}
                             {item.isCommitted && (
                               <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
                                 ✓ Đã lưu
                               </span>
                             )}
                           </div>
+                          {renderSmartTagsBlock(item, "TABLE")}
                         </td>
 
                         {/* Cột 5: Trạng thái CDE (S0/S1/A1) & Nút "⚙️ Chi tiết" */}
@@ -2167,7 +2558,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   Cấu hình nâng cao & Chi tiết OCR
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Chuẩn SSOT 2 lớp (5/7 thành phần), 4 vùng OCR V1–V4 & JSON Metadata
+                  Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Công thức [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực], Smart Tags, 4 vùng OCR V1–V4 &amp; JSON
                 </div>
               </div>
             </div>
@@ -2203,7 +2594,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     ? `Đang xem mục: ${activeBatchItem.originalName}`
                     : `Chuẩn đặt tên hiện hành: ${
                         batchNamingStandard === "SSOT_9PART"
-                          ? "SSOT 2 Lớp (5 TP VBPL · 7 TP HSDA)"
+                          ? "[SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu]"
                           : batchNamingStandard
                       } · ${currentActor.fullName}`}
                 </p>
@@ -2240,7 +2631,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
                 }`}
               >
-                ✏️ Chuẩn SSOT 2 Lớp (5/7 TP)
+                ✏️ Chuẩn Tên &amp; Smart Tags
               </button>
               <button
                 type="button"
@@ -2257,9 +2648,23 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
             {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* TAB 1: 4 VÙNG OCR (V1-V4) + NỘI DUNG + AST + JSON METADATA */}
+              {/* TAB 1: 4 VÙNG OCR (V1-V4) + SMART TAGS + NỘI DUNG + AST + JSON METADATA */}
               {advancedTab === "OCR_JSON" && (
                 <div className="space-y-4">
+                  {activeBatchItem && (
+                    <div className="bg-slate-900 border border-sky-500/35 rounded-xl p-4 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase text-sky-300">
+                          🏷️ Phân loại &amp; Smart Tags (Duyệt ✓ / Sửa trực tiếp / Xóa ×)
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          Viền nét đứt = ✨ Gợi ý tự động · Viền liền = Đã chốt
+                        </span>
+                      </div>
+                      {renderSmartTagsBlock(activeBatchItem, "DRAWER")}
+                    </div>
+                  )}
+
                   {/* 4 Vùng OCR V1-V4 */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">
@@ -2382,6 +2787,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           axis_3_functional_domains: namingForm.secondaryDomains,
                           generated_stage_gates: namingForm.linkedGates,
                           generated_qaqc_flows: namingForm.linkedQAQC,
+                          smart_tags: activeBatchItem
+                            ? getItemSmartTags(activeBatchItem).map(t => ({
+                                category: t.category,
+                                code: t.code,
+                                label: t.label,
+                                status: t.status,
+                              }))
+                            : [],
                           actor_rbac: `${currentActor.fullName} (${currentActor.rbacRole})`,
                         },
                         null,
@@ -2392,7 +2805,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 </div>
               )}
 
-              {/* TAB 2: CHUẨN SSOT 2 LỚP (5/7 THÀNH PHẦN) & PHÂN LOẠI 3 TRỤC */}
+              {/* TAB 2: CÔNG THỨC ĐẶT TÊN CHUẨN & SMART TAGS */}
               {advancedTab === "NAMING_8PART" && (
                 <div className="space-y-4">
                   {/* Tên file sinh tự động */}
@@ -2402,16 +2815,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         <span className="text-xs font-bold uppercase text-amber-400">
                           Tên file chuẩn (
                           {batchNamingStandard === "SSOT_9PART"
-                            ? isFormProjectLayer
-                              ? "Lớp 2 · HSDA 7 Thành phần"
-                              : "Lớp 1 · VBPL/QC/TC 5 Thành phần"
+                            ? "[SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu]"
                             : batchNamingStandard}
                           )
                         </span>
                         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-sky-300">
-                          {isFormProjectLayer
-                            ? `${formProjectCode}_${formResolvedGate}_${normalizedFormDocType}_${namingForm.year}-${formCleanedNumber}`
-                            : `${normalizedFormDocType}_${namingForm.year}-${formCleanedNumber}`}
+                          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}_${namingForm.primaryDomain}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2450,10 +2859,10 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                   {renderSsotTwoLayerExamples(false)}
 
-                  {/* Thành phần cấu thành tên file chuẩn 2 lớp */}
+                  {/* Thành phần cấu thành tên file chuẩn mới */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
                     <h4 className="text-xs font-bold uppercase text-rose-400">
-                      Chỉnh tay Thành phần Tên File SSOT 2 Lớp & Trục 1 (Pháp luật)
+                      Chỉnh tay Thành phần Tên File ([SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu])
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
@@ -2595,6 +3004,20 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     )}
                   </div>
 
+                  {activeBatchItem && (
+                    <div className="bg-slate-900 border border-sky-500/35 rounded-xl p-4 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase text-sky-300">
+                          🏷️ Smart Tags / Labels đang gắn trên dòng chọn
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          Bấm ✓ để chốt gợi ý · Bấm tên tag để sửa · × để xóa
+                        </span>
+                      </div>
+                      {renderSmartTagsBlock(activeBatchItem, "DRAWER")}
+                    </div>
+                  )}
+
                   {/* Trục 2, Trục 3 & Gate */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
                     <div>
@@ -2702,7 +3125,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           }
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
                         >
-                          <option value="SSOT_9PART">Chuẩn SSOT 2 Lớp (5 TP VBPL · 7 TP HSDA)</option>
+                          <option value="SSOT_9PART">
+                            Chuẩn SSOT Thống Nhất ([SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu])
+                          </option>
                           <option value="PL">Nhóm PL — Văn bản Pháp luật</option>
                           <option value="HC">Nhóm HC — Văn bản Hành chính</option>
                           <option value="KT">Nhóm KT — Kỹ thuật / Nghiệm thu</option>

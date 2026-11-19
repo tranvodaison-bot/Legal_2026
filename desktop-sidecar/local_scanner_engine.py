@@ -40,7 +40,7 @@ except ImportError:
 
 app = FastAPI(
     title="LEX-PMO OS v3.1 — Local PDF Scanner, Vietnamese OCR & Batch Rename Sidecar",
-    description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên SSOT 2 lớp (5/7 thành phần) & Undo 100%",
+    description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext] & Smart Tags",
     version="3.1.0"
 )
 
@@ -262,7 +262,8 @@ LEGAL_STANDARD_DOC_TYPES = {"LUAT", "NQ", "ND", "TT", "QCVN", "TCVN", "VBHN"}
 PROJECT_DOSSIER_DOC_TYPES = {"QD", "TTr", "HD", "PLHD", "BBNT", "NKTC", "BV"}
 
 _LEADING_SSOT_PREFIX_RE = re.compile(
-    r"^(?:(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|"
+    r"^(?:[0-9A-Za-z-]+-\d{4}_(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_[A-Z0-9]+_|"
+    r"(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|"
     r"(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)",
     re.IGNORECASE,
 )
@@ -404,6 +405,16 @@ def to_pascal_case_vn(text: str, max_len: int = 40) -> str:
     return joined[:max_len] if joined else "TaiLieuChuaPhanLoai"
 
 
+SSOT_FILENAME_RULE_RE = re.compile(
+    r"^[0-9A-Za-z]+(?:-[0-9A-Za-z]+)*-\d{4}_[A-Za-z0-9-]+_[A-Z0-9]+_[A-Za-z0-9]+(?:-[A-Za-z0-9_-]+)?\.[a-z0-9]+$",
+    re.IGNORECASE,
+)
+
+
+def validate_ssot_filename(file_name: str) -> bool:
+    return bool(SSOT_FILENAME_RULE_RE.match((file_name or "").strip()))
+
+
 def build_ssot_2layer_filename(
     doc_type: str,
     issue_year: int,
@@ -415,6 +426,10 @@ def build_ssot_2layer_filename(
     gate_code: Optional[str] = None,
     appendix_suffix: str = "",
 ) -> str:
+    """
+    Sinh tên file theo công thức chuẩn thống nhất:
+    [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+    """
     canonical_type = normalize_ssot_doc_type(doc_type)
     year_str = str(issue_year or datetime.now().year)
     num_clean = clean_doc_number(doc_number, int(year_str) if year_str.isdigit() else None)
@@ -423,15 +438,39 @@ def build_ssot_2layer_filename(
     suffix_clean = (appendix_suffix or "").strip().lstrip("-")
     suffix_part = f"-{suffix_clean}" if suffix_clean else ""
 
-    if is_project_dossier_doc_type(canonical_type):
-        proj = (project_code or "KCN").strip().upper()
-        resolved_gate = infer_default_gate(canonical_type, domain, gate_code)
-        return (
-            f"{proj}_{resolved_gate}_{canonical_type}_{year_str}-{num_clean}_"
-            f"{domain}_{summary_40}{suffix_part}.{ext_clean}"
-        )
+    return f"{num_clean}-{year_str}_{canonical_type}_{domain}_{summary_40}{suffix_part}.{ext_clean}"
 
-    return f"{canonical_type}_{year_str}-{num_clean}_{domain}_{summary_40}{suffix_part}.{ext_clean}"
+
+def build_suggested_tags(
+    domain: str,
+    project_code: str,
+    gate_code: str,
+) -> List[Dict[str, str]]:
+    industry_map = {
+        "TQT": ("TC", "Ngành: Tài chính - Kế toán (TC)"),
+        "DTU": ("BDS", "Ngành: Đầu tư KCN & BĐS (BDS)"),
+        "ATLD": ("DN", "Ngành: Quản trị Doanh nghiệp (DN)"),
+    }
+    sub_sector_map = {
+        "DTH": ("XD_DAUTHAU", "LV con: Đấu thầu"),
+        "DTU": ("DN_DTU", "LV con: Đầu tư Hạ tầng KCN · KKT · FTZ"),
+        "TQT": ("KT_QT", "LV con: Kiểm toán & Quyết toán vốn đầu tư"),
+        "PCCC": ("TTHC_LIENTHONG", "LV con: Thủ tục hành chính - liên thông"),
+        "ATLD": ("LD_ATLD", "LV con: An toàn vệ sinh lao động xây dựng"),
+        "QCVN": ("CDS_KHCN", "LV con: KHCN - Đổi mới sáng tạo (TCVN/QCVN)"),
+        "TCVN": ("CDS_KHCN", "LV con: KHCN - Đổi mới sáng tạo (TCVN/QCVN)"),
+    }
+    ind_code, ind_label = industry_map.get(domain, ("XD", "Ngành: Xây dựng (XD)"))
+    sub_code, sub_label = sub_sector_map.get(domain, ("XD_XAYDUNG", "LV con: Xây dựng"))
+    proj = (project_code or "KCN").strip().upper()
+    gate = (gate_code or "G12").strip().upper()
+
+    return [
+        {"category": "INDUSTRY", "code": ind_code, "label": ind_label, "status": "SUGGESTED"},
+        {"category": "SUB_SECTOR", "code": sub_code, "label": sub_label, "status": "SUGGESTED"},
+        {"category": "PROJECT_AXIS", "code": proj, "label": f"DA: {proj}", "status": "SUGGESTED"},
+        {"category": "STAGE_GATE", "code": gate, "label": f"Gate {gate}", "status": "SUGGESTED"},
+    ]
 
 
 def compute_sha256(file_path: str) -> str:
@@ -562,16 +601,19 @@ def classify_3_axes_and_9_parts(
         gate_code=gate_code,
         appendix_suffix=appendix_suffix,
     )
-    naming_layer = "PROJECT_7PART" if is_project_dossier_doc_type(doc_type) else "LEGAL_5PART"
+    naming_layer = "UNIFIED_SSOT"
+    suggested_tags = build_suggested_tags(domain=domain, project_code=project_code, gate_code=gate_code)
 
     return {
         "doc_type": doc_type,
         "doc_number": doc_number,
         "issue_year": issue_year,
         "domain": domain,
-        "gate_code": gate_code if is_project_dossier_doc_type(doc_type) else None,
-        "project_code": project_code if is_project_dossier_doc_type(doc_type) else None,
+        "gate_code": gate_code,
+        "project_code": project_code,
         "naming_layer": naming_layer,
+        "is_valid_ssot_name": validate_ssot_filename(ssot_name),
+        "suggested_tags": suggested_tags,
         "summary_pascal": to_pascal_case_vn(summary_raw, max_len=40),
         "suggested_ssot_name": ssot_name,
         "ocr_engine": extracted.get("engine_used"),

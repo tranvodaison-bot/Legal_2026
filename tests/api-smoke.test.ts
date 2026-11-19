@@ -16,12 +16,17 @@ import { MAX_AUDIT_LOGS, getAuditLogs, prependAuditLog } from '../api/_lib/audit
 import type { GeminiClientLike, GeminiGenerateContentParams } from '../api/_lib/gemini.js';
 import { toCanonicalGuardRole } from '../src/services/ssotBridgeService.js';
 import {
+  buildAutoSuggestedTags,
   buildFileNameByRule,
   cleanDocNumber,
   createSampleBatchItems,
+  parseRawTagInput,
+  resolveDocTaxonomyFromTags,
   smartAnalyzeFile3D,
   stripRedundantSummaryPrefix,
+  syncSuggestionWithSmartTags,
   toPascalCaseVN,
+  validateBatchFileName,
 } from '../src/utils/legalParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -723,7 +728,7 @@ test('auditStore monotonic auditSequence prevents ID collisions past MAX_AUDIT_L
   assert.equal(toCanonicalGuardRole('TVTK'), 'TVGS');
 });
 
-test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, strips redundant prefixes, and caps PascalCase summary at 40 chars', () => {
+test('SSOT [SoHieu]-[Nam] filename generator, validator, and interactive smart tags work end-to-end', () => {
   assert.equal(
     stripRedundantSummaryPrefix(
       'Nghị định số 207/2026/NĐ-CP quy định chi tiết về quản lý chất lượng thi công và bảo trì công trình'
@@ -738,6 +743,10 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     stripRedundantSummaryPrefix('Quyết định số 15/QĐ-UBND về việc phê duyệt điều chỉnh quy hoạch 1/500'),
     'phe duyet dieu chinh quy hoach 1/500'
   );
+  assert.equal(
+    stripRedundantSummaryPrefix('207-2026_ND_QLCL_QuanLyChatLuongCongTrinh'),
+    'QuanLyChatLuongCongTrinh'
+  );
 
   const longPascal = toPascalCaseVN(
     'Nghị định số 207/2026/NĐ-CP quy định chi tiết về quản lý chất lượng thi công xây dựng và bảo trì công trình hạ tầng khu công nghiệp'
@@ -749,7 +758,7 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
   assert.equal(cleanDocNumber('06:2022/BXD', '2022'), '06');
   assert.equal(cleanDocNumber('NX02-BV012', '2026'), 'NX02BV012');
 
-  // Layer 1: VBPL / Quy chuẩn / Tiêu chuẩn (5 parts)
+  // Unified naming rule: [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
   const ndName = buildFileNameByRule({
     group: 'SSOT_9PART',
     industry: 'XD',
@@ -763,7 +772,7 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     ext: 'pdf',
     projectCode: 'KCN',
   });
-  assert.equal(ndName, 'ND_2026-207_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf');
+  assert.equal(ndName, '207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf');
 
   const ttName = buildFileNameByRule({
     group: 'SSOT_9PART',
@@ -778,7 +787,7 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     ext: 'pdf',
     projectCode: 'KCN',
   });
-  assert.equal(ttName, 'TT_2026-12_QLCP_DinhMucDuToanXayDungCongTrinh.pdf');
+  assert.equal(ttName, '12-2026_TT_QLCP_DinhMucDuToanXayDungCongTrinh.pdf');
 
   const qcvnName = buildFileNameByRule({
     group: 'SSOT_9PART',
@@ -792,9 +801,8 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     appendixSuffix: '',
     ext: 'pdf',
   });
-  assert.equal(qcvnName, 'QCVN_2022-06_PCCC_AnToanChayChoNhaVaCongTrinh.pdf');
+  assert.equal(qcvnName, '06-2022_QCVN_PCCC_AnToanChayChoNhaVaCongTrinh.pdf');
 
-  // Layer 2: Hồ sơ Dự án (7 parts)
   const bbntName = buildFileNameByRule({
     group: 'SSOT_9PART',
     industry: 'XD',
@@ -809,7 +817,7 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     projectCode: 'KCN',
     gateCode: 'G12',
   });
-  assert.equal(bbntName, 'KCN_G12_BBNT_2026-018_QLCL_NghiemThuCotThepDamSanTang5-KY.docx');
+  assert.equal(bbntName, '018-2026_BBNT_QLCL_NghiemThuCotThepDamSanTang5-KY.docx');
 
   const hdName = buildFileNameByRule({
     group: 'SSOT_9PART',
@@ -825,7 +833,7 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     projectCode: 'KCN',
     gateCode: 'G11',
   });
-  assert.equal(hdName, 'KCN_G11_HD_2026-45_QLHD_HaTangKyThuatKcn-V01.pdf');
+  assert.equal(hdName, '45-2026_HD_QLHD_HaTangKyThuatKcn-V01.pdf');
 
   const bvName = buildFileNameByRule({
     group: 'SSOT_9PART',
@@ -841,7 +849,29 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     projectCode: 'KCN',
     gateCode: 'G12',
   });
-  assert.equal(bvName, 'KCN_G12_BV_2026-NX02BV012_HDXD_KetCauNhaXuongNx02Rev01.pdf');
+  assert.equal(bvName, 'NX02BV012-2026_BV_HDXD_KetCauNhaXuongNx02Rev01.pdf');
+
+  // Filename validation checks
+  assert.equal(
+    validateBatchFileName(ndName, 'SSOT_9PART', 'ND', 'CP', 'Quan ly chat luong', [ndName], 'FILE').status,
+    'OK'
+  );
+  assert.equal(
+    validateBatchFileName(bbntName, 'SSOT_9PART', 'BBNT', 'TVGS', 'Nghiem thu', [bbntName], 'FILE').status,
+    'OK'
+  );
+  assert.equal(
+    validateBatchFileName(
+      'ND_2026-207_QLCL_QuanLyChatLuong.pdf',
+      'SSOT_9PART',
+      'ND',
+      'CP',
+      'Quan ly chat luong',
+      [],
+      'FILE'
+    ).status,
+    'THIEU_TRUONG'
+  );
 
   const ttrAnalysis = smartAnalyzeFile3D(
     'To trinh 009_TTr_BQLDA phe duyet phat sinh khoi luong VO-02.docx',
@@ -853,10 +883,39 @@ test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, 
     i => i.itemKind === 'FILE'
   );
   assert.equal(samples.length, 6);
-  assert.ok(samples[0].proposedName.startsWith('ND_2026-207_'));
-  assert.ok(samples[1].proposedName.startsWith('TT_2026-12_'));
-  assert.ok(samples[2].proposedName.startsWith('KCN_G12_BBNT_2026-018_'));
-  assert.ok(samples[3].proposedName.startsWith('KCN_G11_HD_2026-45_'));
-  assert.ok(samples[4].proposedName.startsWith('KCN_G12_BV_2026-NX02BV012_'));
-  assert.ok(samples[5].proposedName.startsWith('KCN_G11_TTr_2026-009_'));
+  assert.equal(samples[0].proposedName, '207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf');
+  assert.equal(samples[1].proposedName, '12-2026_TT_QLCP_DinhMucDuToanCongTrinh.pdf');
+  assert.equal(samples[2].proposedName, '018-2026_BBNT_QLCL_NghiemThuCotThepDamSanTang5-KY.docx');
+  assert.ok(samples[3].proposedName.startsWith('45-2026_HD_QLHD_'));
+  assert.ok(samples[4].proposedName.startsWith('NX02BV012-2026_BV_HDXD_'));
+  assert.ok(samples[5].proposedName.startsWith('009-2026_TTr_QLHD_'));
+  assert.ok(samples.every(s => s.validationStatus === 'OK'));
+  assert.ok((samples[0].smartTags || []).some(t => t.status === 'SUGGESTED' && t.category === 'STAGE_GATE'));
+
+  // Smart Tags auto-suggest, parse, sync & Step 2 mapping
+  const baseTags = buildAutoSuggestedTags(ttrAnalysis, 'KCN', 'SUGGESTED');
+  assert.ok(baseTags.some(t => t.category === 'INDUSTRY' && t.status === 'SUGGESTED'));
+  assert.ok(baseTags.some(t => t.category === 'SUB_SECTOR' && t.status === 'SUGGESTED'));
+  assert.ok(baseTags.some(t => t.category === 'PROJECT_AXIS' && t.code === 'KCN'));
+
+  const parsedGate = parseRawTagInput('G14');
+  assert.equal(parsedGate.category, 'STAGE_GATE');
+  assert.equal(parsedGate.code, 'G14');
+  const parsedAxis = parseRawTagInput('HTKT');
+  assert.equal(parsedAxis.category, 'PROJECT_AXIS');
+  const parsedCustom = parseRawTagInput('Gói thầu XL-01');
+  assert.equal(parsedCustom.category, 'CUSTOM');
+  assert.equal(parsedCustom.label, 'Gói thầu XL-01');
+
+  const editedTags = [
+    ...baseTags.map(t => ({ ...t, status: 'CONFIRMED' as const })),
+    { id: 'TAG-NEW-1', category: parsedGate.category, code: parsedGate.code, label: parsedGate.label, status: 'CONFIRMED' as const },
+    { id: 'TAG-NEW-2', category: parsedCustom.category, code: parsedCustom.code, label: parsedCustom.label, status: 'CONFIRMED' as const },
+  ];
+  const syncedSug = syncSuggestionWithSmartTags(ttrAnalysis, editedTags);
+  assert.ok(syncedSug.linkedGates.includes('G14'));
+  const mappedTaxonomy = resolveDocTaxonomyFromTags(syncedSug.primaryDomain, syncedSug.industry, editedTags);
+  assert.equal(mappedTaxonomy.industryGroupId, 'IND-XAYDUNG-DAUTHAU');
+  assert.ok(mappedTaxonomy.tags.includes('G14'));
+  assert.ok(mappedTaxonomy.tags.includes('Gói thầu XL-01'));
 });

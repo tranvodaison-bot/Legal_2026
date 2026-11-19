@@ -7,6 +7,9 @@ import {
   OcrZonesExtract,
   ProjectArchetypeCode,
   QlvbNamingGroupCode,
+  SmartTagCategory,
+  SmartTagItem,
+  SmartTagStatus,
 } from '../types/lexPmoTypes';
 
 declare global {
@@ -102,7 +105,7 @@ export function removeVietnameseTones(str: string): string {
 }
 
 const LEADING_SSOT_PREFIX_RE =
-  /^(?:(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)/i;
+  /^(?:[0-9A-Za-z-]+-\d{4}_(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_[A-Z0-9]+_|(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)/i;
 
 const LEADING_DOC_TYPE_RE =
   /^(?:van ban hop nhat|vbhn|bo luat|luat|nghi quyet|nq|nghi dinh|nd-cp|nd|thong tu lien tich|thong tu|tt-bxd|tt-btc|tt-bkhdt|tt-bca|tt-bnnmt|tt|quy chuan ky thuat quoc gia|quy chuan ky thuat|quy chuan|qcvn|tieu chuan quoc gia|tieu chuan|tcvn|quyet dinh|qd|to trinh|ttr|phu luc hop dong|plhd|hop dong thi cong xay dung cong trinh|hop dong thi cong xay dung|hop dong thi cong|hop dong xay dung|hop dong|hdxd|hd|bien ban nghiem thu cong viec xay dung|bien ban nghiem thu|bien ban|bbnt|nhat ky thi cong xay dung cong trinh|nhat ky thi cong|nktc|ho so thiet ke ban ve thi cong|ban ve thiet ke ban ve thi cong|ban ve tkbvtc|ban ve thiet ke|ban ve|tkbvtc|bv|cong van|cv)\b[\s:.,/-]*/i;
@@ -370,17 +373,8 @@ export function buildFileNameByRule(params: {
   const summary40 = toPascalCaseVN(params.rawSummary, 40);
 
   if (params.group === 'SSOT_9PART') {
-    if (isProjectDossierDocType(canonicalType)) {
-      const projCode = params.projectCode || 'KCN';
-      const resolvedGate = inferDefaultGateForDoc(
-        canonicalType,
-        params.primaryDomain,
-        params.linkedGates,
-        params.gateCode
-      );
-      return `${projCode}_${resolvedGate}_${canonicalType}_${yearClean}-${numClean}_${params.primaryDomain}_${summary40}${suffixFormatted}.${extClean}`;
-    }
-    return `${canonicalType}_${yearClean}-${numClean}_${params.primaryDomain}_${summary40}${suffixFormatted}.${extClean}`;
+    // Công thức chuẩn thống nhất: [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+    return `${numClean}-${yearClean}_${canonicalType}_${params.primaryDomain}_${summary40}${suffixFormatted}.${extClean}`;
   }
 
   // Các nhóm QLVB_NAMING_DB v0.1 giới hạn Trích dẫn <= 40 ký tự PascalCase
@@ -460,16 +454,30 @@ export function buildFileNameByRule(params: {
   return `${projPrefix}_${pldaType}_${numClean || '01'}_${yearClean}_${summary40}${suffixFormatted}.${extClean}`;
 }
 
+export const SSOT_FILENAME_RULE_RE =
+  /^[0-9A-Za-z]+(?:-[0-9A-Za-z]+)*-\d{4}_[A-Za-z0-9-]+_[A-Z0-9]+_[A-Za-z0-9]+(?:-[A-Za-z0-9_-]+)?\.[a-z0-9]+$/i;
+
 export function validateBatchFileName(
   fileName: string,
   group: QlvbNamingGroupCode,
   docType: string,
   issuer: string,
   rawSummary: string,
-  existingNames: string[]
+  existingNames: string[],
+  itemKind: 'FILE' | 'FOLDER' = 'FILE'
 ): { status: BatchValidationStatus; message: string } {
   if (!rawSummary || !rawSummary.trim()) {
     return { status: 'THIEU_TRUONG', message: 'Thiếu trích yếu văn bản' };
+  }
+  if (
+    itemKind !== 'FOLDER' &&
+    group === 'SSOT_9PART' &&
+    !SSOT_FILENAME_RULE_RE.test((fileName || '').trim())
+  ) {
+    return {
+      status: 'THIEU_TRUONG',
+      message: 'Sai công thức [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu].[ext]',
+    };
   }
   if (
     group === 'PL' &&
@@ -494,6 +502,407 @@ export function validateBatchFileName(
     };
   }
   return { status: 'OK', message: `Chuẩn (${fileName.length} ký tự)` };
+}
+
+export const SMART_TAG_INDUSTRY_OPTIONS: Array<{
+  code: string;
+  label: string;
+  industryGroupId: string;
+}> = [
+  { code: 'XD', label: 'Ngành: Xây dựng (XD)', industryGroupId: 'IND-XAYDUNG-DAUTHAU' },
+  { code: 'BDS', label: 'Ngành: Đầu tư KCN & BĐS (BDS)', industryGroupId: 'IND-DOANHNGHIEP' },
+  { code: 'TC', label: 'Ngành: Tài chính - Kế toán (TC)', industryGroupId: 'IND-KETOAN' },
+  { code: 'DN', label: 'Ngành: Quản trị Doanh nghiệp (DN)', industryGroupId: 'IND-LAODONG' },
+];
+
+export const SMART_TAG_SUB_SECTOR_OPTIONS: Array<{
+  code: string;
+  label: string;
+  subSectorLabel: string;
+  industryGroupId: string;
+  industryCode: string;
+}> = [
+  {
+    code: 'XD_XAYDUNG',
+    label: 'LV con: Xây dựng',
+    subSectorLabel: 'Xây dựng',
+    industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+    industryCode: 'XD',
+  },
+  {
+    code: 'XD_DAUTHAU',
+    label: 'LV con: Đấu thầu',
+    subSectorLabel: 'Đấu thầu',
+    industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+    industryCode: 'XD',
+  },
+  {
+    code: 'XD_XUPHAT',
+    label: 'LV con: Xử phạt XD',
+    subSectorLabel: 'Xử phạt vi phạm',
+    industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+    industryCode: 'XD',
+  },
+  {
+    code: 'DN_DTU',
+    label: 'LV con: Đầu tư KCN/FTZ',
+    subSectorLabel: 'Đầu tư Hạ tầng KCN · KKT · FTZ',
+    industryGroupId: 'IND-DOANHNGHIEP',
+    industryCode: 'BDS',
+  },
+  {
+    code: 'DN_CCN',
+    label: 'LV con: Cụm CN (CCN)',
+    subSectorLabel: 'Phát triển Cụm Công Nghiệp (CCN)',
+    industryGroupId: 'IND-DOANHNGHIEP',
+    industryCode: 'BDS',
+  },
+  {
+    code: 'DN_PPP',
+    label: 'LV con: PPP / BT',
+    subSectorLabel: 'Đầu tư theo phương thức PPP / BT',
+    industryGroupId: 'IND-DOANHNGHIEP',
+    industryCode: 'BDS',
+  },
+  {
+    code: 'KT_QT',
+    label: 'LV con: Quyết toán vốn',
+    subSectorLabel: 'Kiểm toán & Quyết toán vốn đầu tư',
+    industryGroupId: 'IND-KETOAN',
+    industryCode: 'TC',
+  },
+  {
+    code: 'TTHC_LIENTHONG',
+    label: 'LV con: TTHC Liên thông',
+    subSectorLabel: 'Thủ tục hành chính - liên thông',
+    industryGroupId: 'IND-TTHC',
+    industryCode: 'XD',
+  },
+  {
+    code: 'CDS_BIM',
+    label: 'LV con: BIM & CDE',
+    subSectorLabel: 'Chuyển đổi số (BIM & CDE Dự án)',
+    industryGroupId: 'IND-CHUYENDOISO',
+    industryCode: 'XD',
+  },
+  {
+    code: 'CDS_KHCN',
+    label: 'LV con: TCVN / QCVN',
+    subSectorLabel: 'KHCN - Đổi mới sáng tạo (TCVN/QCVN)',
+    industryGroupId: 'IND-CHUYENDOISO',
+    industryCode: 'XD',
+  },
+  {
+    code: 'LD_ATLD',
+    label: 'LV con: ATLĐ Xây dựng',
+    subSectorLabel: 'An toàn vệ sinh lao động xây dựng',
+    industryGroupId: 'IND-LAODONG',
+    industryCode: 'DN',
+  },
+];
+
+export const SMART_TAG_DOMAIN_CODES: FunctionalDomainCode[] = [
+  'QLCL',
+  'HDXD',
+  'QLHD',
+  'QLCP',
+  'VLXD',
+  'TCVN',
+  'QCVN',
+  'DTH',
+  'TQT',
+  'PCCC',
+  'QHDD',
+  'ATLD',
+  'DTU',
+];
+
+export const SMART_TAG_PROJECT_AXES: ProjectArchetypeCode[] = [
+  'KCN',
+  'HTKT',
+  'DAN_DUNG',
+  'CCN',
+  'FTZ',
+  'PPP_BT',
+];
+
+export const SMART_TAG_STAGE_GATES: string[] = Array.from({ length: 17 }, (_, i) => `G${i}`);
+
+export function inferSubSectorFromDomain(
+  primaryDomain: FunctionalDomainCode,
+  industryCode?: string,
+  requestedGroupId?: string,
+  requestedSubCode?: string
+): {
+  industryGroupId: string;
+  industryCode: string;
+  industryLabel: string;
+  subSectorCode: string;
+  subSectorLabel: string;
+} {
+  if (requestedSubCode) {
+    const subMatch = SMART_TAG_SUB_SECTOR_OPTIONS.find(
+      s => s.code.toUpperCase() === requestedSubCode.trim().toUpperCase()
+    );
+    if (subMatch) {
+      const indMatch = SMART_TAG_INDUSTRY_OPTIONS.find(i => i.code === subMatch.industryCode);
+      return {
+        industryGroupId: requestedGroupId || subMatch.industryGroupId,
+        industryCode: subMatch.industryCode,
+        industryLabel: indMatch?.label || 'Ngành: Xây dựng (XD)',
+        subSectorCode: subMatch.code,
+        subSectorLabel: subMatch.subSectorLabel,
+      };
+    }
+  }
+
+  let res: {
+    industryGroupId: string;
+    industryCode: string;
+    subSectorCode: string;
+    subSectorLabel: string;
+  };
+
+  if (primaryDomain === 'DTH') {
+    res = {
+      industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+      industryCode: 'XD',
+      subSectorCode: 'XD_DAUTHAU',
+      subSectorLabel: 'Đấu thầu',
+    };
+  } else if (primaryDomain === 'DTU') {
+    res = {
+      industryGroupId: 'IND-DOANHNGHIEP',
+      industryCode: 'BDS',
+      subSectorCode: 'DN_DTU',
+      subSectorLabel: 'Đầu tư Hạ tầng KCN · KKT · FTZ',
+    };
+  } else if (primaryDomain === 'TQT') {
+    res = {
+      industryGroupId: 'IND-KETOAN',
+      industryCode: 'TC',
+      subSectorCode: 'KT_QT',
+      subSectorLabel: 'Kiểm toán & Quyết toán vốn đầu tư',
+    };
+  } else if (primaryDomain === 'PCCC') {
+    res = {
+      industryGroupId: 'IND-TTHC',
+      industryCode: 'XD',
+      subSectorCode: 'TTHC_LIENTHONG',
+      subSectorLabel: 'Thủ tục hành chính - liên thông',
+    };
+  } else if (primaryDomain === 'ATLD') {
+    res = {
+      industryGroupId: 'IND-LAODONG',
+      industryCode: 'DN',
+      subSectorCode: 'LD_ATLD',
+      subSectorLabel: 'An toàn vệ sinh lao động xây dựng',
+    };
+  } else if (primaryDomain === 'QCVN' || primaryDomain === 'TCVN') {
+    res = {
+      industryGroupId: 'IND-CHUYENDOISO',
+      industryCode: 'XD',
+      subSectorCode: 'CDS_KHCN',
+      subSectorLabel: 'KHCN - Đổi mới sáng tạo (TCVN/QCVN)',
+    };
+  } else {
+    res = {
+      industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+      industryCode: 'XD',
+      subSectorCode: 'XD_XAYDUNG',
+      subSectorLabel: 'Xây dựng',
+    };
+  }
+
+  if (requestedGroupId) {
+    res.industryGroupId = requestedGroupId;
+  } else if (industryCode) {
+    const indOpt = SMART_TAG_INDUSTRY_OPTIONS.find(
+      i => i.code.toUpperCase() === industryCode.trim().toUpperCase()
+    );
+    if (indOpt) {
+      res.industryCode = indOpt.code;
+      if (!['DTH', 'PCCC', 'QCVN', 'TCVN'].includes(primaryDomain)) {
+        res.industryGroupId = indOpt.industryGroupId;
+      }
+    }
+  }
+
+  const industryLabel =
+    SMART_TAG_INDUSTRY_OPTIONS.find(i => i.code === res.industryCode)?.label || 'Ngành: Xây dựng (XD)';
+  return { ...res, industryLabel };
+}
+
+export function buildAutoSuggestedTags(
+  suggestion: {
+    industry: string;
+    primaryDomain: FunctionalDomainCode;
+    projectAxes: ProjectArchetypeCode[];
+    secondaryDomains: FunctionalDomainCode[];
+    linkedGates: string[];
+  },
+  activeProject?: ProjectArchetypeCode,
+  initialStatus: SmartTagStatus = 'SUGGESTED'
+): SmartTagItem[] {
+  const tags: SmartTagItem[] = [];
+  const seen = new Set<string>();
+  const pushTag = (category: SmartTagCategory, code: string, label: string) => {
+    const normKey = `${category}:${code.toUpperCase()}`;
+    if (seen.has(normKey)) return;
+    seen.add(normKey);
+    tags.push({
+      id: `TAG-${category}-${code.replace(/[^A-Za-z0-9_-]/g, '')}-${tags.length + 1}`,
+      category,
+      code,
+      label,
+      status: initialStatus,
+    });
+  };
+
+  const inferred = inferSubSectorFromDomain(suggestion.primaryDomain, suggestion.industry);
+  pushTag('INDUSTRY', inferred.industryCode, inferred.industryLabel);
+  pushTag('SUB_SECTOR', inferred.subSectorCode, `LV con: ${inferred.subSectorLabel}`);
+
+  (suggestion.secondaryDomains || [])
+    .filter(d => d !== suggestion.primaryDomain)
+    .slice(0, 2)
+    .forEach(dom => {
+      pushTag('DOMAIN', dom, `LV mở rộng: ${dom}`);
+    });
+
+  const axes =
+    suggestion.projectAxes && suggestion.projectAxes.length > 0
+      ? suggestion.projectAxes
+      : activeProject
+      ? [activeProject]
+      : (['KCN'] as ProjectArchetypeCode[]);
+  const prioritizedAxes =
+    activeProject && axes.includes(activeProject)
+      ? [activeProject, ...axes.filter(a => a !== activeProject)]
+      : axes;
+  prioritizedAxes.forEach(ax => {
+    pushTag('PROJECT_AXIS', ax, `DA: ${ax}`);
+  });
+
+  const gates =
+    suggestion.linkedGates && suggestion.linkedGates.length > 0 ? suggestion.linkedGates : ['G12'];
+  gates.slice(0, 3).forEach(g => {
+    const cleanG = g.trim().toUpperCase();
+    if (cleanG) {
+      pushTag('STAGE_GATE', cleanG, `Gate ${cleanG}`);
+    }
+  });
+
+  return tags;
+}
+
+export function parseRawTagInput(rawText: string): {
+  category: SmartTagCategory;
+  code: string;
+  label: string;
+} {
+  const trimmed = rawText.trim();
+  const strippedPrefix = trimmed
+    .replace(/^(?:Ngành|LV con|LV mở rộng|DA|Dự án|Gate)\s*:\s*/i, '')
+    .replace(/^Gate\s+/i, '')
+    .trim();
+  const parenMatch = strippedPrefix.match(/\(([A-Za-z0-9_-]+)\)\s*$/);
+  const candidateToken = (parenMatch ? parenMatch[1] : strippedPrefix).trim();
+  const upper = removeVietnameseTones(candidateToken).toUpperCase().replace(/\s+/g, '_');
+
+  if (/^G(?:[0-9]|1[0-6])$/.test(upper)) {
+    return { category: 'STAGE_GATE', code: upper, label: `Gate ${upper}` };
+  }
+
+  const matchedAxis = SMART_TAG_PROJECT_AXES.find(a => a === upper);
+  if (matchedAxis) {
+    return { category: 'PROJECT_AXIS', code: matchedAxis, label: `DA: ${matchedAxis}` };
+  }
+
+  const matchedInd = SMART_TAG_INDUSTRY_OPTIONS.find(i => i.code === upper);
+  if (matchedInd) {
+    return { category: 'INDUSTRY', code: matchedInd.code, label: matchedInd.label };
+  }
+
+  const matchedSub = SMART_TAG_SUB_SECTOR_OPTIONS.find(s => s.code === upper);
+  if (matchedSub) {
+    return { category: 'SUB_SECTOR', code: matchedSub.code, label: matchedSub.label };
+  }
+
+  const matchedDom = SMART_TAG_DOMAIN_CODES.find(d => d === upper);
+  if (matchedDom) {
+    return { category: 'DOMAIN', code: matchedDom, label: `LV mở rộng: ${matchedDom}` };
+  }
+
+  const customCode = upper.replace(/[^A-Z0-9_-]/g, '') || 'CUSTOM';
+  return {
+    category: 'CUSTOM',
+    code: customCode,
+    label: trimmed || customCode,
+  };
+}
+
+export function syncSuggestionWithSmartTags(
+  suggestion: AnalyzedFileItem['suggestion'],
+  smartTags: SmartTagItem[]
+): AnalyzedFileItem['suggestion'] {
+  const industryTag = smartTags.find(t => t.category === 'INDUSTRY');
+  const axisTags = smartTags
+    .filter(t => t.category === 'PROJECT_AXIS')
+    .map(t => t.code.toUpperCase() as ProjectArchetypeCode)
+    .filter(c => SMART_TAG_PROJECT_AXES.includes(c));
+  const domainTags = smartTags
+    .filter(t => t.category === 'DOMAIN')
+    .map(t => t.code.toUpperCase() as FunctionalDomainCode)
+    .filter(c => SMART_TAG_DOMAIN_CODES.includes(c));
+  const gateTags = smartTags
+    .filter(t => t.category === 'STAGE_GATE')
+    .map(t => t.code.toUpperCase())
+    .filter(Boolean);
+
+  return {
+    ...suggestion,
+    industry: industryTag ? industryTag.code : suggestion.industry,
+    projectAxes: Array.from(new Set(axisTags)),
+    secondaryDomains: Array.from(
+      new Set<FunctionalDomainCode>([suggestion.primaryDomain, ...domainTags])
+    ),
+    linkedGates: Array.from(new Set(gateTags)),
+  };
+}
+
+export function resolveDocTaxonomyFromTags(
+  primaryDomain: FunctionalDomainCode,
+  industryCode: string,
+  smartTags?: SmartTagItem[]
+): {
+  industryGroupId: string;
+  subSectorCode: string;
+  subSectorLabel: string;
+  tags: string[];
+} {
+  const tags = smartTags || [];
+  const indTag = tags.find(t => t.category === 'INDUSTRY');
+  const subTag = tags.find(t => t.category === 'SUB_SECTOR');
+  const inferred = inferSubSectorFromDomain(
+    primaryDomain,
+    indTag?.code || industryCode,
+    undefined,
+    subTag?.code
+  );
+  const tagStrings = Array.from(
+    new Set(
+      tags
+        .map(t => (t.category === 'CUSTOM' ? t.label : t.code || t.label).trim())
+        .filter(Boolean)
+    )
+  );
+  return {
+    industryGroupId: inferred.industryGroupId,
+    subSectorCode: inferred.subSectorCode,
+    subSectorLabel: inferred.subSectorLabel,
+    tags: tagStrings,
+  };
 }
 
 export function buildStandardFolderPath(params: {
@@ -913,6 +1322,16 @@ export function createSampleBatchItems(
           });
 
     const ocrZones = extractOcrZonesFromText(s.originalName, s.extractedText);
+    const smartTags = buildAutoSuggestedTags(suggestion, activeProject, 'SUGGESTED');
+    const validation = validateBatchFileName(
+      proposedName,
+      effectiveGroup,
+      suggestion.docType,
+      suggestion.issuer,
+      suggestion.rawSummary,
+      [proposedName],
+      s.kind
+    );
     const defaultCdeStatus =
       idx === 0 || idx === 2 || idx === 3
         ? 'A1'
@@ -931,6 +1350,7 @@ export function createSampleBatchItems(
       proposedFolderPath: proposedFolder,
       extractedText: s.extractedText,
       suggestion,
+      smartTags,
       proposedName,
       qlvbGroup: effectiveGroup,
       cdeStatus: defaultCdeStatus,
@@ -938,8 +1358,8 @@ export function createSampleBatchItems(
       tkStageDept: s.tkStageDept || 'TKBV-KC',
       tkDocCode: s.tkDocCode || 'NX02-BV012',
       tkRevision: s.tkRevision || 'R01',
-      validationStatus: 'OK',
-      validationMessage: `Chuẩn (${proposedName.length} ký tự)`,
+      validationStatus: validation.status,
+      validationMessage: validation.message,
       sha256Hash: `8F4E${(idx + 10).toString(16).toUpperCase()}C92A1B`,
       fileSizeLabel: s.sizeLabel,
       readStatsLabel: s.statsLabel,

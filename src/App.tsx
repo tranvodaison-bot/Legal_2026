@@ -65,6 +65,7 @@ import {
   getRaciActionPermissions,
 } from './utils/rbacRaciHelpers';
 import {
+  buildAutoSuggestedTags,
   buildFileNameByRule,
   buildStandardFolderPath,
   cleanDocNumber,
@@ -74,9 +75,12 @@ import {
   extractOcrZonesFromText,
   extractTextFromFileEnhanced,
   formatFileSize,
+  normalizeSsotDocType,
   parseVietnameseLegalText,
   removeVietnameseTones,
+  resolveDocTaxonomyFromTags,
   smartAnalyzeFile3D,
+  syncSuggestionWithSmartTags,
   toPascalCaseVN,
   validateBatchFileName,
 } from './utils/legalParser';
@@ -681,7 +685,7 @@ export function useLexPmoOrchestrator() {
       oldFolderPath: '01_Ho so phap ly & giay phep KCN',
       newFolderPath: 'KCN_G12_CDE/QLCL_01HoSoPhapLyGiayPhepKcn',
       oldName: 'Nghi dinh 207-2026-ND-CP quan ly chat luong.pdf',
-      newName: 'ND_2026-207_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinh-PLIIa.pdf',
+      newName: '207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf',
       sha256Before: '8F4E0CC92A1B',
       sha256After: '8F4E0CC92A1B',
       actorName: 'TS. Trần Võ Đại Sơn',
@@ -784,7 +788,8 @@ export function useLexPmoOrchestrator() {
         item.suggestion.docType,
         item.suggestion.issuer,
         item.suggestion.rawSummary,
-        allNames
+        allNames,
+        item.itemKind || 'FILE'
       );
       const dupInfo = dupInfoById.get(item.id);
       const finalStatus =
@@ -887,6 +892,11 @@ export function useLexPmoOrchestrator() {
           industry: folderSuggestion.industry,
         });
         const folderHash = await computeSha256Short(parentFolder);
+        const folderSmartTags = buildAutoSuggestedTags(
+          folderSuggestion,
+          activeProjectArchetype,
+          'SUGGESTED'
+        );
         analyzedQueue.push({
           id: `FLD-${Math.random().toString(36).substring(2, 8)}`,
           rawFile: null,
@@ -896,6 +906,7 @@ export function useLexPmoOrchestrator() {
           proposedFolderPath: proposedFolder,
           extractedText: `THƯ MỤC ĐẦU VÀO: ${parentFolder}\nĐã quét tự động cấu trúc thư mục và chuẩn hóa theo chuẩn CDE Stage-Gate.`,
           suggestion: folderSuggestion,
+          smartTags: folderSmartTags,
           proposedName: proposedFolder.split('/').pop() || proposedFolder,
           qlvbGroup: folderGroup,
           sha256Hash: folderHash,
@@ -944,6 +955,7 @@ export function useLexPmoOrchestrator() {
 
       const sha256Hash = await computeSha256Short(file);
       const ocrZones = extractOcrZonesFromText(file.name, extractedText);
+      const fileSmartTags = buildAutoSuggestedTags(suggestion, activeProjectArchetype, 'SUGGESTED');
 
       analyzedQueue.push({
         id: `FIL-${Math.random().toString(36).substring(2, 9)}`,
@@ -954,6 +966,7 @@ export function useLexPmoOrchestrator() {
         proposedFolderPath: proposedFolder,
         extractedText,
         suggestion,
+        smartTags: fileSmartTags,
         proposedName,
         qlvbGroup: itemGroup,
         cdeStatus: 'S0',
@@ -1280,40 +1293,68 @@ export function useLexPmoOrchestrator() {
     }));
 
     setRenameLogs(prev => [...newLogs, ...prev]);
+    const selectedIds = new Set(selectedItems.map(i => i.id));
     setDroppedFilesQueue(prev =>
-      prev.map(item => (item.selected !== false ? { ...item, isCommitted: true } : item))
+      prev.map(item => {
+        if (!selectedIds.has(item.id)) return item;
+        const confirmedTags = (
+          item.smartTags && item.smartTags.length > 0
+            ? item.smartTags
+            : buildAutoSuggestedTags(item.suggestion, activeProjectArchetype, 'CONFIRMED')
+        ).map(t => ({ ...t, status: 'CONFIRMED' as const }));
+        const syncedSuggestion = syncSuggestionWithSmartTags(item.suggestion, confirmedTags);
+        return {
+          ...item,
+          suggestion: syncedSuggestion,
+          smartTags: confirmedTags,
+          isCommitted: true,
+        };
+      })
     );
 
-    // Đẩy các file hợp lệ vào danh mục văn bản Bước 2
+    // Đẩy các file hợp lệ vào danh mục văn bản Bước 2 (giữ nguyên 100% cơ chế Step2LegalMatrix)
     const fileItems = selectedItems.filter(i => i.itemKind !== 'FOLDER');
     if (fileItems.length > 0) {
       const addedDocs: LegalDocument[] = fileItems.map((item, idx) => {
         const nodes = parseVietnameseLegalText(item.extractedText || namingForm.rawContentToParse);
+        const confirmedTags = (
+          item.smartTags && item.smartTags.length > 0
+            ? item.smartTags
+            : buildAutoSuggestedTags(item.suggestion, activeProjectArchetype, 'CONFIRMED')
+        ).map(t => ({ ...t, status: 'CONFIRMED' as const }));
+        const syncedSug = syncSuggestionWithSmartTags(item.suggestion, confirmedTags);
+        const taxonomy = resolveDocTaxonomyFromTags(
+          syncedSug.primaryDomain,
+          syncedSug.industry,
+          confirmedTags
+        );
+        const canonicalDocType = normalizeSsotDocType(syncedSug.docType);
         return {
           id: `DOC-BATCH-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
           ssotFileName: item.proposedName,
-          docNumber: item.suggestion.rawNumber,
-          docType: item.suggestion.docType,
-          issuer: item.suggestion.issuer,
-          year: item.suggestion.year,
-          issueDate: `01/01/${item.suggestion.year}`,
-          effectiveDate: `15/02/${item.suggestion.year}`,
-          industryGroupId: 'IND-XAYDUNG-DAUTHAU',
-          subSectorCode: 'XD_XAYDUNG',
-          subSectorLabel: 'Xây dựng',
-          primaryDomain: item.suggestion.primaryDomain,
-          title: item.suggestion.rawSummary,
-          shortSummary: item.suggestion.rawSummary,
+          docNumber: syncedSug.rawNumber,
+          docType: canonicalDocType,
+          issuer: syncedSug.issuer,
+          year: syncedSug.year,
+          issueDate: `01/01/${syncedSug.year}`,
+          effectiveDate: `15/02/${syncedSug.year}`,
+          industryGroupId: taxonomy.industryGroupId,
+          subSectorCode: taxonomy.subSectorCode,
+          subSectorLabel: taxonomy.subSectorLabel,
+          primaryDomain: syncedSug.primaryDomain,
+          title: syncedSug.rawSummary,
+          shortSummary: syncedSug.rawSummary,
           status: 'Còn hiệu lực năm 2026',
           validityPeriod: 'Còn hiệu lực',
           isAmended: false,
           chapterCount: Math.max(1, nodes.filter(n => n.level === 'Chương').length),
           articleCount: Math.max(1, nodes.filter(n => n.level === 'Điều').length),
           clauseTotalCount: nodes.length * 3,
-          projectAxes: item.suggestion.projectAxes,
-          secondaryDomains: item.suggestion.secondaryDomains,
-          linkedGates: item.suggestion.linkedGates,
-          linkedQAQC: item.suggestion.linkedQAQC,
+          projectAxes: syncedSug.projectAxes,
+          secondaryDomains: syncedSug.secondaryDomains,
+          linkedGates: syncedSug.linkedGates,
+          linkedQAQC: syncedSug.linkedQAQC,
+          tags: taxonomy.tags,
           lineage: `Chuẩn hóa hàng loạt (${item.qlvbGroup || batchNamingStandard} · CDE ${
             item.cdeStatus || 'S0'
           }) · Thư mục: ${item.proposedFolderPath || ''}`,
@@ -1321,6 +1362,19 @@ export function useLexPmoOrchestrator() {
         };
       });
       setLegalDocs(prev => [...addedDocs, ...prev]);
+      setSelectedDocId(addedDocs[0].id);
+      setExpandedInlineDocId(addedDocs[0].id);
+      setVbplIndustryGroupFilter('ALL');
+      setVbplSubSectorFilter('ALL');
+      setVbplDomainFilter('ALL');
+      setVbplProjectFilter('ALL');
+      setPane2SubTab('DOCS');
+      setFilterDocType('ALL');
+      setFilterValidityPeriod('ALL');
+      setRecentDocIds(prev => [
+        addedDocs[0].id,
+        ...prev.filter(id => id !== addedDocs[0].id),
+      ]);
     }
 
     await recordAuditLog({
@@ -2193,19 +2247,24 @@ export function useLexPmoOrchestrator() {
   const handleSaveToSSOT = async () => {
     const parsedNodes = parseVietnameseLegalText(namingForm.rawContentToParse);
     const newDocId = 'DOC-0' + (legalDocs.length + 1);
-    const isBidding = namingForm.primaryDomain === 'DTH' || namingForm.rawSummary.toLowerCase().includes('đấu thầu');
+    const autoTags = buildAutoSuggestedTags(namingForm, activeProjectArchetype, 'CONFIRMED');
+    const taxonomy = resolveDocTaxonomyFromTags(
+      namingForm.primaryDomain,
+      namingForm.industry,
+      autoTags
+    );
     const newDoc: LegalDocument = {
       id: newDocId,
       ssotFileName: generatedFileName,
       docNumber: namingForm.rawNumber,
-      docType: namingForm.docType,
+      docType: normalizeSsotDocType(namingForm.docType),
       issuer: namingForm.issuer,
       year: namingForm.year,
       issueDate: `01/01/${namingForm.year}`,
       effectiveDate: `15/02/${namingForm.year}`,
-      industryGroupId: 'IND-XAYDUNG-DAUTHAU',
-      subSectorCode: isBidding ? 'XD_DAUTHAU' : 'XD_XAYDUNG',
-      subSectorLabel: isBidding ? 'Đấu thầu' : 'Xây dựng',
+      industryGroupId: taxonomy.industryGroupId,
+      subSectorCode: taxonomy.subSectorCode,
+      subSectorLabel: taxonomy.subSectorLabel,
       primaryDomain: namingForm.primaryDomain,
       title: namingForm.rawSummary,
       shortSummary: `${namingForm.rawSummary.slice(0, 48)}...`,
@@ -2219,6 +2278,7 @@ export function useLexPmoOrchestrator() {
       secondaryDomains: namingForm.secondaryDomains,
       linkedGates: namingForm.linkedGates,
       linkedQAQC: namingForm.linkedQAQC,
+      tags: taxonomy.tags,
       lineage: `Gắn nhãn 3 Trục: [${namingForm.docType}] × Dự án [${namingForm.projectAxes.join(', ')}] × Chức năng [${namingForm.secondaryDomains.join(', ')}].`,
       nodes: parsedNodes,
     };

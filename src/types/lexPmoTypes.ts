@@ -111,6 +111,7 @@ export interface LegalDocument {
   secondaryDomains: FunctionalDomainCode[];
   linkedGates: string[];
   linkedQAQC: string[];
+  tags?: string[];
   lineage: string;
   nodes: LegalNode[];
 }
@@ -236,6 +237,24 @@ export interface NamingFormState {
 
 export type CdeIsoStatus = 'S0' | 'S1' | 'A1' | 'B1';
 
+export type SmartTagCategory =
+  | 'INDUSTRY'
+  | 'SUB_SECTOR'
+  | 'DOMAIN'
+  | 'PROJECT_AXIS'
+  | 'STAGE_GATE'
+  | 'CUSTOM';
+
+export type SmartTagStatus = 'SUGGESTED' | 'CONFIRMED';
+
+export interface SmartTagItem {
+  id: string;
+  category: SmartTagCategory;
+  code: string;
+  label: string;
+  status: SmartTagStatus;
+}
+
 export interface AnalyzedFileItem {
   id: string;
   rawFile: File | null;
@@ -259,6 +278,7 @@ export interface AnalyzedFileItem {
     linkedGates: string[];
     linkedQAQC: string[];
   };
+  smartTags?: SmartTagItem[];
   proposedName: string;
   qlvbGroup?: QlvbNamingGroupCode;
   cdeStatus?: CdeIsoStatus;
