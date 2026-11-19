@@ -132,11 +132,14 @@ export const TAXONOMY_3D: Taxonomy3D = {
   ],
 
   issuers: [
+    { code: 'QH15', name: 'Quốc hội khóa XV' },
     { code: 'QH', name: 'Quốc hội' },
     { code: 'CP', name: 'Chính phủ' },
+    { code: 'TTg', name: 'Thủ tướng Chính phủ' },
     { code: 'BXD', name: 'Bộ Xây dựng' },
     { code: 'BKHDT', name: 'Bộ Kế hoạch & Đầu tư' },
     { code: 'BTC', name: 'Bộ Tài chính' },
+    { code: 'BTNMT', name: 'Bộ Tài nguyên & Môi trường' },
     { code: 'BCA', name: 'Bộ Công an (Cục PCCC)' },
     { code: 'BCT', name: 'Bộ Công Thương (CCN)' },
     { code: 'BKHCN', name: 'Bộ Khoa học & Công nghệ' },

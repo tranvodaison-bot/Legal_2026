@@ -27,6 +27,8 @@ import {
   detectQlvbGroup,
   extractOcrZonesFromText,
   inferSubSectorFromDomain,
+  normalizeDomainForFilename,
+  normalizeIssuerCode,
   normalizeSsotDocType,
   parseRawTagInput,
   parseVietnameseLegalText,
@@ -878,29 +880,38 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
-          📐 Quy Tắc Đặt Tên Chuẩn Thống Nhất (PascalCase ≤ 40 ký tự · Thuộc tính mở rộng gắn Smart Tags)
+          📐 Quy Tắc Đặt Tên VBPL Thống Nhất 100% (PascalCase ≤ 40 ký tự · Smart Tags Gợi ý)
         </span>
         <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-mono">
-          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}_${namingForm.primaryDomain}`}
+          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}-${normalizeIssuerCode(
+            namingForm.issuer,
+            normalizedFormDocType
+          )}_${normalizeDomainForFilename(namingForm.primaryDomain)}`}
         </span>
       </div>
       <div className={`grid grid-cols-1 ${compact ? "gap-2" : "md:grid-cols-2 gap-2.5"}`}>
         <div className="p-2.5 rounded-lg bg-slate-900/90 border border-emerald-500/30 space-y-1">
           <div className="text-[11px] font-bold text-emerald-300">
-            Công thức chuẩn áp dụng thống nhất (VBPL & Hồ sơ Dự án)
+            Công thức duy nhất áp dụng cho mọi cấp VBPL (Không ngoại lệ)
           </div>
           <div className="font-mono text-[10px] text-sky-300 break-all">
-            [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+            [SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
           </div>
           <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
             <div className="font-mono text-emerald-400 break-all">
-              VD 1: 207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf
+              Luật: 135-2025_LUAT-QH15_HDXD_LuatXayDung.pdf
             </div>
             <div className="font-mono text-emerald-400/90 break-all">
-              VD 2: 12-2026_TT_QLCP_DinhMucDuToanCongTrinh.pdf
+              NĐ: 207-2026_ND-CP_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf
+            </div>
+            <div className="font-mono text-emerald-400/90 break-all">
+              TT: 50-2022_TT-BTC_HDXD_BaoHiemTrongHoatDongXayDung.pdf
+            </div>
+            <div className="font-mono text-sky-300/90 break-all">
+              VBHN: 05-2025_VBHN-BXD_HDXD_QuanLyDuAnDauTuXayDung.pdf
             </div>
             <div className="font-mono text-amber-300 break-all">
-              VD 3: 018-2026_BBNT_QLCL_NghiemThuCotThepDamSanTang5-KY.docx
+              QCVN: 06-2023_QCVN-BXD_PCCC_AnToanChayChoNhaVaCongTrinh.pdf
             </div>
           </div>
         </div>
@@ -2393,10 +2404,11 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         <td className="py-3 px-3 align-top max-w-[360px]">
                           <div className="flex flex-wrap items-center gap-1 mb-1.5">
                             <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/35 text-rose-300 font-semibold text-[10px]">
-                              {normalizeSsotDocType(item.suggestion.docType)} · {item.suggestion.issuer}
+                              {normalizeSsotDocType(item.suggestion.docType)}-
+                              {normalizeIssuerCode(item.suggestion.issuer, item.suggestion.docType)}
                             </span>
                             <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 font-semibold text-[10px]">
-                              {item.suggestion.primaryDomain}
+                              {normalizeDomainForFilename(item.suggestion.primaryDomain)}
                             </span>
                             {item.isCommitted && (
                               <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
@@ -2814,13 +2826,16 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold uppercase text-amber-400">
                           Tên file chuẩn (
-                          {batchNamingStandard === "SSOT_9PART"
-                            ? "[SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu]"
+                          {batchNamingStandard === "SSOT_9PART" || batchNamingStandard === "PL"
+                            ? "[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu]"
                             : batchNamingStandard}
                           )
                         </span>
                         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-sky-300">
-                          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}_${namingForm.primaryDomain}`}
+                          {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}-${normalizeIssuerCode(
+                            namingForm.issuer,
+                            normalizedFormDocType
+                          )}_${normalizeDomainForFilename(namingForm.primaryDomain)}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2862,7 +2877,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   {/* Thành phần cấu thành tên file chuẩn mới */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
                     <h4 className="text-xs font-bold uppercase text-rose-400">
-                      Chỉnh tay Thành phần Tên File ([SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu])
+                      Chỉnh tay Thành phần Tên File ([SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu])
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
@@ -3126,7 +3141,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
                         >
                           <option value="SSOT_9PART">
-                            Chuẩn SSOT Thống Nhất ([SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếu])
+                            Chuẩn VBPL Thống Nhất ([SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu])
                           </option>
                           <option value="PL">Nhóm PL — Văn bản Pháp luật</option>
                           <option value="HC">Nhóm HC — Văn bản Hành chính</option>

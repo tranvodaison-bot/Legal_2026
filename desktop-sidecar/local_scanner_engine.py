@@ -40,7 +40,7 @@ except ImportError:
 
 app = FastAPI(
     title="LEX-PMO OS v3.1 — Local PDF Scanner, Vietnamese OCR & Batch Rename Sidecar",
-    description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext] & Smart Tags",
+    description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên VBPL [SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext] & Smart Tags",
     version="3.1.0"
 )
 
@@ -262,19 +262,22 @@ LEGAL_STANDARD_DOC_TYPES = {"LUAT", "NQ", "ND", "TT", "QCVN", "TCVN", "VBHN"}
 PROJECT_DOSSIER_DOC_TYPES = {"QD", "TTr", "HD", "PLHD", "BBNT", "NKTC", "BV"}
 
 _LEADING_SSOT_PREFIX_RE = re.compile(
-    r"^(?:[0-9A-Za-z-]+-\d{4}_(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_[A-Z0-9]+_|"
+    r"^(?:[0-9A-Za-z-]+-\d{4}_[A-Za-z0-9]+-[A-Za-z0-9]+_[A-Z0-9]+_|"
+    r"[0-9A-Za-z-]+-\d{4}_(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_[A-Z0-9]+_|"
     r"(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|"
     r"(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)",
     re.IGNORECASE,
 )
 _LEADING_DOC_TYPE_RE = re.compile(
-    r"^(?:van ban hop nhat|vbhn|bo luat|luat|nghi quyet|nq|nghi dinh|nd-cp|nd|"
-    r"thong tu lien tich|thong tu|tt-bxd|tt-btc|tt-bkhdt|tt-bca|tt-bnnmt|tt|"
-    r"quy chuan ky thuat quoc gia|quy chuan ky thuat|quy chuan|qcvn|"
-    r"tieu chuan quoc gia|tieu chuan|tcvn|quyet dinh|qd|to trinh|ttr|"
+    r"^(?:van ban hop nhat|vbhn(?:\s*-\s*[a-z0-9]+)?|bo luat(?=\s+(?:so\b|\d|qh\d*|ve\b))|"
+    r"luat(?=\s+(?:so\b|\d|qh\d*|-\s*qh\d*))|luat-\s*qh\d*|"
+    r"nghi quyet|nq(?:\s*-\s*[a-z0-9]+)?|nghi dinh|nd-cp|nd(?:\s*-\s*[a-z0-9]+)?|"
+    r"thong tu lien tich|thong tu|tt-[a-z0-9]+|tt|"
+    r"quy chuan ky thuat quoc gia|quy chuan ky thuat|quy chuan|qcvn(?:\s*-\s*[a-z0-9]+)?|"
+    r"tieu chuan quoc gia|tieu chuan|tcvn(?:\s*-\s*[a-z0-9]+)?|quyet dinh|qd(?:\s*-\s*[a-z0-9]+)?|to trinh|ttr(?:\s*-\s*[a-z0-9]+)?|"
     r"phu luc hop dong|plhd|hop dong thi cong xay dung cong trinh|hop dong thi cong xay dung|"
     r"hop dong thi cong|hop dong xay dung|hop dong|hdxd|hd|"
-    r"bien ban nghiem thu cong viec xay dung|bien ban nghiem thu|bien ban|bbnt|"
+    r"bien ban nghiem thu cong viec xay dung|bien ban nghiem thu|bien ban|bbnt(?:\s*-\s*[a-z0-9]+)?|"
     r"nhat ky thi cong xay dung cong trinh|nhat ky thi cong|nktc|"
     r"ho so thiet ke ban ve thi cong|ban ve thiet ke ban ve thi cong|"
     r"ban ve tkbvtc|ban ve thiet ke|ban ve|tkbvtc|bv|cong van|cv)\b[\s:.,/-]*",
@@ -286,16 +289,24 @@ _LEADING_DOC_NUMBER_RE = re.compile(
 )
 _LEADING_BARE_NUMBER_RE = re.compile(r"^(?:so\b[\s:.,/-]*)?\d{1,5}\b[\s:.,/-]*", re.IGNORECASE)
 _LEADING_ISSUER_CODE_RE = re.compile(
-    r"^(?:qh\d*|cp|nd-cp|bxd|bkhdt|btc|bca|bct|bkhcn|ubnd|bqlkkt|sxd|cdt|bqlda|tvgs|tvtk|nttc|qlcl|qlcp|qlhd|hdxd)\b[\s:.,/-]*",
+    r"^(?:qh\d*|cp|nd-cp|ttg|bxd|bkhdt|btc|bca|bct|btnmt|bnnmt|bkhcn|ubnd|bqlkkt|bqlkcn|sxd|cdt|bqlda|tvgs|tvtk|nttc)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+_LEADING_DOMAIN_CODE_RE = re.compile(
+    r"^(?:hdxd|qlcl|qlcp|qlhd|vlxd|dth|tqt|pccc|qhdd|atld|dtu)\b[\s:.,/-]*",
     re.IGNORECASE,
 )
 _LEADING_FILLER_PHRASE_RE = re.compile(
     r"^(?:cua chinh phu|cua quoc hoi|cua bo xay dung|cua bo tai chinh|cua thu tuong chinh phu|cua ubnd|"
-    r"ngay\s+\d{1,2}(?:\s+thang\s+\d{1,2}\s+nam\s+\d{4}|/\d{1,2}/\d{4})|"
+    r"nam\s+(?:19|20)\d{2}|ngay\s+\d{1,2}(?:\s+thang\s+\d{1,2}\s+nam\s+\d{4}|/\d{1,2}/\d{4})|"
     r"ban hanh quy chuan ky thuat quoc gia ve|ban hanh quy dinh ve|ban hanh|"
     r"quy dinh chi tiet thi hanh mot so dieu cua|quy dinh chi tiet mot so dieu va bien phap thi hanh|"
     r"quy dinh chi tiet mot so dieu cua|quy dinh chi tiet ve|quy dinh chi tiet|quy dinh ve|quy dinh|"
     r"huong dan thi hanh|huong dan chi tiet ve|huong dan ve|huong dan|ve viec|v/v|vv|ve)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+_TRAILING_DOC_NUM_SUFFIX_RE = re.compile(
+    r"[\s,;-]+(?:so\s+\d{1,5}(?:[/_:-][a-z0-9-]+)*|(?!1/(?:50|100|200|250|500|1000|2000|2500|5000|10000)$)\d{1,5}(?:[/_:-](?:19|20)\d{2}(?:[/_:-][a-z0-9-]+)*|(?:[/_:-][a-z][a-z0-9-]*)+))$",
     re.IGNORECASE,
 )
 
@@ -376,8 +387,11 @@ def strip_redundant_summary_prefix(text: str) -> str:
 
     s = base
     had_doc_or_num = False
-    for _ in range(6):
+    for _ in range(8):
         before = s
+        if _LEADING_DOC_NUMBER_RE.match(s):
+            s = _LEADING_DOC_NUMBER_RE.sub("", s).strip()
+            had_doc_or_num = True
         if _LEADING_DOC_TYPE_RE.match(s):
             s = _LEADING_DOC_TYPE_RE.sub("", s).strip()
             had_doc_or_num = True
@@ -388,10 +402,19 @@ def strip_redundant_summary_prefix(text: str) -> str:
             s = _LEADING_BARE_NUMBER_RE.sub("", s).strip()
         if had_doc_or_num and _LEADING_ISSUER_CODE_RE.match(s):
             s = _LEADING_ISSUER_CODE_RE.sub("", s).strip()
+        if _LEADING_DOMAIN_CODE_RE.match(s):
+            s = _LEADING_DOMAIN_CODE_RE.sub("", s).strip()
         if _LEADING_FILLER_PHRASE_RE.match(s):
             s = _LEADING_FILLER_PHRASE_RE.sub("", s).strip()
         if s == before:
             break
+
+    if re.match(r"^bh\s+bao\s+hiem\b", s, flags=re.IGNORECASE):
+        s = re.sub(r"^bh\s+", "", s, flags=re.IGNORECASE).strip()
+    elif re.match(r"^bh\b", s, flags=re.IGNORECASE):
+        s = re.sub(r"^bh\b", "Bao hiem", s, flags=re.IGNORECASE).strip()
+
+    s = _TRAILING_DOC_NUM_SUFFIX_RE.sub("", s).strip()
 
     remaining_alnum = re.sub(r"[^a-zA-Z0-9]", "", s)
     return s if len(remaining_alnum) >= 3 else base
@@ -400,19 +423,133 @@ def strip_redundant_summary_prefix(text: str) -> str:
 def to_pascal_case_vn(text: str, max_len: int = 40) -> str:
     stripped = strip_redundant_summary_prefix(text)
     cleaned = re.sub(r"[^a-zA-Z0-9\s]", " ", stripped or remove_vn_tones(text))
-    words = [w.capitalize() for w in cleaned.split() if len(w) > 0]
+    words = []
+    for w in cleaned.split():
+        if not w:
+            continue
+        has_lower = any(c.islower() for c in w)
+        has_internal_upper = any(c.isupper() for c in w[1:])
+        if has_lower and has_internal_upper:
+            words.append(w[0].upper() + w[1:])
+        else:
+            words.append(w.capitalize())
     joined = "".join(words)
     return joined[:max_len] if joined else "TaiLieuChuaPhanLoai"
 
 
 SSOT_FILENAME_RULE_RE = re.compile(
-    r"^[0-9A-Za-z]+(?:-[0-9A-Za-z]+)*-\d{4}_[A-Za-z0-9-]+_[A-Z0-9]+_[A-Za-z0-9]+(?:-[A-Za-z0-9_-]+)?\.[a-z0-9]+$",
+    r"^[0-9A-Za-z]+(?:-[0-9A-Za-z]+)*-\d{4}_[A-Za-z0-9]+-[A-Za-z0-9]+_(?:HDXD|QLCL|QLHD|QLCP|VLXD|DTH|TQT|PCCC|QHDD|ATLD|DTU)_[A-Za-z0-9]+(?:-[A-Za-z0-9_-]+)?\.[a-z0-9]+$",
     re.IGNORECASE,
 )
 
 
 def validate_ssot_filename(file_name: str) -> bool:
     return bool(SSOT_FILENAME_RULE_RE.match((file_name or "").strip()))
+
+
+def default_issuer_for_doc_type(doc_type: str) -> str:
+    norm = normalize_ssot_doc_type(doc_type)
+    if norm in ("LUAT", "NQ"):
+        return "QH15"
+    if norm == "ND":
+        return "CP"
+    if norm in ("TT", "VBHN", "QCVN"):
+        return "BXD"
+    if norm == "TCVN":
+        return "BKHCN"
+    if norm == "QD":
+        return "UBND"
+    if norm == "BBNT":
+        return "TVGS"
+    if norm in ("HD", "PLHD"):
+        return "CDT"
+    if norm == "TTr":
+        return "BQLDA"
+    if norm == "BV":
+        return "TVTK"
+    if norm == "NKTC":
+        return "NTTC"
+    return "CP"
+
+
+def normalize_issuer_code(raw_issuer: str, doc_type: str = "ND") -> str:
+    cleaned = re.sub(r"^(?:ND|TT|QD|LUAT|NQ|VBHN|QCVN|TCVN)[-_]", "", remove_vn_tones(raw_issuer or "").upper())
+    cleaned = re.sub(r"[^A-Z0-9]", "", cleaned)
+    if not cleaned:
+        return default_issuer_for_doc_type(doc_type)
+    if cleaned == "TTG":
+        return "TTg"
+    if cleaned == "BNNMT":
+        return "BTNMT"
+    if cleaned == "BQLKCN":
+        return "BQLKKT"
+    if cleaned == "QH" and normalize_ssot_doc_type(doc_type) == "LUAT":
+        return "QH15"
+    return cleaned
+
+
+def normalize_domain_for_filename(domain: str) -> str:
+    d = (domain or "HDXD").strip().upper()
+    if d in ("QCVN", "TCVN", ""):
+        return "HDXD"
+    return d
+
+
+def detect_issuer_from_file_and_text(
+    base_name: str,
+    extracted_text: str,
+    doc_type: str,
+    raw_number: str = "",
+) -> str:
+    base_upper = remove_vn_tones(base_name or "").upper()
+    num_upper = remove_vn_tones(raw_number or "").upper()
+    scope = f"{num_upper}\n{base_upper}"
+
+    suffix_match = re.search(
+        r"(?:LUAT|NQ|ND|TT|VBHN|QD|QCVN|TCVN|\d{1,5}(?:[/_:-]\d{4})?)[/_:-](QH\d{2}|CP|TTG|BXD|BTC|BKHDT|BCA|BCT|BTNMT|BNNMT|BKHCN|UBND|BQLKKT|BQLKCN|SXD)\b",
+        scope,
+    )
+    if suffix_match:
+        return normalize_issuer_code(suffix_match.group(1), doc_type)
+
+    explicit_match = re.search(
+        r"\b(QH15|QH14|BKHDT|BQLKKT|BQLKCN|BKHCN|BTNMT|BNNMT|BTC|BXD|BCA|BCT|UBND|TTG)\b",
+        scope,
+    )
+    if explicit_match:
+        return normalize_issuer_code(explicit_match.group(1), doc_type)
+
+    top_lines = remove_vn_tones("\n".join((extracted_text or "").splitlines()[:12])).upper()
+    if re.search(r"\bQUOC HOI\b", top_lines):
+        return "QH14" if "QH14" in top_lines else "QH15"
+    if re.search(r"\bCHINH PHU\b", top_lines):
+        return "CP"
+    if re.search(r"\bTHU TUONG\b", top_lines):
+        return "TTg"
+    if re.search(r"\bBO TAI CHINH\b", top_lines):
+        return "BTC"
+    if re.search(r"\bBO XAY DUNG\b", top_lines):
+        return "BXD"
+    if re.search(r"\bBO KE HOACH\b", top_lines):
+        return "BKHDT"
+    if re.search(r"\bBO CONG AN\b", top_lines):
+        return "BCA"
+    if re.search(r"\bBO CONG THUONG\b", top_lines):
+        return "BCT"
+    if re.search(r"\bBO TAI NGUYEN\b|\bBO NONG NGHIEP VA MOI TRUONG\b", top_lines):
+        return "BTNMT"
+    if re.search(r"\bBO KHOA HOC\b", top_lines):
+        return "BKHCN"
+    if re.search(r"\bUY BAN NHAN DAN\b|\bUBND\b", top_lines):
+        return "UBND"
+    if re.search(r"\bTU VAN GIAM SAT\b", top_lines):
+        return "TVGS"
+    if re.search(r"\bTU VAN THIET KE\b", top_lines):
+        return "TVTK"
+    if re.search(r"\bCHU DAU TU\b", top_lines):
+        return "CDT"
+
+    return default_issuer_for_doc_type(doc_type)
 
 
 def build_ssot_2layer_filename(
@@ -425,12 +562,15 @@ def build_ssot_2layer_filename(
     project_code: str = "KCN",
     gate_code: Optional[str] = None,
     appendix_suffix: str = "",
+    issuer: str = "CP",
 ) -> str:
     """
-    Sinh tên file theo công thức chuẩn thống nhất:
-    [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+    Sinh tên file VBPL thống nhất (không ngoại lệ):
+    [SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
     """
     canonical_type = normalize_ssot_doc_type(doc_type)
+    issuer_clean = normalize_issuer_code(issuer, canonical_type)
+    domain_clean = normalize_domain_for_filename(domain)
     year_str = str(issue_year or datetime.now().year)
     num_clean = clean_doc_number(doc_number, int(year_str) if year_str.isdigit() else None)
     summary_40 = to_pascal_case_vn(summary_raw, max_len=40)
@@ -438,12 +578,12 @@ def build_ssot_2layer_filename(
     suffix_clean = (appendix_suffix or "").strip().lstrip("-")
     suffix_part = f"-{suffix_clean}" if suffix_clean else ""
 
-    return f"{num_clean}-{year_str}_{canonical_type}_{domain}_{summary_40}{suffix_part}.{ext_clean}"
+    return f"{num_clean}-{year_str}_{canonical_type}-{issuer_clean}_{domain_clean}_{summary_40}{suffix_part}.{ext_clean}"
 
 
 def build_suggested_tags(
     domain: str,
-    project_code: str,
+    project_axes: List[str],
     gate_code: str,
 ) -> List[Dict[str, str]]:
     industry_map = {
@@ -457,20 +597,19 @@ def build_suggested_tags(
         "TQT": ("KT_QT", "LV con: Kiểm toán & Quyết toán vốn đầu tư"),
         "PCCC": ("TTHC_LIENTHONG", "LV con: Thủ tục hành chính - liên thông"),
         "ATLD": ("LD_ATLD", "LV con: An toàn vệ sinh lao động xây dựng"),
-        "QCVN": ("CDS_KHCN", "LV con: KHCN - Đổi mới sáng tạo (TCVN/QCVN)"),
-        "TCVN": ("CDS_KHCN", "LV con: KHCN - Đổi mới sáng tạo (TCVN/QCVN)"),
     }
     ind_code, ind_label = industry_map.get(domain, ("XD", "Ngành: Xây dựng (XD)"))
     sub_code, sub_label = sub_sector_map.get(domain, ("XD_XAYDUNG", "LV con: Xây dựng"))
-    proj = (project_code or "KCN").strip().upper()
     gate = (gate_code or "G12").strip().upper()
 
-    return [
+    tags = [
         {"category": "INDUSTRY", "code": ind_code, "label": ind_label, "status": "SUGGESTED"},
         {"category": "SUB_SECTOR", "code": sub_code, "label": sub_label, "status": "SUGGESTED"},
-        {"category": "PROJECT_AXIS", "code": proj, "label": f"DA: {proj}", "status": "SUGGESTED"},
-        {"category": "STAGE_GATE", "code": gate, "label": f"Gate {gate}", "status": "SUGGESTED"},
     ]
+    for ax in (project_axes or [])[:2]:
+        tags.append({"category": "PROJECT_AXIS", "code": ax, "label": f"DA: {ax}", "status": "SUGGESTED"})
+    tags.append({"category": "STAGE_GATE", "code": gate, "label": f"Gate {gate}", "status": "SUGGESTED"})
+    return tags
 
 
 def compute_sha256(file_path: str) -> str:
@@ -494,7 +633,7 @@ _DOC_TYPE_MATCHERS = [
     ("TCVN", re.compile(r"^(?:TCVN|TIEU CHUAN QUOC GIA)\b"), re.compile(r"\bTCVN\b|TIEU CHUAN QUOC GIA")),
     ("NQ", re.compile(r"^NGHI QUYET\b"), re.compile(r"\bNGHI QUYET\b|\bNQ\b")),
     ("ND", re.compile(r"^NGHI DINH\b"), re.compile(r"\bNGHI DINH\b|ND-CP|ND_CP|\bND\b")),
-    ("TT", re.compile(r"^THONG TU\b"), re.compile(r"\bTHONG TU\b|TT-B[A-Z]+|\bTT\b")),
+    ("TT", re.compile(r"^THONG TU\b"), re.compile(r"\bTHONG TU\b|TT-[A-Z]+|\bTT\b")),
     ("LUAT", re.compile(r"^(?:BO\s+)?LUAT\b"), re.compile(r"\bLUAT\b|QH15|QH14")),
 ]
 
@@ -511,7 +650,7 @@ def classify_3_axes_and_9_parts(
     ext = raw_ext.lstrip(".").lower() or "pdf"
 
     base_upper_notone = remove_vn_tones(base_name).upper()
-    upper_text = text.upper()
+    base_upper_tokens = base_upper_notone.replace("_", " ")
     combined_upper_notone = remove_vn_tones(f"{base_name}\n{text[:2500]}").upper()
     header_lines = [
         remove_vn_tones(line).strip().upper()
@@ -519,7 +658,7 @@ def classify_3_axes_and_9_parts(
         if line.strip()
     ]
 
-    # 1. Xác định Loại văn bản / Loại hồ sơ (2 lớp SSOT)
+    # 1. Xác định Loại văn bản / Loại hồ sơ
     ai_doc_type = ai_meta.get("doc_type")
     doc_type = normalize_ssot_doc_type(ai_doc_type) if ai_doc_type else ""
     if not doc_type or doc_type == "TL":
@@ -535,7 +674,7 @@ def classify_3_axes_and_9_parts(
         if not matched_type:
             best_idx = 10**9
             for code, _, general_re in _DOC_TYPE_MATCHERS:
-                m = general_re.search(base_upper_notone)
+                m = general_re.search(base_upper_tokens)
                 if m and m.start() < best_idx:
                     best_idx = m.start()
                     matched_type = code
@@ -548,15 +687,15 @@ def classify_3_axes_and_9_parts(
 
         doc_type = matched_type or "ND"
 
-    # 2. Xác định Số hiệu & Năm
+    # 2. Xác định Số hiệu, Năm & Cơ quan ban hành
     raw_doc_number = ai_meta.get("doc_number")
     if not raw_doc_number:
-        num_match = re.search(r"Số[:\s]*([0-9A-Za-z\-/]+)", text, re.IGNORECASE)
+        num_match = re.search(r"Số[:\s]*([0-9A-Za-z\-/:]+)", text, re.IGNORECASE)
         if num_match:
             raw_doc_number = num_match.group(1)
         else:
             file_num_match = re.search(
-                r"(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/-](?:\d{4}[/-])?[a-zA-Z]+)|(\b\d{1,4}\b)",
+                r"(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/:-](?:\d{4}[/:-])?[a-zA-Z]+)|(\b\d{1,4}\b)",
                 base_upper_notone,
             )
             raw_doc_number = file_num_match.group(0) if file_num_match else "01"
@@ -564,29 +703,47 @@ def classify_3_axes_and_9_parts(
     year_match = re.search(r"(20[1-3][0-9]|199[0-9])", f"{raw_doc_number} {base_name} {text[:400]}")
     issue_year = int(ai_meta.get("issue_year") or (year_match.group(1) if year_match else datetime.now().year))
     doc_number = clean_doc_number(str(raw_doc_number), issue_year)
+    issuer = ai_meta.get("issuer") or detect_issuer_from_file_and_text(
+        base_name, text, doc_type, str(raw_doc_number)
+    )
 
-    # 3. Xác định Lĩnh vực chuyên môn (Trục X)
+    # 3. Xác định Lĩnh vực chuyên môn (11 Mã Lĩnh vực chuẩn, không gán QCVN/TCVN làm Lĩnh vực)
+    domain_rules = [
+        ("PCCC", 10, ["PCCC", "PHONG CHAY", "CHUA CHAY", "AN TOAN CHAY", "CHONG CHAY", "THOAT NAN"]),
+        ("VLXD", 9, ["VLXD", "VAT LIEU XAY DUNG", "VAT LIEU", "HOP CHUAN", "HOP QUY", "LAS-XD", "CO/CQ"]),
+        ("QLCL", 9, ["QLCL", "CHAT LUONG", "NGHIEM THU", "NHAT KY THI CONG", "HOAN CONG", "BAO TRI"]),
+        ("QLCP", 8, ["QLCP", "CHI PHI", "DU TOAN", "DINH MUC", "DON GIA", "TONG MUC DAU TU"]),
+        ("QLHD", 8, ["QLHD", "HOP DONG", "PHU LUC HOP DONG", "TAM UNG", "DIEU CHINH GIA", "PHAT SINH"]),
+        ("DTH", 8, ["DTH", "DAU THAU", "LUA CHON NHA THAU", "MOI THAU", "HSMT"]),
+        ("TQT", 8, ["TQT", "QUYET TOAN", "KIEM TOAN", "THANH QUYET TOAN"]),
+        ("QHDD", 8, ["QHDD", "QUY HOACH", "DAT DAI", "GIAI PHONG MAT BANG", "1/500"]),
+        ("ATLD", 8, ["ATLD", "AN TOAN LAO DONG", "VE SINH LAO DONG", "DANH GIA TAC DONG MOI TRUONG"]),
+        ("DTU", 8, ["DTU", "CHU TRUONG DAU TU", "KHU CONG NGHIEP", "CUM CONG NGHIEP", "THUONG MAI TU DO", "PPP"]),
+        ("HDXD", 7, ["HDXD", "HOAT DONG XAY DUNG", "HOAT DONG DAU TU XAY DUNG", "BAO HIEM", "QUAN LY DU AN", "LUAT XAY DUNG", "THAM DINH", "BAN VE THI CONG", "TKBVTC", "KET CAU", "GIAY PHEP XAY DUNG", "KHOI CONG"]),
+    ]
     domain = "HDXD"
-    if any(k in upper_text for k in ["PCCC", "PHÒNG CHÁY", "CHỮA CHÁY"]):
-        domain = "PCCC"
-    elif any(k in upper_text for k in ["CHẤT LƯỢNG", "BẢO TRÌ", "NGHIỆM THU", "THÍ NGHIỆM"]):
-        domain = "QLCL"
-    elif any(k in upper_text for k in ["CHI PHÍ", "DỰ TOÁN", "ĐỊNH MỨC"]):
-        domain = "QLCP"
-    elif any(k in upper_text for k in ["THANH QUYẾT TOÁN", "KIỂM TOÁN", "QUYẾT TOÁN VỐN"]):
-        domain = "TQT"
-    elif any(k in upper_text for k in ["HỢP ĐỒNG", "TẠM ỨNG", "THANH TOÁN", "PHÁT SINH"]):
-        domain = "QLHD"
-    elif any(k in upper_text for k in ["VẬT LIỆU XÂY DỰNG", "HỢP QUY", "LAS-XD", "CO/CQ"]):
-        domain = "VLXD"
-    elif any(k in upper_text for k in ["ĐẤU THẦU", "LỰA CHỌN NHÀ THẦU"]):
-        domain = "DTH"
-    elif doc_type == "QCVN":
-        domain = "QCVN"
-    elif doc_type == "TCVN":
-        domain = "TCVN"
+    best_score = -1
+    for code, weight, kws in domain_rules:
+        hits = sum(1 for kw in kws if kw in combined_upper_notone)
+        if hits > 0 and hits * weight > best_score:
+            best_score = hits * weight
+            domain = code
 
-    # 4. Tạo Trích yếu PascalCase (cắt từ lặp thừa, tối đa 40 ký tự) & Sinh tên chuẩn 2 lớp
+    detected_axes: List[str] = []
+    if re.search(r"KHU CONG NGHIEP|\bKCN\b|KHU KINH TE", combined_upper_notone):
+        detected_axes.append("KCN")
+    if re.search(r"CUM CONG NGHIEP|\bCCN\b", combined_upper_notone):
+        detected_axes.append("CCN")
+    if re.search(r"THUONG MAI TU DO|\bFTZ\b|LOGISTICS", combined_upper_notone):
+        detected_axes.append("FTZ")
+    if re.search(r"PPP|\bBOT\b|DOI TAC CONG TU", combined_upper_notone):
+        detected_axes.append("PPP_BT")
+    if re.search(r"HA TANG KY THUAT|GIAO THONG|CAP THOAT NUOC", combined_upper_notone):
+        detected_axes.append("HTKT")
+    if re.search(r"DAN DUNG|CHUNG CU|KHU DO THI|NHA O", combined_upper_notone):
+        detected_axes.append("DAN_DUNG")
+
+    # 4. Tạo Trích yếu PascalCase (cắt từ lặp thừa, tối đa 40 ký tự) & Sinh tên VBPL thống nhất
     summary_raw = ai_meta.get("summary") or base_name
     appendix_suffix = ai_meta.get("appendix_suffix") or ""
     gate_code = infer_default_gate(doc_type, domain, default_gate)
@@ -600,17 +757,19 @@ def classify_3_axes_and_9_parts(
         project_code=project_code,
         gate_code=gate_code,
         appendix_suffix=appendix_suffix,
+        issuer=issuer,
     )
-    naming_layer = "UNIFIED_SSOT"
-    suggested_tags = build_suggested_tags(domain=domain, project_code=project_code, gate_code=gate_code)
+    naming_layer = "UNIFIED_VBPL"
+    suggested_tags = build_suggested_tags(domain=domain, project_axes=detected_axes, gate_code=gate_code)
 
     return {
         "doc_type": doc_type,
+        "issuer": issuer,
         "doc_number": doc_number,
         "issue_year": issue_year,
         "domain": domain,
         "gate_code": gate_code,
-        "project_code": project_code,
+        "project_code": detected_axes[0] if detected_axes else None,
         "naming_layer": naming_layer,
         "is_valid_ssot_name": validate_ssot_filename(ssot_name),
         "suggested_tags": suggested_tags,

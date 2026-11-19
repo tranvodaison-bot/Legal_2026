@@ -685,7 +685,7 @@ export function useLexPmoOrchestrator() {
       oldFolderPath: '01_Ho so phap ly & giay phep KCN',
       newFolderPath: 'KCN_G12_CDE/QLCL_01HoSoPhapLyGiayPhepKcn',
       oldName: 'Nghi dinh 207-2026-ND-CP quan ly chat luong.pdf',
-      newName: '207-2026_ND_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf',
+      newName: '207-2026_ND-CP_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf',
       sha256Before: '8F4E0CC92A1B',
       sha256After: '8F4E0CC92A1B',
       actorName: 'TS. Trần Võ Đại Sơn',
@@ -1350,7 +1350,10 @@ export function useLexPmoOrchestrator() {
           chapterCount: Math.max(1, nodes.filter(n => n.level === 'Chương').length),
           articleCount: Math.max(1, nodes.filter(n => n.level === 'Điều').length),
           clauseTotalCount: nodes.length * 3,
-          projectAxes: syncedSug.projectAxes,
+          projectAxes:
+            syncedSug.projectAxes.length > 0
+              ? syncedSug.projectAxes
+              : ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
           secondaryDomains: syncedSug.secondaryDomains,
           linkedGates: syncedSug.linkedGates,
           linkedQAQC: syncedSug.linkedQAQC,
@@ -2274,7 +2277,10 @@ export function useLexPmoOrchestrator() {
       chapterCount: Math.max(1, parsedNodes.filter(n => n.level === 'Chương').length),
       articleCount: Math.max(1, parsedNodes.filter(n => n.level === 'Điều').length),
       clauseTotalCount: parsedNodes.reduce((acc, n) => acc + (n.clauseCount || 4), 0),
-      projectAxes: namingForm.projectAxes,
+      projectAxes:
+        namingForm.projectAxes.length > 0
+          ? namingForm.projectAxes
+          : ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
       secondaryDomains: namingForm.secondaryDomains,
       linkedGates: namingForm.linkedGates,
       linkedQAQC: namingForm.linkedQAQC,
