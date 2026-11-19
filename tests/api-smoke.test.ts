@@ -15,6 +15,14 @@ import verifyRoleHandler from '../api/verify-role.js';
 import { MAX_AUDIT_LOGS, getAuditLogs, prependAuditLog } from '../api/_lib/auditStore.js';
 import type { GeminiClientLike, GeminiGenerateContentParams } from '../api/_lib/gemini.js';
 import { toCanonicalGuardRole } from '../src/services/ssotBridgeService.js';
+import {
+  buildFileNameByRule,
+  cleanDocNumber,
+  createSampleBatchItems,
+  smartAnalyzeFile3D,
+  stripRedundantSummaryPrefix,
+  toPascalCaseVN,
+} from '../src/utils/legalParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -713,4 +721,142 @@ test('auditStore monotonic auditSequence prevents ID collisions past MAX_AUDIT_L
   assert.equal(toCanonicalGuardRole('BQLDA'), 'PMU');
   assert.equal(toCanonicalGuardRole('CDT'), 'CDT');
   assert.equal(toCanonicalGuardRole('TVTK'), 'TVGS');
+});
+
+test('SSOT 2-layer filename generator builds 5-part VBPL and 7-part HSDA names, strips redundant prefixes, and caps PascalCase summary at 40 chars', () => {
+  assert.equal(
+    stripRedundantSummaryPrefix(
+      'Nghị định số 207/2026/NĐ-CP quy định chi tiết về quản lý chất lượng thi công và bảo trì công trình'
+    ),
+    'quan ly chat luong thi cong va bao tri cong trinh'
+  );
+  assert.equal(
+    stripRedundantSummaryPrefix('Thông tư quy định về định mức dự toán xây dựng công trình'),
+    'dinh muc du toan xay dung cong trinh'
+  );
+  assert.equal(
+    stripRedundantSummaryPrefix('Quyết định số 15/QĐ-UBND về việc phê duyệt điều chỉnh quy hoạch 1/500'),
+    'phe duyet dieu chinh quy hoach 1/500'
+  );
+
+  const longPascal = toPascalCaseVN(
+    'Nghị định số 207/2026/NĐ-CP quy định chi tiết về quản lý chất lượng thi công xây dựng và bảo trì công trình hạ tầng khu công nghiệp'
+  );
+  assert.ok(longPascal.length <= 40, `Expected <= 40 chars, got ${longPascal.length}: ${longPascal}`);
+  assert.equal(longPascal, 'QuanLyChatLuongThiCongXayDungVaBaoTriCon');
+
+  assert.equal(cleanDocNumber('207/2026/NĐ-CP', '2026'), '207');
+  assert.equal(cleanDocNumber('06:2022/BXD', '2022'), '06');
+  assert.equal(cleanDocNumber('NX02-BV012', '2026'), 'NX02BV012');
+
+  // Layer 1: VBPL / Quy chuẩn / Tiêu chuẩn (5 parts)
+  const ndName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'ND',
+    issuer: 'CP',
+    rawNumber: '207/2026/NĐ-CP',
+    year: '2026',
+    primaryDomain: 'QLCL',
+    rawSummary: 'Nghị định số 207/2026/NĐ-CP quy định chi tiết về quản lý chất lượng công trình',
+    appendixSuffix: 'PLIIa',
+    ext: 'pdf',
+    projectCode: 'KCN',
+  });
+  assert.equal(ndName, 'ND_2026-207_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf');
+
+  const ttName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'TT',
+    issuer: 'BXD',
+    rawNumber: '12/2026/TT-BXD',
+    year: '2026',
+    primaryDomain: 'QLCP',
+    rawSummary: 'Thông tư quy định về định mức dự toán xây dựng công trình',
+    appendixSuffix: '',
+    ext: 'pdf',
+    projectCode: 'KCN',
+  });
+  assert.equal(ttName, 'TT_2026-12_QLCP_DinhMucDuToanXayDungCongTrinh.pdf');
+
+  const qcvnName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'QCVN',
+    issuer: 'BXD',
+    rawNumber: '06:2022/BXD',
+    year: '2022',
+    primaryDomain: 'PCCC',
+    rawSummary: 'Quy chuẩn kỹ thuật quốc gia về an toàn cháy cho nhà và công trình',
+    appendixSuffix: '',
+    ext: 'pdf',
+  });
+  assert.equal(qcvnName, 'QCVN_2022-06_PCCC_AnToanChayChoNhaVaCongTrinh.pdf');
+
+  // Layer 2: Hồ sơ Dự án (7 parts)
+  const bbntName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'BBNT',
+    issuer: 'TVGS',
+    rawNumber: '018/2026/BBNT-QLCL',
+    year: '2026',
+    primaryDomain: 'QLCL',
+    rawSummary: 'Biên bản nghiệm thu số 018 nghiệm thu cốt thép dầm sàn tầng 5',
+    appendixSuffix: 'KY',
+    ext: 'docx',
+    projectCode: 'KCN',
+    gateCode: 'G12',
+  });
+  assert.equal(bbntName, 'KCN_G12_BBNT_2026-018_QLCL_NghiemThuCotThepDamSanTang5-KY.docx');
+
+  const hdName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'HD',
+    issuer: 'CDT',
+    rawNumber: '45/2026/HĐ-TCXD',
+    year: '2026',
+    primaryDomain: 'QLHD',
+    rawSummary: 'Hợp đồng thi công số 45 hạ tầng kỹ thuật KCN',
+    appendixSuffix: 'V01',
+    ext: 'pdf',
+    projectCode: 'KCN',
+    gateCode: 'G11',
+  });
+  assert.equal(hdName, 'KCN_G11_HD_2026-45_QLHD_HaTangKyThuatKcn-V01.pdf');
+
+  const bvName = buildFileNameByRule({
+    group: 'SSOT_9PART',
+    industry: 'XD',
+    docType: 'BV',
+    issuer: 'TVTK',
+    rawNumber: 'NX02-BV012',
+    year: '2026',
+    primaryDomain: 'HDXD',
+    rawSummary: 'Bản vẽ TKBVTC kết cấu nhà xưởng NX02 Rev01',
+    appendixSuffix: '',
+    ext: 'pdf',
+    projectCode: 'KCN',
+    gateCode: 'G12',
+  });
+  assert.equal(bvName, 'KCN_G12_BV_2026-NX02BV012_HDXD_KetCauNhaXuongNx02Rev01.pdf');
+
+  const ttrAnalysis = smartAnalyzeFile3D(
+    'To trinh 009_TTr_BQLDA phe duyet phat sinh khoi luong VO-02.docx',
+    'BAN QUẢN LÝ DỰ ÁN\nSố: 009/2026/TTr-BQLDA\nTỜ TRÌNH\nVề việc phê duyệt Phụ lục hợp đồng VO-02'
+  );
+  assert.equal(ttrAnalysis.docType, 'TTr');
+
+  const samples = createSampleBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO').filter(
+    i => i.itemKind === 'FILE'
+  );
+  assert.equal(samples.length, 6);
+  assert.ok(samples[0].proposedName.startsWith('ND_2026-207_'));
+  assert.ok(samples[1].proposedName.startsWith('TT_2026-12_'));
+  assert.ok(samples[2].proposedName.startsWith('KCN_G12_BBNT_2026-018_'));
+  assert.ok(samples[3].proposedName.startsWith('KCN_G11_HD_2026-45_'));
+  assert.ok(samples[4].proposedName.startsWith('KCN_G12_BV_2026-NX02BV012_'));
+  assert.ok(samples[5].proposedName.startsWith('KCN_G11_TTr_2026-009_'));
 });

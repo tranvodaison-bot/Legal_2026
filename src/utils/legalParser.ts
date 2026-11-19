@@ -33,6 +33,65 @@ if (typeof window !== 'undefined' && window.pdfjsLib) {
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
+export const SSOT_LEGAL_DOC_TYPES = ['LUAT', 'NQ', 'ND', 'TT', 'QCVN', 'TCVN', 'VBHN'] as const;
+export const SSOT_PROJECT_DOC_TYPES = ['QD', 'TTr', 'HD', 'PLHD', 'BBNT', 'NKTC', 'BV'] as const;
+
+export function normalizeSsotDocType(docType: string): string {
+  const raw = (docType || '').trim();
+  if (!raw) return 'ND';
+  const upper = raw.toUpperCase();
+  if (upper === 'TTR') return 'TTr';
+  return upper;
+}
+
+export function isProjectDossierDocType(docType: string): boolean {
+  const normalized = normalizeSsotDocType(docType);
+  return (SSOT_PROJECT_DOC_TYPES as readonly string[]).includes(normalized);
+}
+
+export function inferDefaultGateForDoc(
+  docType: string,
+  primaryDomain: FunctionalDomainCode,
+  linkedGates?: string[],
+  explicitGateCode?: string
+): string {
+  if (explicitGateCode && explicitGateCode.trim()) {
+    return explicitGateCode.trim().toUpperCase();
+  }
+  const normalized = normalizeSsotDocType(docType);
+  const cleanedGates = (linkedGates || []).map(g => g.trim().toUpperCase()).filter(Boolean);
+  if (cleanedGates.length > 0) {
+    if ((normalized === 'HD' || normalized === 'PLHD') && cleanedGates.includes('G11')) {
+      return 'G11';
+    }
+    if ((normalized === 'BBNT' || normalized === 'NKTC' || normalized === 'BV') && cleanedGates.includes('G12')) {
+      return 'G12';
+    }
+    if (normalized === 'BV' && cleanedGates.includes('G9')) {
+      return 'G9';
+    }
+    return cleanedGates[0];
+  }
+  if (normalized === 'HD' || normalized === 'PLHD') return 'G11';
+  if (normalized === 'BBNT' || normalized === 'NKTC' || normalized === 'BV') return 'G12';
+  if (normalized === 'QD') {
+    if (primaryDomain === 'DTH') return 'G10';
+    if (primaryDomain === 'QLCP') return 'G9';
+    if (primaryDomain === 'DTU') return 'G0';
+    if (primaryDomain === 'QHDD') return 'G3';
+    if (primaryDomain === 'PCCC') return 'G6';
+    if (primaryDomain === 'TQT') return 'G15';
+    return 'G12';
+  }
+  if (normalized === 'TTr') {
+    if (primaryDomain === 'QLHD') return 'G11';
+    if (primaryDomain === 'QLCP') return 'G9';
+    if (primaryDomain === 'TQT') return 'G14';
+    return 'G12';
+  }
+  return 'G12';
+}
+
 export function removeVietnameseTones(str: string): string {
   if (!str) return '';
   return str
@@ -42,9 +101,67 @@ export function removeVietnameseTones(str: string): string {
     .replace(/Đ/g, 'D');
 }
 
-export function toPascalCaseVN(str: string, maxLength = 50): string {
+const LEADING_SSOT_PREFIX_RE =
+  /^(?:(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)/i;
+
+const LEADING_DOC_TYPE_RE =
+  /^(?:van ban hop nhat|vbhn|bo luat|luat|nghi quyet|nq|nghi dinh|nd-cp|nd|thong tu lien tich|thong tu|tt-bxd|tt-btc|tt-bkhdt|tt-bca|tt-bnnmt|tt|quy chuan ky thuat quoc gia|quy chuan ky thuat|quy chuan|qcvn|tieu chuan quoc gia|tieu chuan|tcvn|quyet dinh|qd|to trinh|ttr|phu luc hop dong|plhd|hop dong thi cong xay dung cong trinh|hop dong thi cong xay dung|hop dong thi cong|hop dong xay dung|hop dong|hdxd|hd|bien ban nghiem thu cong viec xay dung|bien ban nghiem thu|bien ban|bbnt|nhat ky thi cong xay dung cong trinh|nhat ky thi cong|nktc|ho so thiet ke ban ve thi cong|ban ve thiet ke ban ve thi cong|ban ve tkbvtc|ban ve thiet ke|ban ve|tkbvtc|bv|cong van|cv)\b[\s:.,/-]*/i;
+
+const LEADING_DOC_NUMBER_RE =
+  /^(?:so\b[\s:.,/-]*)?(?:\d{1,5}(?:[/_:-]\d{1,4})+(?:[/_:-][a-z0-9]+){0,3}|\d{1,5}(?:\s*-\s*[a-z0-9]+)+)\b[\s:.,/-]*/i;
+
+const LEADING_BARE_NUMBER_RE = /^(?:so\b[\s:.,/-]*)?\d{1,5}\b[\s:.,/-]*/i;
+
+const LEADING_ISSUER_CODE_RE =
+  /^(?:qh\d*|cp|nd-cp|bxd|bkhdt|btc|bca|bct|bkhcn|ubnd|bqlkkt|sxd|cdt|bqlda|tvgs|tvtk|nttc|qlcl|qlcp|qlhd|hdxd)\b[\s:.,/-]*/i;
+
+const LEADING_FILLER_PHRASE_RE =
+  /^(?:cua chinh phu|cua quoc hoi|cua bo xay dung|cua bo tai chinh|cua thu tuong chinh phu|cua ubnd|ngay\s+\d{1,2}(?:\s+thang\s+\d{1,2}\s+nam\s+\d{4}|\/\d{1,2}\/\d{4})|ban hanh quy chuan ky thuat quoc gia ve|ban hanh quy dinh ve|ban hanh|quy dinh chi tiet thi hanh mot so dieu cua|quy dinh chi tiet mot so dieu va bien phap thi hanh|quy dinh chi tiet mot so dieu cua|quy dinh chi tiet ve|quy dinh chi tiet|quy dinh ve|quy dinh|huong dan thi hanh|huong dan chi tiet ve|huong dan ve|huong dan|ve viec|v\/v|vv|ve)\b[\s:.,/-]*/i;
+
+/**
+ * Loại bỏ các từ lặp thừa ở đầu trích yếu (VD: "Nghị định số...", "Thông tư quy định về...", "Quyết định về việc...").
+ */
+export function stripRedundantSummaryPrefix(rawSummary: string): string {
+  if (!rawSummary) return '';
+  const withoutSsotPrefix = rawSummary.trim().replace(LEADING_SSOT_PREFIX_RE, '');
+  const base = removeVietnameseTones(withoutSsotPrefix)
+    .replace(/[_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!base) return '';
+
+  let s = base;
+  let hadDocOrNumberPrefix = false;
+
+  for (let i = 0; i < 6; i++) {
+    const before = s;
+    if (LEADING_DOC_TYPE_RE.test(s)) {
+      s = s.replace(LEADING_DOC_TYPE_RE, '').trim();
+      hadDocOrNumberPrefix = true;
+    }
+    if (LEADING_DOC_NUMBER_RE.test(s)) {
+      s = s.replace(LEADING_DOC_NUMBER_RE, '').trim();
+      hadDocOrNumberPrefix = true;
+    } else if (hadDocOrNumberPrefix && LEADING_BARE_NUMBER_RE.test(s)) {
+      s = s.replace(LEADING_BARE_NUMBER_RE, '').trim();
+    }
+    if (hadDocOrNumberPrefix && LEADING_ISSUER_CODE_RE.test(s)) {
+      s = s.replace(LEADING_ISSUER_CODE_RE, '').trim();
+    }
+    if (LEADING_FILLER_PHRASE_RE.test(s)) {
+      s = s.replace(LEADING_FILLER_PHRASE_RE, '').trim();
+    }
+    if (s === before) break;
+  }
+
+  const remainingAlnum = s.replace(/[^a-zA-Z0-9]/g, '');
+  return remainingAlnum.length >= 3 ? s : base;
+}
+
+export function toPascalCaseVN(str: string, maxLength = 40): string {
   if (!str) return 'TrichYeuVanBan';
-  const cleanStr = removeVietnameseTones(str)
+  const stripped = stripRedundantSummaryPrefix(str);
+  const cleanStr = (stripped || removeVietnameseTones(str))
     .replace(/[^a-zA-Z0-9\s]/g, ' ')
     .trim();
   const pascal = cleanStr
@@ -55,10 +172,24 @@ export function toPascalCaseVN(str: string, maxLength = 50): string {
   return pascal.substring(0, maxLength) || 'TrichYeuVanBan';
 }
 
-export function cleanDocNumber(rawNum: string): string {
+export function cleanDocNumber(rawNum: string, year?: string): string {
   if (!rawNum) return '00';
-  const firstPart = rawNum.split('/')[0].trim();
-  return firstPart.replace(/[^a-zA-Z0-9-]/g, '') || '00';
+  let s = removeVietnameseTones(rawNum).trim();
+  s = s.split('/')[0].split(':')[0].trim();
+  s = s.replace(/^(?:19|20)\d{2}[-_\s]+/, '');
+  s = s.replace(/[-_](?:19|20)\d{2}(?:[-_].*)?$/i, '');
+  s = s.replace(
+    /[-_](?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CP|QH\d*|BXD|BTC|BQLDA|TVGS|CDT)(?:[-_].*)?$/i,
+    ''
+  );
+  if (year) {
+    const cleanY = year.replace(/\D/g, '');
+    if (cleanY.length === 4) {
+      s = s.replace(new RegExp(`^${cleanY}[-_]?`), '').replace(new RegExp(`[-_]?${cleanY}$`), '');
+    }
+  }
+  const alnum = s.replace(/[^a-zA-Z0-9]/g, '');
+  return alnum || '00';
 }
 
 export function formatFileSize(bytes: number): string {
@@ -195,14 +326,16 @@ export function parseVietnameseLegalText(rawText: string): LegalNode[] {
 }
 
 export function detectQlvbGroup(docType: string, primaryDomain: FunctionalDomainCode): QlvbNamingGroupCode {
-  if (['LUAT', 'NQ', 'ND', 'TT', 'VBHN', 'QCVN', 'TCVN'].includes(docType)) return 'PL';
-  if (['BBNT', 'BB', 'BC'].includes(docType) && ['QLCL', 'VLXD', 'QLCP', 'TQT'].includes(primaryDomain)) {
+  const normalized = normalizeSsotDocType(docType);
+  if (['LUAT', 'NQ', 'ND', 'TT', 'VBHN', 'QCVN', 'TCVN'].includes(normalized)) return 'PL';
+  if (normalized === 'BV') return 'TK';
+  if (['BBNT', 'NKTC', 'BB', 'BC'].includes(normalized) && ['QLCL', 'VLXD', 'QLCP', 'TQT'].includes(primaryDomain)) {
     return 'KT';
   }
-  if (['HD', 'PLHD', 'QD'].includes(docType) && ['DTU', 'QHDD', 'PCCC', 'DTH', 'QLHD'].includes(primaryDomain)) {
+  if (['HD', 'PLHD', 'QD'].includes(normalized) && ['DTU', 'QHDD', 'PCCC', 'DTH', 'QLHD'].includes(primaryDomain)) {
     return 'PLDA';
   }
-  if (['TTr', 'CVDi', 'CVDe', 'TB'].includes(docType)) return 'HC';
+  if (['TTr', 'CVDi', 'CVDe', 'TB'].includes(normalized)) return 'HC';
   return 'PL';
 }
 
@@ -218,6 +351,8 @@ export function buildFileNameByRule(params: {
   appendixSuffix: string;
   ext: string;
   projectCode?: ProjectArchetypeCode;
+  gateCode?: string;
+  linkedGates?: string[];
   projectSubCode?: string;
   ktSubType?: string;
   tkStageDept?: string;
@@ -225,17 +360,30 @@ export function buildFileNameByRule(params: {
   tkRevision?: string;
 }): string {
   const extClean = (params.ext || 'pdf').replace(/^\./, '').toLowerCase();
-  const numClean = cleanDocNumber(params.rawNumber);
+  const yearClean = (params.year || '2026').replace(/\D/g, '').slice(0, 4) || '2026';
+  const numClean = cleanDocNumber(params.rawNumber, yearClean);
   const suffixRaw = params.appendixSuffix ? params.appendixSuffix.trim().replace(/^-+/, '') : '';
   const suffixFormatted = suffixRaw ? `-${suffixRaw}` : '';
+  const canonicalType = normalizeSsotDocType(params.docType);
+
+  // Giới hạn Trích yếu <= 40 ký tự PascalCase sau khi đã loại bỏ từ lặp thừa
+  const summary40 = toPascalCaseVN(params.rawSummary, 40);
 
   if (params.group === 'SSOT_9PART') {
-    const summary50 = toPascalCaseVN(params.rawSummary, 50);
-    return `${params.industry}_${params.docType}_${params.issuer}_${numClean}_${params.year}_${params.primaryDomain}_${summary50}${suffixFormatted}.${extClean}`;
+    if (isProjectDossierDocType(canonicalType)) {
+      const projCode = params.projectCode || 'KCN';
+      const resolvedGate = inferDefaultGateForDoc(
+        canonicalType,
+        params.primaryDomain,
+        params.linkedGates,
+        params.gateCode
+      );
+      return `${projCode}_${resolvedGate}_${canonicalType}_${yearClean}-${numClean}_${params.primaryDomain}_${summary40}${suffixFormatted}.${extClean}`;
+    }
+    return `${canonicalType}_${yearClean}-${numClean}_${params.primaryDomain}_${summary40}${suffixFormatted}.${extClean}`;
   }
 
   // Các nhóm QLVB_NAMING_DB v0.1 giới hạn Trích dẫn <= 40 ký tự PascalCase
-  const summary40 = toPascalCaseVN(params.rawSummary, 40);
   const projPrefix = params.projectSubCode
     ? `${params.projectCode || 'KCN'}-${params.projectSubCode}`
     : params.projectCode || 'KCN';
@@ -251,24 +399,24 @@ export function buildFileNameByRule(params: {
       PCCC: 'PCCC',
     };
     const lv = lvMap[params.industry] || 'XD';
-    const needIssuer = ['QD', 'TT', 'TTLT', 'CT', 'CVHD', 'VBHN'].includes(params.docType);
+    const needIssuer = ['QD', 'TT', 'TTLT', 'CT', 'CVHD', 'VBHN'].includes(canonicalType);
     const typeAndIssuer =
-      needIssuer && params.issuer ? `${params.docType}-${params.issuer}` : params.docType;
+      needIssuer && params.issuer ? `${canonicalType}-${params.issuer}` : canonicalType;
     const digitsOnly = numClean.replace(/\D/g, '') || '01';
-    return `${lv}_${typeAndIssuer}_${digitsOnly}_${params.year}_${summary40}${suffixFormatted}.${extClean}`;
+    return `${lv}_${typeAndIssuer}_${digitsOnly}_${yearClean}_${summary40}${suffixFormatted}.${extClean}`;
   }
 
   if (params.group === 'HC') {
     // {Đơn vị}_{Loại}_{Số pad 3}_{Năm}_{Trích dẫn}[Hậu tố].{Đuôi}
     const hcType = ['CVDi', 'CVDe', 'QD', 'TTr', 'TB', 'BC', 'BB', 'KH', 'GM', 'UQ', 'QC', 'QT'].includes(
-      params.docType
+      canonicalType
     )
-      ? params.docType
+      ? canonicalType
       : 'TTr';
     const digits = numClean.replace(/\D/g, '');
     const paddedNum = digits ? digits.padStart(3, '0') : 'N1116';
     const unit = params.issuer || 'BQLDA';
-    return `${unit}_${hcType}_${paddedNum}_${params.year}_${summary40}${suffixFormatted}.${extClean}`;
+    return `${unit}_${hcType}_${paddedNum}_${yearClean}_${summary40}${suffixFormatted}.${extClean}`;
   }
 
   if (params.group === 'KT') {
@@ -276,7 +424,7 @@ export function buildFileNameByRule(params: {
     const ktPair = params.ktSubType || (params.primaryDomain === 'QLHD' ? 'TT-IPC' : 'CL-BBNTCV');
     const digits = numClean.replace(/\D/g, '');
     const paddedNum = digits ? digits.padStart(3, '0') : '001';
-    return `${projPrefix}_${ktPair}_${paddedNum}_${params.year}_${summary40}${suffixFormatted}.${extClean}`;
+    return `${projPrefix}_${ktPair}_${paddedNum}_${yearClean}_${summary40}${suffixFormatted}.${extClean}`;
   }
 
   if (params.group === 'TK') {
@@ -306,10 +454,10 @@ export function buildFileNameByRule(params: {
     'PLHD',
     'BLTH',
     'BHXD',
-  ].includes(params.docType)
-    ? params.docType
+  ].includes(canonicalType)
+    ? canonicalType
     : 'GPXD';
-  return `${projPrefix}_${pldaType}_${numClean || '01'}_${params.year}_${summary40}${suffixFormatted}.${extClean}`;
+  return `${projPrefix}_${pldaType}_${numClean || '01'}_${yearClean}_${summary40}${suffixFormatted}.${extClean}`;
 }
 
 export function validateBatchFileName(
@@ -377,45 +525,71 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
   const baseName = fileName.replace(/\.[^/.]+$/, '');
   const combinedRaw = `${baseName}\n${extractedText.substring(0, 2500)}`;
   const combinedUpperNoTone = removeVietnameseTones(combinedRaw).toUpperCase();
+  const baseUpperNoTone = removeVietnameseTones(baseName).toUpperCase();
+  const headerLines = extractedText
+    .split(/\r?\n/)
+    .slice(0, 12)
+    .map(l => removeVietnameseTones(l).trim().toUpperCase())
+    .filter(Boolean);
+
+  const docTypeMatchers: Array<{
+    docType: string;
+    issuer: string;
+    headingRe: RegExp;
+    generalRe: RegExp;
+  }> = [
+    { docType: 'VBHN', issuer: 'BXD', headingRe: /^(?:VAN BAN HOP NHAT|VBHN)\b/, generalRe: /VAN BAN HOP NHAT|\bVBHN\b/ },
+    { docType: 'NKTC', issuer: 'NTTC', headingRe: /^(?:NHAT KY THI CONG|NKTC)\b/, generalRe: /\bNHAT KY THI CONG\b|\bNKTC\b/ },
+    { docType: 'BBNT', issuer: 'TVGS', headingRe: /^(?:BIEN BAN NGHIEM THU|BBNT)\b/, generalRe: /\bBIEN BAN NGHIEM THU\b|\bBBNT\b/ },
+    { docType: 'BV', issuer: 'TVTK', headingRe: /^(?:HO SO THIET KE|BAN VE|TKBVTC|TKCS|TKKT)\b/, generalRe: /\bTKBVTC\b|\bBAN VE\b|\bTKCS\b|\bTKKT\b|\bHOAN CONG\b|\bBV\b/ },
+    { docType: 'TTr', issuer: 'BQLDA', headingRe: /^(?:TO TRINH|TTR)\b/, generalRe: /\bTO TRINH\b|\bTTR\b/ },
+    { docType: 'PLHD', issuer: 'CDT', headingRe: /^(?:PHU LUC HOP DONG|PLHD)\b/, generalRe: /\bPHU LUC HOP DONG\b|\bPLHD\b/ },
+    { docType: 'HD', issuer: 'CDT', headingRe: /^HOP DONG\b/, generalRe: /\bHOP DONG\b|\bHDXD\b|\bHD-TCXD\b|\bHD\b/ },
+    { docType: 'QD', issuer: 'CDT', headingRe: /^QUYET DINH\b/, generalRe: /\bQUYET DINH\b|\bQD\b/ },
+    { docType: 'QCVN', issuer: 'BXD', headingRe: /^(?:QCVN|QUY CHUAN KY THUAT)\b/, generalRe: /\bQCVN\b|QUY CHUAN KY THUAT/ },
+    { docType: 'TCVN', issuer: 'BKHCN', headingRe: /^(?:TCVN|TIEU CHUAN QUOC GIA)\b/, generalRe: /\bTCVN\b|TIEU CHUAN QUOC GIA/ },
+    { docType: 'NQ', issuer: 'QH', headingRe: /^NGHI QUYET\b/, generalRe: /\bNGHI QUYET\b|\bNQ\b/ },
+    { docType: 'ND', issuer: 'CP', headingRe: /^NGHI DINH\b/, generalRe: /\bNGHI DINH\b|ND-CP|ND_CP|\bND\b/ },
+    { docType: 'TT', issuer: 'BXD', headingRe: /^THONG TU\b/, generalRe: /\bTHONG TU\b|TT-B[A-Z]+|\bTT\b/ },
+    { docType: 'LUAT', issuer: 'QH', headingRe: /^(?:BO\s+)?LUAT\b/, generalRe: /\bLUAT\b|QH15|QH14/ },
+  ];
 
   let docType = 'ND';
   let issuer = 'CP';
-  if (/VAN BAN HOP NHAT|VBHN/.test(combinedUpperNoTone)) {
-    docType = 'VBHN';
-    issuer = 'BXD';
-  } else if (/NGHI QUYET|\bNQ\b/.test(combinedUpperNoTone)) {
-    docType = 'NQ';
-    issuer = 'QH';
-  } else if (/NGHI DINH|ND-CP|ND_CP|\bND\b/.test(combinedUpperNoTone)) {
-    docType = 'ND';
-    issuer = 'CP';
-  } else if (/THONG TU|TT-BXD|\bTT\b/.test(combinedUpperNoTone)) {
-    docType = 'TT';
-    issuer = 'BXD';
-  } else if (/LUAT|QH15|QH14/.test(combinedUpperNoTone)) {
-    docType = 'LUAT';
-    issuer = 'QH';
-  } else if (/QCVN|QUY CHUAN/.test(combinedUpperNoTone)) {
-    docType = 'QCVN';
-    issuer = 'BXD';
-  } else if (/TCVN|TIEU CHUAN/.test(combinedUpperNoTone)) {
-    docType = 'TCVN';
-    issuer = 'BKHCN';
-  } else if (/BIEN BAN NGHIEM THU|BBNT/.test(combinedUpperNoTone)) {
-    docType = 'BBNT';
-    issuer = 'TVGS';
-  } else if (/PHU LUC HOP DONG|PLHD/.test(combinedUpperNoTone)) {
-    docType = 'PLHD';
-    issuer = 'CDT';
-  } else if (/HOP DONG|\bHD\b/.test(combinedUpperNoTone)) {
-    docType = 'HD';
-    issuer = 'CDT';
-  } else if (/TO TRINH|TTR/.test(combinedUpperNoTone)) {
-    docType = 'TTr';
-    issuer = 'BQLDA';
-  } else if (/QUYET DINH|\bQD\b/.test(combinedUpperNoTone)) {
-    docType = 'QD';
-    issuer = 'CDT';
+  let matched = false;
+
+  // 1. Ưu tiên nhận diện dòng tiêu đề loại văn bản trong 12 dòng đầu
+  for (const line of headerLines) {
+    const hit = docTypeMatchers.find(m => m.headingRe.test(line));
+    if (hit) {
+      docType = hit.docType;
+      issuer = hit.issuer;
+      matched = true;
+      break;
+    }
+  }
+
+  // 2. Nếu chưa thấy dòng tiêu đề rõ ràng, chọn loại xuất hiện sớm nhất trong tên file gốc
+  if (!matched) {
+    let bestIdx = Number.MAX_SAFE_INTEGER;
+    for (const m of docTypeMatchers) {
+      const hit = baseUpperNoTone.match(m.generalRe);
+      if (hit && hit.index !== undefined && hit.index < bestIdx) {
+        bestIdx = hit.index;
+        docType = m.docType;
+        issuer = m.issuer;
+        matched = true;
+      }
+    }
+  }
+
+  // 3. Fallback toàn văn bản
+  if (!matched) {
+    const fallbackMatch = docTypeMatchers.find(m => m.generalRe.test(combinedUpperNoTone));
+    if (fallbackMatch) {
+      docType = fallbackMatch.docType;
+      issuer = fallbackMatch.issuer;
+    }
   }
 
   const projectAxes = new Set<ProjectArchetypeCode>();
@@ -444,7 +618,7 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
     { code: 'QLHD', weight: 8, keywords: ['QLHD', 'HOP DONG', 'PHU LUC HOP DONG', 'TAM UNG', 'DIEU CHINH GIA', 'PHAT SINH'], gates: ['G11', 'G14'], qaqc: [] },
     { code: 'VLXD', weight: 8, keywords: ['VLXD', 'VAT LIEU', 'HOP CHUAN', 'HOP QUY', 'THI NGHIEM', 'LAS-XD', 'CO/CQ'], gates: ['G12'], qaqc: ['QT-03'] },
     { code: 'QLCL', weight: 8, keywords: ['QLCL', 'CHAT LUONG', 'NGHIEM THU', 'NHAT KY THI CONG', 'BAO TRI'], gates: ['G12', 'G14', 'G15'], qaqc: ['QT-01', 'QT-03', 'QT-08', 'QT-12'] },
-    { code: 'HDXD', weight: 7, keywords: ['HDXD', 'HOAT DONG XAY DUNG', 'THAM DINH', 'BAN VE THI CONG', 'GIAY PHEP XAY DUNG', 'KHOI CONG'], gates: ['G0', 'G9', 'G12'], qaqc: ['QT-01'] },
+    { code: 'HDXD', weight: 7, keywords: ['HDXD', 'HOAT DONG XAY DUNG', 'THAM DINH', 'BAN VE THI CONG', 'TKBVTC', 'BAN VE', 'KET CAU', 'GIAY PHEP XAY DUNG', 'KHOI CONG'], gates: ['G9', 'G12', 'G0'], qaqc: ['QT-01'] },
     { code: 'DTH', weight: 8, keywords: ['DTH', 'DAU THAU', 'LUA CHON NHA THAU', 'MOI THAU', 'HSMT'], gates: ['G10', 'G11'], qaqc: [] },
     { code: 'TQT', weight: 8, keywords: ['TQT', 'QUYET TOAN', 'KIEM TOAN', 'THANH QUYET TOAN'], gates: ['G14', 'G15'], qaqc: [] },
     { code: 'PCCC', weight: 9, keywords: ['PCCC', 'PHONG CHAY', 'CHUA CHAY'], gates: ['G6', 'G12', 'G15'], qaqc: [] },
@@ -453,6 +627,7 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
 
   let primaryDomain = 'QLCL' as FunctionalDomainCode;
   let secondaryDomains: FunctionalDomainCode[] = [];
+  let primaryRuleGates: string[] = [];
   const linkedGates = new Set<string>();
   const linkedQAQC = new Set<string>();
   let bestScore = -1;
@@ -470,6 +645,7 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
       if (score > bestScore) {
         bestScore = score;
         primaryDomain = rule.code;
+        primaryRuleGates = rule.gates;
       }
     }
   }
@@ -477,11 +653,14 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
   if (secondaryDomains.length === 0) {
     secondaryDomains = ['QLCL', 'HDXD'];
     linkedGates.add('G12');
+    primaryRuleGates = ['G12'];
   }
+
+  const orderedLinkedGates = Array.from(new Set<string>([...primaryRuleGates, ...linkedGates]));
 
   let rawNumber = '01';
   const numInText = extractedText.match(/Số\s*:\s*([0-9a-zA-Z\-/]+)/i);
-  const numInFile = baseName.match(/(\d{1,4}[/-](?:\d{4}[/-])?[a-zA-ZĐđ-]+)|(\b\d{1,4}\b)/);
+  const numInFile = baseName.match(/(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/-](?:\d{4}[/-])?[a-zA-ZĐđ-]+)|(\b\d{1,4}\b)/);
   if (numInText && numInText[1]) rawNumber = numInText[1].trim();
   else if (numInFile && numInFile[0]) rawNumber = numInFile[0].replace(/-/g, '/');
 
@@ -489,10 +668,7 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
   const yearMatch = combinedRaw.match(/\b(201[5-9]|202[0-9])\b/);
   if (yearMatch) year = yearMatch[1];
 
-  const rawSummary = baseName
-    .replace(/^(XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z]+_\d{4}_[A-Z]+_/i, '')
-    .replace(/[_-]+/g, ' ')
-    .trim();
+  const rawSummary = stripRedundantSummaryPrefix(baseName) || baseName.replace(/[_-]+/g, ' ').trim();
 
   const industryCode = primaryDomain === 'TQT' ? 'TC' : primaryDomain === 'DTU' ? 'BDS' : 'XD';
 
@@ -508,7 +684,7 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
     ext,
     projectAxes: Array.from(projectAxes),
     secondaryDomains: Array.from(new Set<FunctionalDomainCode>([primaryDomain, ...secondaryDomains])),
-    linkedGates: Array.from(linkedGates),
+    linkedGates: orderedLinkedGates,
     linkedQAQC: Array.from(linkedQAQC),
   };
 }
@@ -729,6 +905,7 @@ export function createSampleBatchItems(
             appendixSuffix: suggestion.appendixSuffix,
             ext: suggestion.ext,
             projectCode: activeProject,
+            linkedGates: suggestion.linkedGates,
             ktSubType: s.ktSubType,
             tkStageDept: s.tkStageDept,
             tkDocCode: s.tkDocCode,

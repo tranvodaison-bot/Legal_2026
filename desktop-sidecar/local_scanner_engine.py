@@ -1,0 +1,712 @@
+import os
+import re
+import json
+import shutil
+import hashlib
+import unicodedata
+from datetime import datetime
+from typing import List, Optional, Dict, Any, Tuple
+
+import fitz  # PyMuPDF
+import cv2
+import numpy as np
+from PIL import Image
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# --- TÍCH HỢP VIETOCR (OFFLINE TIẾNG VIỆT CHUẨN DẤU) ---
+try:
+    from vietocr.tool.predictor import Predictor
+    from vietocr.tool.config import Cfg
+    VIETOCR_AVAILABLE = True
+except ImportError:
+    VIETOCR_AVAILABLE = False
+
+# --- TÍCH HỢP DOCLING (BÓC TÁCH BẢNG BIỂU & BỐ CỤC) ---
+try:
+    from docling.document_converter import DocumentConverter
+    DOCLING_AVAILABLE = True
+except ImportError:
+    DOCLING_AVAILABLE = False
+
+# --- TÍCH HỢP GEMINI VISION FALLBACK ---
+try:
+    from google import genai
+    from google.genai import types
+    GEMINI_SDK_AVAILABLE = True
+except ImportError:
+    GEMINI_SDK_AVAILABLE = False
+
+app = FastAPI(
+    title="LEX-PMO OS v3.1 — Local PDF Scanner, Vietnamese OCR & Batch Rename Sidecar",
+    description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên SSOT 2 lớp (5/7 thành phần) & Undo 100%",
+    version="3.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AUDIT_LOG_FILE = os.path.join(BASE_DIR, "ssot_rename_audit_log.json")
+CONFIDENCE_THRESHOLD = 0.78
+
+# Khởi tạo VietOCR Engine (Lazy/Startup)
+vn_ocr_predictor = None
+if VIETOCR_AVAILABLE:
+    try:
+        config = Cfg.load_config_from_name('vgg_transformer')
+        config['device'] = 'cpu'
+        config['predictor']['beamsearch'] = False
+        vn_ocr_predictor = Predictor(config)
+    except Exception as e:
+        print(f"[WARN] Không thể khởi tạo VietOCR offline: {e}")
+
+# Khởi tạo Docling Converter
+docling_converter = DocumentConverter() if DOCLING_AVAILABLE else None
+
+# Khởi tạo Gemini Client (dùng làm Fallback khi ảnh scan quá mờ)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if (GEMINI_SDK_AVAILABLE and GEMINI_API_KEY) else None
+
+
+# ============================================================================
+# 1. CÁC HÀM TIỀN XỬ LÝ ẢNH & OCR ĐA TẦNG TIẾNG VIỆT
+# ============================================================================
+
+def preprocess_remove_red_stamp(image_bytes: bytes) -> Image.Image:
+    """
+    Tách kênh màu đỏ (Red Channel) để loại bỏ con dấu mộc đỏ đè lên chữ đen,
+    kết hợp Adaptive Thresholding giúp sắc nét dấu thanh tiếng Việt.
+    """
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise ValueError("Không thể giải mã dữ liệu ảnh từ trang PDF")
+
+    # Lấy kênh màu đỏ (index 2 trong BGR): mực đỏ trở nên sáng như nền trắng, chữ đen giữ nguyên độ tối
+    _, _, red_channel = cv2.split(img_bgr)
+
+    # Khử nhiễu nhẹ & nhị phân hóa thích nghi
+    denoised = cv2.fastNlMeansDenoising(red_channel, None, h=10, templateWindowSize=7, searchWindowSize=21)
+    clean_gray = cv2.adaptiveThreshold(
+        denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 25, 15
+    )
+    return Image.fromarray(clean_gray)
+
+
+def segment_text_lines_from_pil(pil_img: Image.Image) -> List[Image.Image]:
+    """
+    Cắt ảnh trang văn bản thành từng dòng ngang để đưa vào VietOCR đạt độ chính xác tối đa.
+    """
+    gray = np.array(pil_img.convert("L"))
+    # Đảo ngược màu (chữ trắng nền đen) để tìm bounding box từng dòng
+    inv = cv2.bitwise_not(gray)
+    # Giãn nở theo chiều ngang để nối các chữ trong cùng một dòng
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (45, 3))
+    dilated = cv2.dilate(inv, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    line_boxes = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w > 40 and h > 10:  # Lọc nhiễu chấm nhỏ
+            line_boxes.append((y, x, w, h))
+
+    # Sắp xếp từ trên xuống dưới
+    line_boxes.sort(key=lambda b: b[0])
+    line_images = []
+    for y, x, w, h in line_boxes:
+        pad = 4
+        y1 = max(0, y - pad)
+        y2 = min(pil_img.height, y + h + pad)
+        x1 = max(0, x - pad)
+        x2 = min(pil_img.width, x + w + pad)
+        line_images.append(pil_img.crop((x1, y1, x2, y2)))
+
+    return line_images
+
+
+def call_gemini_vision_fallback(image_bytes: bytes) -> Tuple[str, Dict[str, Any]]:
+    """
+    Tầng 3 Fallback: Gọi Gemini 2.5 Flash Vision khi ảnh scan quá mờ nhòe hoặc VietOCR dưới ngưỡng tin cậy.
+    """
+    if not gemini_client:
+        return "", {}
+
+    prompt = (
+        "Bạn là chuyên gia số hóa hồ sơ pháp lý và xây dựng Việt Nam. "
+        "Hãy đọc chính xác nội dung tiếng Việt có dấu trong ảnh trang văn bản này (bỏ qua vết mờ hay con dấu đỏ đè lên chữ). "
+        "Trả về JSON gồm: "
+        "1) 'raw_text': toàn bộ văn bản đọc được; "
+        "2) 'doc_type': mã loại (LUAT, NQ, ND, TT, QCVN, TCVN, VBHN, QD, TTr, HD, PLHD, BBNT, NKTC, BV); "
+        "3) 'doc_number': số hiệu văn bản (vd: 135/2025/QH15); "
+        "4) 'issue_year': năm ban hành (số nguyên); "
+        "5) 'summary': trích yếu ngắn gọn tiếng Việt có dấu."
+    )
+
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+                prompt
+            ],
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        parsed = json.loads(response.text)
+        return parsed.get("raw_text", ""), parsed
+    except Exception as e:
+        print(f"[WARN] Gemini Vision Fallback thất bại: {e}")
+        return "", {}
+
+
+def extract_text_hybrid_pipeline(pdf_path: str, extract_full_tables: bool = False) -> Dict[str, Any]:
+    """
+    Pipeline trích xuất văn bản thông minh 4 tầng:
+    Text gốc -> OpenCV khử dấu đỏ + VietOCR -> Docling (nếu cần bảng biểu) -> Gemini Vision Fallback.
+    """
+    doc = fitz.open(pdf_path)
+    if len(doc) == 0:
+        return {"text": "", "engine_used": "EMPTY", "confidence": 0.0, "ai_metadata": {}}
+
+    first_page = doc[0]
+    native_text = first_page.get_text("text").strip()
+
+    # Tầng 0: PDF có sẵn text chuẩn
+    if len(native_text) >= 60:
+        full_text = "\n".join([p.get_text("text") for p in doc[:3]])
+        return {
+            "text": full_text,
+            "engine_used": "PYMUPDF_NATIVE",
+            "confidence": 1.0,
+            "ai_metadata": {}
+        }
+
+    # Tầng 1 + 2: PDF Scan dạng ảnh -> Khử dấu đỏ + VietOCR vùng đầu trang (55% trên trang 1)
+    clip_rect = fitz.Rect(0, 0, first_page.rect.width, first_page.rect.height * 0.55)
+    pix = first_page.get_pixmap(dpi=300, clip=clip_rect)
+    raw_png_bytes = pix.tobytes("png")
+
+    ocr_lines_text = []
+    avg_confidence = 0.0
+
+    if vn_ocr_predictor is not None:
+        try:
+            clean_pil = preprocess_remove_red_stamp(raw_png_bytes)
+            line_imgs = segment_text_lines_from_pil(clean_pil)
+            confidences = []
+            for l_img in line_imgs[:25]:  # Đọc tối đa 25 dòng đầu trang
+                text_line, prob = vn_ocr_predictor.predict(l_img, return_prob=True)
+                if text_line.strip():
+                    ocr_lines_text.append(text_line.strip())
+                    confidences.append(float(prob))
+            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+        except Exception as e:
+            print(f"[WARN] Lỗi xử lý VietOCR: {e}")
+
+    combined_vietocr_text = "\n".join(ocr_lines_text)
+
+    # Tầng 2B: Nếu yêu cầu bóc tách toàn bộ bảng biểu (dùng Docling)
+    if extract_full_tables and docling_converter is not None:
+        try:
+            result = docling_converter.convert(pdf_path)
+            md_content = result.document.export_to_markdown()
+            return {
+                "text": md_content,
+                "engine_used": "DOCLING_TABLE_OCR",
+                "confidence": max(avg_confidence, 0.85),
+                "ai_metadata": {}
+            }
+        except Exception as e:
+            print(f"[WARN] Docling fallback về VietOCR: {e}")
+
+    # Kiểm tra ngưỡng tin cậy: Nếu VietOCR đạt chuẩn -> Trả về ngay (100% Offline, bảo mật tuyệt đối)
+    if avg_confidence >= CONFIDENCE_THRESHOLD and len(combined_vietocr_text) >= 30:
+        return {
+            "text": combined_vietocr_text,
+            "engine_used": "VIETOCR_OPENCV_OFFLINE",
+            "confidence": round(avg_confidence, 3),
+            "ai_metadata": {}
+        }
+
+    # Tầng 3: Fallback sang Gemini 2.5 Flash Vision nếu ảnh scan quá mờ nhòe
+    if gemini_client is not None:
+        vision_text, ai_meta = call_gemini_vision_fallback(raw_png_bytes)
+        if vision_text:
+            return {
+                "text": vision_text,
+                "engine_used": "GEMINI_2.5_FLASH_VISION_FALLBACK",
+                "confidence": 0.96,
+                "ai_metadata": ai_meta
+            }
+
+    return {
+        "text": combined_vietocr_text,
+        "engine_used": "VIETOCR_LOW_CONFIDENCE",
+        "confidence": round(avg_confidence, 3),
+        "ai_metadata": {}
+    }
+
+
+# ============================================================================
+# 2. CHUẨN HÓA TÊN 2 LỚP SSOT (5 THÀNH PHẦN VBPL / 7 THÀNH PHẦN HSDA) & 3 TRỤC
+# ============================================================================
+
+LEGAL_STANDARD_DOC_TYPES = {"LUAT", "NQ", "ND", "TT", "QCVN", "TCVN", "VBHN"}
+PROJECT_DOSSIER_DOC_TYPES = {"QD", "TTr", "HD", "PLHD", "BBNT", "NKTC", "BV"}
+
+_LEADING_SSOT_PREFIX_RE = re.compile(
+    r"^(?:(?:XD|BDS|TC|DN)_[A-Z]+_[A-Z]+_[0-9A-Z-]+_\d{4}_[A-Z]+_|"
+    r"(?:[A-Z_]+_G\d{1,2}_)?(?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CV)_\d{4}-[0-9A-Za-z-]+_[A-Z]+_)",
+    re.IGNORECASE,
+)
+_LEADING_DOC_TYPE_RE = re.compile(
+    r"^(?:van ban hop nhat|vbhn|bo luat|luat|nghi quyet|nq|nghi dinh|nd-cp|nd|"
+    r"thong tu lien tich|thong tu|tt-bxd|tt-btc|tt-bkhdt|tt-bca|tt-bnnmt|tt|"
+    r"quy chuan ky thuat quoc gia|quy chuan ky thuat|quy chuan|qcvn|"
+    r"tieu chuan quoc gia|tieu chuan|tcvn|quyet dinh|qd|to trinh|ttr|"
+    r"phu luc hop dong|plhd|hop dong thi cong xay dung cong trinh|hop dong thi cong xay dung|"
+    r"hop dong thi cong|hop dong xay dung|hop dong|hdxd|hd|"
+    r"bien ban nghiem thu cong viec xay dung|bien ban nghiem thu|bien ban|bbnt|"
+    r"nhat ky thi cong xay dung cong trinh|nhat ky thi cong|nktc|"
+    r"ho so thiet ke ban ve thi cong|ban ve thiet ke ban ve thi cong|"
+    r"ban ve tkbvtc|ban ve thiet ke|ban ve|tkbvtc|bv|cong van|cv)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+_LEADING_DOC_NUMBER_RE = re.compile(
+    r"^(?:so\b[\s:.,/-]*)?(?:\d{1,5}(?:[/_:-]\d{1,4})+(?:[/_:-][a-z0-9]+){0,3}|\d{1,5}(?:\s*-\s*[a-z0-9]+)+)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+_LEADING_BARE_NUMBER_RE = re.compile(r"^(?:so\b[\s:.,/-]*)?\d{1,5}\b[\s:.,/-]*", re.IGNORECASE)
+_LEADING_ISSUER_CODE_RE = re.compile(
+    r"^(?:qh\d*|cp|nd-cp|bxd|bkhdt|btc|bca|bct|bkhcn|ubnd|bqlkkt|sxd|cdt|bqlda|tvgs|tvtk|nttc|qlcl|qlcp|qlhd|hdxd)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+_LEADING_FILLER_PHRASE_RE = re.compile(
+    r"^(?:cua chinh phu|cua quoc hoi|cua bo xay dung|cua bo tai chinh|cua thu tuong chinh phu|cua ubnd|"
+    r"ngay\s+\d{1,2}(?:\s+thang\s+\d{1,2}\s+nam\s+\d{4}|/\d{1,2}/\d{4})|"
+    r"ban hanh quy chuan ky thuat quoc gia ve|ban hanh quy dinh ve|ban hanh|"
+    r"quy dinh chi tiet thi hanh mot so dieu cua|quy dinh chi tiet mot so dieu va bien phap thi hanh|"
+    r"quy dinh chi tiet mot so dieu cua|quy dinh chi tiet ve|quy dinh chi tiet|quy dinh ve|quy dinh|"
+    r"huong dan thi hanh|huong dan chi tiet ve|huong dan ve|huong dan|ve viec|v/v|vv|ve)\b[\s:.,/-]*",
+    re.IGNORECASE,
+)
+
+
+def remove_vn_tones(text: str) -> str:
+    if not text:
+        return ""
+    s = unicodedata.normalize("NFD", text)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return s.replace("đ", "d").replace("Đ", "D")
+
+
+def normalize_ssot_doc_type(doc_type: str) -> str:
+    raw = (doc_type or "").strip()
+    if not raw:
+        return "ND"
+    upper = raw.upper()
+    if upper == "TTR":
+        return "TTr"
+    return upper
+
+
+def is_project_dossier_doc_type(doc_type: str) -> bool:
+    return normalize_ssot_doc_type(doc_type) in PROJECT_DOSSIER_DOC_TYPES
+
+
+def infer_default_gate(doc_type: str, domain: str, explicit_gate: Optional[str] = None) -> str:
+    if explicit_gate and explicit_gate.strip():
+        return explicit_gate.strip().upper()
+    norm = normalize_ssot_doc_type(doc_type)
+    if norm in ("HD", "PLHD"):
+        return "G11"
+    if norm in ("BBNT", "NKTC", "BV"):
+        return "G12"
+    if norm == "QD":
+        return {
+            "DTH": "G10",
+            "QLCP": "G9",
+            "DTU": "G0",
+            "QHDD": "G3",
+            "PCCC": "G6",
+            "TQT": "G15",
+        }.get(domain, "G12")
+    if norm == "TTr":
+        return {"QLHD": "G11", "QLCP": "G9", "TQT": "G14"}.get(domain, "G12")
+    return "G12"
+
+
+def clean_doc_number(raw_num: str, issue_year: Optional[int] = None) -> str:
+    if not raw_num:
+        return "00"
+    s = remove_vn_tones(str(raw_num)).strip()
+    s = s.split("/")[0].split(":")[0].strip()
+    s = re.sub(r"^(?:19|20)\d{2}[-_\s]+", "", s)
+    s = re.sub(r"[-_](?:19|20)\d{2}(?:[-_].*)?$", "", s, flags=re.IGNORECASE)
+    s = re.sub(
+        r"[-_](?:LUAT|NQ|ND|TT|QCVN|TCVN|VBHN|QD|TTR|HD|PLHD|BBNT|NKTC|BV|CP|QH\d*|BXD|BTC|BQLDA|TVGS|CDT)(?:[-_].*)?$",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    )
+    if issue_year:
+        y = str(issue_year)
+        if len(y) == 4:
+            s = re.sub(rf"^{y}[-_]?", "", s)
+            s = re.sub(rf"[-_]?{y}$", "", s)
+    alnum = re.sub(r"[^a-zA-Z0-9]", "", s)
+    return alnum or "00"
+
+
+def strip_redundant_summary_prefix(text: str) -> str:
+    if not text:
+        return ""
+    without_ssot = _LEADING_SSOT_PREFIX_RE.sub("", text.strip())
+    base = re.sub(r"\s+", " ", remove_vn_tones(without_ssot).replace("_", " ")).strip()
+    if not base:
+        return ""
+
+    s = base
+    had_doc_or_num = False
+    for _ in range(6):
+        before = s
+        if _LEADING_DOC_TYPE_RE.match(s):
+            s = _LEADING_DOC_TYPE_RE.sub("", s).strip()
+            had_doc_or_num = True
+        if _LEADING_DOC_NUMBER_RE.match(s):
+            s = _LEADING_DOC_NUMBER_RE.sub("", s).strip()
+            had_doc_or_num = True
+        elif had_doc_or_num and _LEADING_BARE_NUMBER_RE.match(s):
+            s = _LEADING_BARE_NUMBER_RE.sub("", s).strip()
+        if had_doc_or_num and _LEADING_ISSUER_CODE_RE.match(s):
+            s = _LEADING_ISSUER_CODE_RE.sub("", s).strip()
+        if _LEADING_FILLER_PHRASE_RE.match(s):
+            s = _LEADING_FILLER_PHRASE_RE.sub("", s).strip()
+        if s == before:
+            break
+
+    remaining_alnum = re.sub(r"[^a-zA-Z0-9]", "", s)
+    return s if len(remaining_alnum) >= 3 else base
+
+
+def to_pascal_case_vn(text: str, max_len: int = 40) -> str:
+    stripped = strip_redundant_summary_prefix(text)
+    cleaned = re.sub(r"[^a-zA-Z0-9\s]", " ", stripped or remove_vn_tones(text))
+    words = [w.capitalize() for w in cleaned.split() if len(w) > 0]
+    joined = "".join(words)
+    return joined[:max_len] if joined else "TaiLieuChuaPhanLoai"
+
+
+def build_ssot_2layer_filename(
+    doc_type: str,
+    issue_year: int,
+    doc_number: str,
+    domain: str,
+    summary_raw: str,
+    ext: str = "pdf",
+    project_code: str = "KCN",
+    gate_code: Optional[str] = None,
+    appendix_suffix: str = "",
+) -> str:
+    canonical_type = normalize_ssot_doc_type(doc_type)
+    year_str = str(issue_year or datetime.now().year)
+    num_clean = clean_doc_number(doc_number, int(year_str) if year_str.isdigit() else None)
+    summary_40 = to_pascal_case_vn(summary_raw, max_len=40)
+    ext_clean = (ext or "pdf").lstrip(".").lower()
+    suffix_clean = (appendix_suffix or "").strip().lstrip("-")
+    suffix_part = f"-{suffix_clean}" if suffix_clean else ""
+
+    if is_project_dossier_doc_type(canonical_type):
+        proj = (project_code or "KCN").strip().upper()
+        resolved_gate = infer_default_gate(canonical_type, domain, gate_code)
+        return (
+            f"{proj}_{resolved_gate}_{canonical_type}_{year_str}-{num_clean}_"
+            f"{domain}_{summary_40}{suffix_part}.{ext_clean}"
+        )
+
+    return f"{canonical_type}_{year_str}-{num_clean}_{domain}_{summary_40}{suffix_part}.{ext_clean}"
+
+
+def compute_sha256(file_path: str) -> str:
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+_DOC_TYPE_MATCHERS = [
+    ("VBHN", re.compile(r"^(?:VAN BAN HOP NHAT|VBHN)\b"), re.compile(r"VAN BAN HOP NHAT|\bVBHN\b")),
+    ("NKTC", re.compile(r"^(?:NHAT KY THI CONG|NKTC)\b"), re.compile(r"\bNHAT KY THI CONG\b|\bNKTC\b")),
+    ("BBNT", re.compile(r"^(?:BIEN BAN NGHIEM THU|BBNT)\b"), re.compile(r"\bBIEN BAN NGHIEM THU\b|\bBBNT\b")),
+    ("BV", re.compile(r"^(?:HO SO THIET KE|BAN VE|TKBVTC|TKCS|TKKT)\b"), re.compile(r"\bTKBVTC\b|\bBAN VE\b|\bTKCS\b|\bTKKT\b|\bHOAN CONG\b|\bBV\b")),
+    ("TTr", re.compile(r"^(?:TO TRINH|TTR)\b"), re.compile(r"\bTO TRINH\b|\bTTR\b")),
+    ("PLHD", re.compile(r"^(?:PHU LUC HOP DONG|PLHD)\b"), re.compile(r"\bPHU LUC HOP DONG\b|\bPLHD\b")),
+    ("HD", re.compile(r"^HOP DONG\b"), re.compile(r"\bHOP DONG\b|\bHDXD\b|\bHD-TCXD\b|\bHD\b")),
+    ("QD", re.compile(r"^QUYET DINH\b"), re.compile(r"\bQUYET DINH\b|\bQD\b")),
+    ("QCVN", re.compile(r"^(?:QCVN|QUY CHUAN KY THUAT)\b"), re.compile(r"\bQCVN\b|QUY CHUAN KY THUAT")),
+    ("TCVN", re.compile(r"^(?:TCVN|TIEU CHUAN QUOC GIA)\b"), re.compile(r"\bTCVN\b|TIEU CHUAN QUOC GIA")),
+    ("NQ", re.compile(r"^NGHI QUYET\b"), re.compile(r"\bNGHI QUYET\b|\bNQ\b")),
+    ("ND", re.compile(r"^NGHI DINH\b"), re.compile(r"\bNGHI DINH\b|ND-CP|ND_CP|\bND\b")),
+    ("TT", re.compile(r"^THONG TU\b"), re.compile(r"\bTHONG TU\b|TT-B[A-Z]+|\bTT\b")),
+    ("LUAT", re.compile(r"^(?:BO\s+)?LUAT\b"), re.compile(r"\bLUAT\b|QH15|QH14")),
+]
+
+
+def classify_3_axes_and_9_parts(
+    filename: str,
+    extracted: Dict[str, Any],
+    project_code: str = "KCN",
+    default_gate: Optional[str] = None,
+) -> Dict[str, Any]:
+    text = extracted.get("text", "")
+    ai_meta = extracted.get("ai_metadata", {})
+    base_name, raw_ext = os.path.splitext(filename)
+    ext = raw_ext.lstrip(".").lower() or "pdf"
+
+    base_upper_notone = remove_vn_tones(base_name).upper()
+    upper_text = text.upper()
+    combined_upper_notone = remove_vn_tones(f"{base_name}\n{text[:2500]}").upper()
+    header_lines = [
+        remove_vn_tones(line).strip().upper()
+        for line in text.splitlines()[:12]
+        if line.strip()
+    ]
+
+    # 1. Xác định Loại văn bản / Loại hồ sơ (2 lớp SSOT)
+    ai_doc_type = ai_meta.get("doc_type")
+    doc_type = normalize_ssot_doc_type(ai_doc_type) if ai_doc_type else ""
+    if not doc_type or doc_type == "TL":
+        matched_type = ""
+        for line in header_lines:
+            for code, heading_re, _ in _DOC_TYPE_MATCHERS:
+                if heading_re.search(line):
+                    matched_type = code
+                    break
+            if matched_type:
+                break
+
+        if not matched_type:
+            best_idx = 10**9
+            for code, _, general_re in _DOC_TYPE_MATCHERS:
+                m = general_re.search(base_upper_notone)
+                if m and m.start() < best_idx:
+                    best_idx = m.start()
+                    matched_type = code
+
+        if not matched_type:
+            for code, _, general_re in _DOC_TYPE_MATCHERS:
+                if general_re.search(combined_upper_notone):
+                    matched_type = code
+                    break
+
+        doc_type = matched_type or "ND"
+
+    # 2. Xác định Số hiệu & Năm
+    raw_doc_number = ai_meta.get("doc_number")
+    if not raw_doc_number:
+        num_match = re.search(r"Số[:\s]*([0-9A-Za-z\-/]+)", text, re.IGNORECASE)
+        if num_match:
+            raw_doc_number = num_match.group(1)
+        else:
+            file_num_match = re.search(
+                r"(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/-](?:\d{4}[/-])?[a-zA-Z]+)|(\b\d{1,4}\b)",
+                base_upper_notone,
+            )
+            raw_doc_number = file_num_match.group(0) if file_num_match else "01"
+
+    year_match = re.search(r"(20[1-3][0-9]|199[0-9])", f"{raw_doc_number} {base_name} {text[:400]}")
+    issue_year = int(ai_meta.get("issue_year") or (year_match.group(1) if year_match else datetime.now().year))
+    doc_number = clean_doc_number(str(raw_doc_number), issue_year)
+
+    # 3. Xác định Lĩnh vực chuyên môn (Trục X)
+    domain = "HDXD"
+    if any(k in upper_text for k in ["PCCC", "PHÒNG CHÁY", "CHỮA CHÁY"]):
+        domain = "PCCC"
+    elif any(k in upper_text for k in ["CHẤT LƯỢNG", "BẢO TRÌ", "NGHIỆM THU", "THÍ NGHIỆM"]):
+        domain = "QLCL"
+    elif any(k in upper_text for k in ["CHI PHÍ", "DỰ TOÁN", "ĐỊNH MỨC"]):
+        domain = "QLCP"
+    elif any(k in upper_text for k in ["THANH QUYẾT TOÁN", "KIỂM TOÁN", "QUYẾT TOÁN VỐN"]):
+        domain = "TQT"
+    elif any(k in upper_text for k in ["HỢP ĐỒNG", "TẠM ỨNG", "THANH TOÁN", "PHÁT SINH"]):
+        domain = "QLHD"
+    elif any(k in upper_text for k in ["VẬT LIỆU XÂY DỰNG", "HỢP QUY", "LAS-XD", "CO/CQ"]):
+        domain = "VLXD"
+    elif any(k in upper_text for k in ["ĐẤU THẦU", "LỰA CHỌN NHÀ THẦU"]):
+        domain = "DTH"
+    elif doc_type == "QCVN":
+        domain = "QCVN"
+    elif doc_type == "TCVN":
+        domain = "TCVN"
+
+    # 4. Tạo Trích yếu PascalCase (cắt từ lặp thừa, tối đa 40 ký tự) & Sinh tên chuẩn 2 lớp
+    summary_raw = ai_meta.get("summary") or base_name
+    appendix_suffix = ai_meta.get("appendix_suffix") or ""
+    gate_code = infer_default_gate(doc_type, domain, default_gate)
+    ssot_name = build_ssot_2layer_filename(
+        doc_type=doc_type,
+        issue_year=issue_year,
+        doc_number=doc_number,
+        domain=domain,
+        summary_raw=summary_raw,
+        ext=ext,
+        project_code=project_code,
+        gate_code=gate_code,
+        appendix_suffix=appendix_suffix,
+    )
+    naming_layer = "PROJECT_7PART" if is_project_dossier_doc_type(doc_type) else "LEGAL_5PART"
+
+    return {
+        "doc_type": doc_type,
+        "doc_number": doc_number,
+        "issue_year": issue_year,
+        "domain": domain,
+        "gate_code": gate_code if is_project_dossier_doc_type(doc_type) else None,
+        "project_code": project_code if is_project_dossier_doc_type(doc_type) else None,
+        "naming_layer": naming_layer,
+        "summary_pascal": to_pascal_case_vn(summary_raw, max_len=40),
+        "suggested_ssot_name": ssot_name,
+        "ocr_engine": extracted.get("engine_used"),
+        "ocr_confidence": extracted.get("confidence"),
+    }
+
+
+# ============================================================================
+# 3. API ENDPOINTS (CỔNG :8008)
+# ============================================================================
+
+class ScanFolderRequest(BaseModel):
+    folder_path: str
+    extract_tables: bool = False
+    project_code: str = "KCN"
+    gate_code: Optional[str] = None
+
+class RenameItem(BaseModel):
+    old_path: str
+    new_name: str
+
+class BatchRenameRequest(BaseModel):
+    items: List[RenameItem]
+
+
+@app.get("/api/local/health")
+def local_health_check():
+    return {
+        "status": "online",
+        "service": "LEX-PMO-LOCAL-SCANNER-V3.1",
+        "capabilities": {
+            "vietocr_offline": vn_ocr_predictor is not None,
+            "docling_tables": docling_converter is not None,
+            "gemini_vision_fallback": gemini_client is not None
+        }
+    }
+
+
+@app.post("/api/local/scan-folder")
+def scan_local_folder(req: ScanFolderRequest):
+    if not os.path.isdir(req.folder_path):
+        raise HTTPException(status_code=400, detail="Đường dẫn thư mục không tồn tại trên ổ cứng")
+
+    results = []
+    seen_hashes = {}
+
+    for fname in os.listdir(req.folder_path):
+        if not fname.lower().endswith(".pdf"):
+            continue
+        full_path = os.path.join(req.folder_path, fname)
+        if not os.path.isfile(full_path):
+            continue
+
+        file_hash = compute_sha256(full_path)
+        is_duplicate = file_hash in seen_hashes
+        seen_hashes.setdefault(file_hash, fname)
+
+        extracted = extract_text_hybrid_pipeline(full_path, extract_full_tables=req.extract_tables)
+        classified = classify_3_axes_and_9_parts(
+            fname,
+            extracted,
+            project_code=req.project_code,
+            default_gate=req.gate_code,
+        )
+
+        results.append({
+            "original_name": fname,
+            "full_path": full_path,
+            "sha256": file_hash,
+            "is_duplicate": is_duplicate,
+            "duplicate_of": seen_hashes[file_hash] if is_duplicate else None,
+            "preview_text": extracted.get("text", "")[:500],
+            **classified
+        })
+
+    return {"total_files": len(results), "files": results}
+
+
+@app.post("/api/local/batch-rename")
+def batch_rename_with_audit(req: BatchRenameRequest):
+    batch_id = datetime.now().strftime("BATCH_%Y%m%d_%H%M%S")
+    operations = []
+
+    for item in req.items:
+        if not os.path.exists(item.old_path):
+            continue
+        folder = os.path.dirname(item.old_path)
+        new_path = os.path.join(folder, item.new_name)
+        if os.path.exists(new_path) and item.old_path != new_path:
+            continue
+        shutil.move(item.old_path, new_path)
+        operations.append({"old_path": item.old_path, "new_path": new_path})
+
+    # Lưu nhật ký phục vụ Hoàn tác (Undo 100%)
+    history = []
+    if os.path.exists(AUDIT_LOG_FILE):
+        with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
+            history = json.load(f)
+
+    history.append({
+        "batch_id": batch_id,
+        "timestamp": datetime.now().isoformat(),
+        "operations": operations
+    })
+
+    with open(AUDIT_LOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+    return {"status": "success", "batch_id": batch_id, "renamed_count": len(operations)}
+
+
+@app.post("/api/local/undo-last-rename")
+def undo_last_rename():
+    if not os.path.exists(AUDIT_LOG_FILE):
+        raise HTTPException(status_code=404, detail="Không có lịch sử đổi tên để hoàn tác")
+
+    with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
+        history = json.load(f)
+
+    if not history:
+        raise HTTPException(status_code=400, detail="Lịch sử đổi tên trống")
+
+    last_batch = history.pop()
+    restored = 0
+    for op in reversed(last_batch.get("operations", [])):
+        if os.path.exists(op["new_path"]):
+            shutil.move(op["new_path"], op["old_path"])
+            restored += 1
+
+    with open(AUDIT_LOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+    return {"status": "reverted", "batch_id": last_batch["batch_id"], "restored_count": restored}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8008)

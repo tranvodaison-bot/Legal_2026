@@ -681,7 +681,7 @@ export function useLexPmoOrchestrator() {
       oldFolderPath: '01_Ho so phap ly & giay phep KCN',
       newFolderPath: 'KCN_G12_CDE/QLCL_01HoSoPhapLyGiayPhepKcn',
       oldName: 'Nghi dinh 207-2026-ND-CP quan ly chat luong.pdf',
-      newName: 'XD_ND_CP_207_2026_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinhXayDung-PLIIa.pdf',
+      newName: 'ND_2026-207_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinh-PLIIa.pdf',
       sha256Before: '8F4E0CC92A1B',
       sha256After: '8F4E0CC92A1B',
       actorName: 'TS. Trần Võ Đại Sơn',
@@ -726,6 +726,8 @@ export function useLexPmoOrchestrator() {
       appendixSuffix: namingForm.appendixSuffix,
       ext: namingForm.ext,
       projectCode: activeProjectArchetype,
+      gateCode: namingForm.linkedGates[0],
+      linkedGates: namingForm.linkedGates,
     });
   }, [namingForm, batchNamingStandard, activeProjectArchetype]);
 
@@ -937,6 +939,7 @@ export function useLexPmoOrchestrator() {
         appendixSuffix: suggestion.appendixSuffix,
         ext: suggestion.ext,
         projectCode: activeProjectArchetype,
+        linkedGates: suggestion.linkedGates,
       });
 
       const sha256Hash = await computeSha256Short(file);
@@ -1137,6 +1140,7 @@ export function useLexPmoOrchestrator() {
                 appendixSuffix: item.suggestion.appendixSuffix,
                 ext: item.suggestion.ext,
                 projectCode: activeProjectArchetype,
+                linkedGates: item.suggestion.linkedGates,
                 ktSubType: item.ktSubType,
                 tkStageDept: item.tkStageDept,
                 tkDocCode: item.tkDocCode,
@@ -1189,6 +1193,7 @@ export function useLexPmoOrchestrator() {
               appendixSuffix: nextSug.appendixSuffix,
               ext: nextSug.ext,
               projectCode: activeProjectArchetype,
+              linkedGates: nextSug.linkedGates,
               ktSubType: item.ktSubType,
               tkStageDept: item.tkStageDept,
               tkDocCode: item.tkDocCode,
@@ -1213,6 +1218,7 @@ export function useLexPmoOrchestrator() {
               appendixSuffix: nextSug.appendixSuffix,
               ext: nextSug.ext,
               projectCode: activeProjectArchetype,
+              linkedGates: nextSug.linkedGates,
               ktSubType: item.ktSubType,
               tkStageDept: item.tkStageDept,
               tkDocCode: item.tkDocCode,

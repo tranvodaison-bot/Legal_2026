@@ -30,6 +30,7 @@ export const TAXONOMY_3D: Taxonomy3D = {
     { code: 'PLHD', name: 'Phụ lục Hợp đồng / VO', group: 'HSDA', badgeColor: 'bg-amber-600 text-white' },
     { code: 'BBNT', name: 'Biên bản nghiệm thu QA/QC', group: 'HSDA', badgeColor: 'bg-cyan-600 text-white' },
     { code: 'NKTC', name: 'Nhật ký thi công công trình', group: 'HSDA', badgeColor: 'bg-lime-600 text-slate-950' },
+    { code: 'BV', name: 'Bản vẽ Thiết kế / Hoàn công / BIM', group: 'HSDA', badgeColor: 'bg-violet-600 text-white' },
   ],
 
   projectTypes: [

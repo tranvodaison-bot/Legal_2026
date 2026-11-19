@@ -18,12 +18,18 @@ import { CDE_ISO_19650_META, CDE_ISO_19650_PIPELINE } from "../../utils/rbacRaci
 import {
   buildFileNameByRule,
   buildStandardFolderPath,
+  cleanDocNumber,
   computeSha256Short,
   createSampleBatchItems,
   detectQlvbGroup,
   extractOcrZonesFromText,
+  inferDefaultGateForDoc,
+  isProjectDossierDocType,
+  normalizeSsotDocType,
   parseVietnameseLegalText,
   smartAnalyzeFile3D,
+  stripRedundantSummaryPrefix,
+  toPascalCaseVN,
 } from "../../utils/legalParser";
 import type { StepContextType } from "../../App";
 
@@ -465,6 +471,74 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     [validatedBatchQueue, activeBatchItemId]
   );
 
+  const normalizedFormDocType = normalizeSsotDocType(namingForm.docType);
+  const isFormProjectLayer = isProjectDossierDocType(normalizedFormDocType);
+  const formProjectCode = namingForm.projectAxes[0] || activeProjectArchetype;
+  const formResolvedGate = inferDefaultGateForDoc(
+    normalizedFormDocType,
+    namingForm.primaryDomain,
+    namingForm.linkedGates
+  );
+  const formCleanedNumber = cleanDocNumber(namingForm.rawNumber, namingForm.year);
+  const formStrippedSummary = stripRedundantSummaryPrefix(namingForm.rawSummary);
+  const formSummaryPascal = toPascalCaseVN(namingForm.rawSummary, 40);
+
+  const renderSsotTwoLayerExamples = (compact = false) => (
+    <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
+          📐 Chuẩn Đặt Tên SSOT 2 Lớp Gọn Nhẹ (Tự động cắt từ thừa · PascalCase ≤ 40 ký tự)
+        </span>
+        <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-mono">
+          {isFormProjectLayer
+            ? `Đang chọn: Lớp 2 HSDA (7 TP · ${formProjectCode}_${formResolvedGate})`
+            : `Đang chọn: Lớp 1 VBPL/QC/TC (5 TP · ${normalizedFormDocType})`}
+        </span>
+      </div>
+      <div className={`grid grid-cols-1 ${compact ? "gap-2" : "md:grid-cols-2 gap-2.5"}`}>
+        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-emerald-500/30 space-y-1">
+          <div className="text-[11px] font-bold text-emerald-300">
+            Lớp 1 · VBPL / Quy chuẩn / Tiêu chuẩn (5 thành phần)
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Áp dụng: <span className="font-mono text-slate-200">LUAT, NQ, ND, TT, QCVN, TCVN, VBHN</span>
+          </div>
+          <div className="font-mono text-[10px] text-sky-300 break-all">
+            [LoạiVB]_[Năm]-[SốHiệu]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+          </div>
+          <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
+            <div className="font-mono text-emerald-400 break-all">
+              VD: ND_2026-207_QLCL_QuanLyChatLuongThiCongVaBaoTriCongTrinh-PLIIa.pdf
+            </div>
+            <div className="font-mono text-emerald-400/90 break-all">
+              VD: TT_2026-12_QLCP_DinhMucDuToanXayDungCongTrinh.pdf
+            </div>
+          </div>
+        </div>
+
+        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-amber-500/30 space-y-1">
+          <div className="text-[11px] font-bold text-amber-300">
+            Lớp 2 · Hồ sơ Dự án (7 thành phần)
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Áp dụng: <span className="font-mono text-slate-200">QD, TTr, HD, PLHD, BBNT, NKTC, BV</span>
+          </div>
+          <div className="font-mono text-[10px] text-sky-300 break-all">
+            [MãDA]_[Gate]_[LoạiHS]_[Năm]-[SốHiệu]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
+          </div>
+          <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
+            <div className="font-mono text-amber-300 break-all">
+              VD: KCN_G12_BBNT_2026-018_QLCL_NghiemThuCotThepDamSanTang5-KY.docx
+            </div>
+            <div className="font-mono text-amber-300/90 break-all">
+              VD: KCN_G11_HD_2026-45_QLHD_HaTangKyThuatKcn-V01.pdf
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const selectItemAndOpenDetails = (item: AnalyzedFileItem, openDrawer: boolean) => {
     setActiveBatchItemId(item.id);
     setActiveRawFile(item.rawFile);
@@ -521,6 +595,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             appendixSuffix: "",
             ext: "pdf",
             projectCode: params.projectAxes[0] || activeProjectArchetype,
+            gateCode: params.linkedGates[0],
+            linkedGates: params.linkedGates,
           });
 
     const proposedFolderPath = buildStandardFolderPath({
@@ -619,11 +695,23 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
       if (schemaKind === "VBPL_3TRUC") {
         for (let idx = 0; idx < rows.length; idx++) {
           const row = rows[idx];
+          const rowGates = parseListField(row.linked_gates).map(g => g.toUpperCase());
           const ssotName =
             row.ssot_file_name ||
-            `XD_${row.doc_type || "ND"}_${row.issuer_code || "CP"}_${idx + 1}_${
-              row.issue_year || "2026"
-            }_QLCL_VanBan.pdf`;
+            buildFileNameByRule({
+              group: "SSOT_9PART",
+              industry: row.industry_code || "XD",
+              docType: row.doc_type || "ND",
+              issuer: row.issuer_code || "CP",
+              rawNumber: row.doc_number || String(idx + 1),
+              year: row.issue_year || "2026",
+              primaryDomain: safeParseDomain(row.primary_domain, "QLCL"),
+              rawSummary: row.title || `VanBan_${idx + 1}`,
+              appendixSuffix: "",
+              ext: "pdf",
+              projectCode: activeProjectArchetype,
+              linkedGates: rowGates,
+            });
           const analyzed = smartAnalyzeFile3D(ssotName, `${row.title || ""}\n${row.lineage || ""}`);
           const primaryDomain = safeParseDomain(row.primary_domain, analyzed.primaryDomain);
           const secondaryDomainsRaw = parseListField(row.secondary_domains)
@@ -742,7 +830,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           const stepCode = row.step_code || `${gateCode}.1`;
           const stepTitle = row.step_title || row.gate_name || `Kiểm soát ${gateCode}`;
           const ssotTemplate =
-            row.ssot_template || `XD_QD_CDT_${gateCode}_2026_${effectiveTags[0]}_HoSoStageGate.pdf`;
+            row.ssot_template ||
+            `${rowArchetype}_${gateCode}_QD_2026-${idx + 1}_${effectiveTags[0]}_HoSoStageGate.pdf`;
 
           const newStep = {
             code: stepCode,
@@ -936,7 +1025,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           const domain = safeParseDomain(row.domain, "QLCL");
           const ssotName =
             row.ssot_file_name ||
-            `XD_BBNT_TVGS_${idx + 1}_2026_${domain}_HoSoKiemSoat.pdf`;
+            `${archetype}_${gateRef}_BBNT_2026-${idx + 1}_${domain}_HoSoKiemSoat.pdf`;
           const title = row.title || row.code || ssotName;
           const detailNote = row.detail_note || "Nạp trực tiếp từ dữ liệu CSV thực tế.";
 
@@ -1134,6 +1223,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             appendixSuffix: "",
             ext: analyzed.ext,
             projectCode: projectAxes[0] || activeProjectArchetype,
+            gateCode: linkedGates[0],
+            linkedGates,
           });
 
           importedDocs.push({
@@ -1363,7 +1454,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 rawSummary: nextSuggestion.rawSummary,
                 appendixSuffix: nextSuggestion.appendixSuffix,
                 ext: nextSuggestion.ext,
-                projectCode: activeProjectArchetype,
+                projectCode: nextSuggestion.projectAxes[0] || activeProjectArchetype,
+                gateCode: nextSuggestion.linkedGates[0],
+                linkedGates: nextSuggestion.linkedGates,
                 ktSubType: item.ktSubType,
                 tkStageDept: item.tkStageDept,
                 tkDocCode: item.tkDocCode,
@@ -2074,7 +2167,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   Cấu hình nâng cao & Chi tiết OCR
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Chỉnh tay 8 thành phần tên file, 4 vùng OCR V1–V4 & JSON Metadata
+                  Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Chuẩn SSOT 2 lớp (5/7 thành phần), 4 vùng OCR V1–V4 & JSON Metadata
                 </div>
               </div>
             </div>
@@ -2108,7 +2201,11 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 <p className="text-xs text-slate-400 truncate mt-0.5">
                   {activeBatchItem
                     ? `Đang xem mục: ${activeBatchItem.originalName}`
-                    : `Chuẩn đặt tên hiện hành: ${batchNamingStandard} · ${currentActor.fullName}`}
+                    : `Chuẩn đặt tên hiện hành: ${
+                        batchNamingStandard === "SSOT_9PART"
+                          ? "SSOT 2 Lớp (5 TP VBPL · 7 TP HSDA)"
+                          : batchNamingStandard
+                      } · ${currentActor.fullName}`}
                 </p>
               </div>
               <button
@@ -2143,7 +2240,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
                 }`}
               >
-                ✏️ Chỉnh tay 8 thành phần
+                ✏️ Chuẩn SSOT 2 Lớp (5/7 TP)
               </button>
               <button
                 type="button"
@@ -2295,15 +2392,28 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 </div>
               )}
 
-              {/* TAB 2: CHỈNH TAY 8 THÀNH PHẦN & PHÂN LOẠI 3 TRỤC */}
+              {/* TAB 2: CHUẨN SSOT 2 LỚP (5/7 THÀNH PHẦN) & PHÂN LOẠI 3 TRỤC */}
               {advancedTab === "NAMING_8PART" && (
                 <div className="space-y-4">
                   {/* Tên file sinh tự động */}
                   <div className="bg-slate-900 border border-amber-500/35 rounded-xl p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase text-amber-400">
-                        Tên file chuẩn ({batchNamingStandard})
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold uppercase text-amber-400">
+                          Tên file chuẩn (
+                          {batchNamingStandard === "SSOT_9PART"
+                            ? isFormProjectLayer
+                              ? "Lớp 2 · HSDA 7 Thành phần"
+                              : "Lớp 1 · VBPL/QC/TC 5 Thành phần"
+                            : batchNamingStandard}
+                          )
+                        </span>
+                        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-sky-300">
+                          {isFormProjectLayer
+                            ? `${formProjectCode}_${formResolvedGate}_${normalizedFormDocType}_${namingForm.year}-${formCleanedNumber}`
+                            : `${normalizedFormDocType}_${namingForm.year}-${formCleanedNumber}`}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -2327,16 +2437,29 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
                       {generatedFileName}
                     </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                      <span>
+                        Trích yếu sau cắt lặp:{" "}
+                        <b className="font-mono text-slate-200">{formStrippedSummary || "—"}</b>
+                      </span>
+                      <span className="font-mono text-sky-300">
+                        PascalCase: {formSummaryPascal} ({formSummaryPascal.length}/40 ký tự)
+                      </span>
+                    </div>
                   </div>
 
-                  {/* 8 Thành phần tên file */}
+                  {renderSsotTwoLayerExamples(false)}
+
+                  {/* Thành phần cấu thành tên file chuẩn 2 lớp */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
                     <h4 className="text-xs font-bold uppercase text-rose-400">
-                      Chỉnh tay 8 Thành phần Tên File & Trục 1 (Pháp luật)
+                      Chỉnh tay Thành phần Tên File SSOT 2 Lớp & Trục 1 (Pháp luật)
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">1. [Ngành]</label>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          Ngành (Nhóm QLVB)
+                        </label>
                         <select
                           value={namingForm.industry}
                           onChange={e => setNamingForm({ ...namingForm, industry: e.target.value })}
@@ -2352,7 +2475,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                       <div>
                         <label className="block text-[11px] text-rose-400 font-bold mb-1">
-                          2. [Loại VB]
+                          [LoạiVB / LoạiHS]
                         </label>
                         <select
                           value={namingForm.docType}
@@ -2368,7 +2491,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">3. [Cơ quan]</label>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          Cơ quan ban hành
+                        </label>
                         <select
                           value={namingForm.issuer}
                           onChange={e => setNamingForm({ ...namingForm, issuer: e.target.value })}
@@ -2383,7 +2508,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">4. [Số hiệu]</label>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          [SốHiệu] (làm sạch: {formCleanedNumber})
+                        </label>
                         <input
                           type="text"
                           value={namingForm.rawNumber}
@@ -2393,7 +2520,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">5. [Năm]</label>
+                        <label className="block text-[11px] text-slate-400 mb-1">[Năm]</label>
                         <input
                           type="text"
                           maxLength={4}
@@ -2405,7 +2532,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                       <div>
                         <label className="block text-[11px] text-amber-400 font-bold mb-1">
-                          6. [Lĩnh vực chính]
+                          [LĩnhVực]
                         </label>
                         <select
                           value={namingForm.primaryDomain}
@@ -2427,7 +2554,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                       <div className="sm:col-span-2">
                         <label className="block text-[11px] text-slate-400 mb-1">
-                          7. [Trích yếu] (tự chuyển PascalCase)
+                          [TríchYếuNgắn] (cắt từ thừa · PascalCase ≤ 40 ký tự)
                         </label>
                         <input
                           type="text"
@@ -2441,7 +2568,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                       <div>
                         <label className="block text-[11px] text-slate-400 mb-1">
-                          8. [Hậu tố Phụ lục]
+                          [-PhụLục]
                         </label>
                         <input
                           type="text"
@@ -2575,7 +2702,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           }
                           className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
                         >
-                          <option value="SSOT_9PART">Chuẩn SSOT 9 Thành phần (3 Trục)</option>
+                          <option value="SSOT_9PART">Chuẩn SSOT 2 Lớp (5 TP VBPL · 7 TP HSDA)</option>
                           <option value="PL">Nhóm PL — Văn bản Pháp luật</option>
                           <option value="HC">Nhóm HC — Văn bản Hành chính</option>
                           <option value="KT">Nhóm KT — Kỹ thuật / Nghiệm thu</option>
@@ -2606,6 +2733,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         </select>
                       </div>
                     </div>
+
+                    {renderSsotTwoLayerExamples(true)}
 
                     <div className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs">
                       <div>
