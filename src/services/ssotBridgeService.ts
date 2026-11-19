@@ -446,3 +446,111 @@ export async function compareClausesWithHybridAi(payload: HybridClauseComparePay
   }
   return data;
 }
+
+// ============================================================================
+// VBPL DATA FOUNDATION (6 TẦNG — LOCAL SIDECAR :8008 /api/data-foundation/*)
+// ============================================================================
+
+const DATA_FOUNDATION_BASE_URL =
+  LOCAL_SCANNER_BASE_URL.replace(/\/api\/local\/?$/i, '') + '/api/data-foundation';
+
+export function getDataFoundationExcelExportUrl(): string {
+  return `${DATA_FOUNDATION_BASE_URL}/export/excel`;
+}
+
+export async function fetchDataFoundationBiOverview(): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `${DATA_FOUNDATION_BASE_URL}/bi/overview`,
+      { method: 'GET', cache: 'no-store' },
+      2500
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export async function syncDocsToDataFoundation(
+  records: Array<Record<string, unknown>>,
+  sourceSystem = 'WEB_APP'
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `${DATA_FOUNDATION_BASE_URL}/sync-records`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          records,
+          source_system: sourceSystem,
+          run_etl: true,
+        }),
+      },
+      10000
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export async function ingestFolderToDataFoundation(
+  folderPath: string,
+  projectCode = 'KCN'
+): Promise<Record<string, unknown>> {
+  const res = await fetchWithTimeout(
+    `${DATA_FOUNDATION_BASE_URL}/ingest-folder`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folder_path: folderPath,
+        project_code: projectCode,
+        run_etl: true,
+      }),
+    },
+    30000
+  );
+  const data = (await res.json()) as Record<string, unknown>;
+  if (!res.ok) {
+    throw new Error(String(data?.detail || `Lỗi nạp thư mục (${res.status})`));
+  }
+  return data;
+}
+
+export async function triggerDataFoundationEtl(): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `${DATA_FOUNDATION_BASE_URL}/etl/run`,
+      { method: 'POST' },
+      10000
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export async function searchDataFoundationClauses(
+  query: string,
+  limit = 25
+): Promise<{ query: string; total_hits: number; hits: Array<Record<string, unknown>> } | null> {
+  try {
+    const url = `${DATA_FOUNDATION_BASE_URL}/analyst/search?q=${encodeURIComponent(
+      query
+    )}&limit=${limit}`;
+    const res = await fetchWithTimeout(url, { method: 'GET' }, 3000);
+    if (!res.ok) return null;
+    return (await res.json()) as {
+      query: string;
+      total_hits: number;
+      hits: Array<Record<string, unknown>>;
+    };
+  } catch {
+    return null;
+  }
+}

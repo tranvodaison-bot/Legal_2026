@@ -58,6 +58,21 @@ try:
 except ImportError:
     GEMINI_SDK_AVAILABLE = False
 
+# --- TÍCH HỢP NỀN TẢNG VBPL DATA FOUNDATION (6 TẦNG: BRONZE/SILVER/GOLD + SQLITE FTS5 + BA/BI) ---
+import sys as _sys
+_PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _cand in (_PARENT_DIR, os.path.join(_PARENT_DIR, "Legal_2026")):
+    if os.path.isdir(os.path.join(_cand, "data_foundation")) and _cand not in _sys.path:
+        _sys.path.insert(0, _cand)
+
+try:
+    from data_foundation.router import create_data_foundation_router
+    DATA_FOUNDATION_AVAILABLE = True
+except ImportError as _df_err:
+    create_data_foundation_router = None
+    DATA_FOUNDATION_AVAILABLE = False
+    print(f"[INFO] VBPL Data Foundation chưa sẵn sàng: {_df_err}")
+
 app = FastAPI(
     title="LEX-PMO OS v3.1 — Local PDF Scanner, Vietnamese OCR & Batch Rename Sidecar",
     description="Engine quét PDF scan tiếng Việt (OpenCV khử dấu đỏ + VietOCR + Docling + Gemini Vision Fallback), chuẩn hóa tên VBPL [SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext] & Smart Tags",
@@ -1148,6 +1163,7 @@ def local_health_check():
         "service": "LEX-PMO-LOCAL-SCANNER-V3.1",
         "capabilities": {
             "legal_document_parser": True,
+            "data_foundation_v1": DATA_FOUNDATION_AVAILABLE,
             "python_docx": DOCX_AVAILABLE,
             "pytesseract_ocr": PYTESSERACT_AVAILABLE,
             "vietocr_offline": vn_ocr_predictor is not None,
@@ -1347,6 +1363,16 @@ def undo_last_rename():
         json.dump(history, f, ensure_ascii=False, indent=2)
 
     return {"status": "reverted", "batch_id": last_batch["batch_id"], "restored_count": restored}
+
+
+if DATA_FOUNDATION_AVAILABLE and create_data_foundation_router is not None:
+    app.include_router(
+        create_data_foundation_router(
+            extract_fn=parser.extract_raw_text,
+            classify_fn=classify_3_axes_and_9_parts,
+            parse_structure_fn=parser.parse_structure,
+        )
+    )
 
 
 if __name__ == "__main__":

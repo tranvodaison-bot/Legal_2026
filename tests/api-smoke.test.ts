@@ -31,6 +31,10 @@ import {
   toPascalCaseVN,
   validateBatchFileName,
 } from '../src/utils/legalParser.js';
+import {
+  computeClientVbplBiOverview,
+  searchClientVbplClauses,
+} from '../src/utils/vbplDataFoundationEngine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -990,4 +994,81 @@ test('LegalDocumentParser noise filter, ND 30/2020 structure tree, and wrapped P
   assert.equal(nodes[1].level, 'Chương');
   assert.equal(nodes[2].level, 'Điều');
   assert.equal(nodes[2].clauseCount, 3);
+});
+
+test('VBPL Data Foundation client analytics mirror computes 6 layers, 6 BA KPIs, DQ score, and relation radar', () => {
+  const sampleDocs = [
+    {
+      id: 'DOC-TEST-1',
+      ssotFileName: '135-2025_LUAT-QH15_HDXD_LuatXayDung.pdf',
+      docNumber: '135/2025/QH15',
+      docType: 'LUAT',
+      issuer: 'QH15',
+      year: '2025',
+      issueDate: '10/12/2025',
+      effectiveDate: '01/07/2026',
+      industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+      subSectorCode: 'XD_QUANLYDA',
+      subSectorLabel: 'Quản lý dự án',
+      primaryDomain: 'HDXD' as const,
+      title: 'Luật Xây dựng năm 2025',
+      status: 'Còn hiệu lực năm 2026',
+      isAmended: false,
+      chapterCount: 1,
+      articleCount: 2,
+      clauseTotalCount: 3,
+      projectAxes: ['KCN' as const, 'HTKT' as const],
+      secondaryDomains: ['HDXD' as const],
+      linkedGates: ['G0', 'G5', 'G12'],
+      linkedQAQC: ['QT-01'],
+      lineage: 'Thay thế Luật số 50/2014/QH13',
+      nodes: [
+        {
+          id: 'N1',
+          level: 'Điều' as const,
+          code: 'Điều 1',
+          title: 'Phạm vi điều chỉnh',
+          clauseCount: 2,
+          content: '1. Luật này thay thế Luật số 50/2014/QH13 về hoạt động đầu tư xây dựng và áp dụng BIM.',
+        },
+      ],
+    },
+    {
+      id: 'DOC-TEST-2',
+      ssotFileName: 'bad_legacy_name.pdf',
+      docNumber: '01',
+      docType: 'ND',
+      issuer: 'CP',
+      year: '2026',
+      issueDate: '',
+      effectiveDate: '',
+      industryGroupId: 'IND-XAYDUNG-DAUTHAU',
+      subSectorCode: 'XD_QLCL',
+      subSectorLabel: 'Quản lý chất lượng',
+      primaryDomain: 'QLCL' as const,
+      title: 'Nghị định quản lý chất lượng',
+      status: 'Hết hiệu lực',
+      isAmended: false,
+      projectAxes: ['KCN' as const],
+      secondaryDomains: ['QLCL' as const],
+      linkedGates: [],
+      linkedQAQC: [],
+      lineage: '',
+      nodes: [],
+    },
+  ];
+
+  const bi = computeClientVbplBiOverview(sampleDocs, 2);
+  assert.equal(bi.architecture_layers.length, 6);
+  assert.equal(bi.ba_kpis.length, 6);
+  assert.equal(bi.summary.total_documents, 2);
+  assert.equal(bi.summary.personal_notes, 2);
+  assert.equal(bi.ba_kpis.find(k => k.id === 'KPI_SSOT_NAMING')?.value, 50);
+  assert.equal(bi.charts.gate_coverage.length, 17);
+  assert.ok(bi.relation_radar.some(r => r.relation_type === 'REPLACES' && r.target_ref_raw === '50/2014/QH13'));
+  assert.ok(bi.dq_report.documents_with_issues.some(d => d.doc_key === 'DOC-TEST-2' && d.dq_score < 60));
+
+  const hits = searchClientVbplClauses(sampleDocs, 'BIM');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].doc_key, 'DOC-TEST-1');
 });

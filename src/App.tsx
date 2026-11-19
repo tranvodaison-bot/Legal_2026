@@ -97,6 +97,7 @@ import { Step2LegalMatrix } from './components/steps/Step2LegalMatrix';
 import { Step3StageGate } from './components/steps/Step3StageGate';
 import { Step4RaciHr } from './components/steps/Step4RaciHr';
 import { Step5CommandCenter } from './components/steps/Step5CommandCenter';
+import { Step6DataFoundationBi } from './components/steps/Step6DataFoundationBi';
 import {
   analyzeLegalWithHybridAi,
   compareClausesWithHybridAi,
@@ -163,7 +164,8 @@ type MainStepTab =
   | 'STEP3_PLAN'
   | 'STEP4_EXECUTE'
   | 'STEP5_AUDIT'
-  | 'STEP6_AI';
+  | 'STEP6_AI'
+  | 'STEP6_DATA_BI';
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: '🛣️',
@@ -3828,8 +3830,17 @@ export function useLexPmoOrchestrator() {
       ],
     },
     {
-      section: 'TRÍ TUỆ NHÂN TẠO ĐA TÁC NHÂN',
+      section: 'DATA FOUNDATION & AI CORE',
       items: [
+        {
+          id: 'STEP6_DATA_BI' as MainStepTab,
+          stepNum: 'BƯỚC 6',
+          icon: '📊',
+          title: 'Data Foundation & BI (VBPL)',
+          subtitle: 'Data → Lake → Model → Analyst → BA → BI',
+          badge: '6 Tầng',
+          badgeColor: 'text-cyan-300 font-bold',
+        },
         {
           id: 'STEP6_AI' as MainStepTab,
           stepNum: 'AI CORE',
@@ -4283,6 +4294,7 @@ export default function App() {
           {(activeTab === "STEP5_AUDIT" || activeTab === "STEP6_AI") && (
             <Step5CommandCenter ctx={stepContext} />
           )}
+          {activeTab === "STEP6_DATA_BI" && <Step6DataFoundationBi ctx={stepContext} />}
         </main>
       </div>
 
