@@ -707,7 +707,7 @@ def infer_default_gate(doc_type: str, domain: str, explicit_gate: Optional[str] 
 def clean_doc_number(raw_num: str, issue_year: Optional[int] = None) -> str:
     if not raw_num:
         return "00"
-    s = remove_vn_tones(str(raw_num)).strip()
+    s = re.sub(r"^\[\d{4}\][_\s-]*", "", remove_vn_tones(str(raw_num)).strip())
     s = s.split("/")[0].split(":")[0].strip()
     s = re.sub(r"^(?:19|20)\d{2}[-_\s]+", "", s)
     s = re.sub(r"[-_](?:19|20)\d{2}(?:[-_].*)?$", "", s, flags=re.IGNORECASE)
@@ -729,7 +729,8 @@ def clean_doc_number(raw_num: str, issue_year: Optional[int] = None) -> str:
 def strip_redundant_summary_prefix(text: str) -> str:
     if not text:
         return ""
-    without_ssot = _LEADING_SSOT_PREFIX_RE.sub("", text.strip())
+    without_bracket_year = re.sub(r"^\[\d{4}\][_\s-]*", "", text.strip())
+    without_ssot = _LEADING_SSOT_PREFIX_RE.sub("", without_bracket_year)
     base = re.sub(r"\s+", " ", remove_vn_tones(without_ssot).replace("_", " ")).strip()
     if not base:
         return ""

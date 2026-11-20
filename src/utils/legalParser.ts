@@ -134,7 +134,8 @@ const TRAILING_DOC_NUM_SUFFIX_RE =
  */
 export function stripRedundantSummaryPrefix(rawSummary: string): string {
   if (!rawSummary) return '';
-  const withoutSsotPrefix = rawSummary.trim().replace(LEADING_SSOT_PREFIX_RE, '');
+  const withoutBracketYear = rawSummary.trim().replace(/^\[\d{4}\][_\s-]*/, '');
+  const withoutSsotPrefix = withoutBracketYear.replace(LEADING_SSOT_PREFIX_RE, '');
   const base = removeVietnameseTones(withoutSsotPrefix)
     .replace(/[_]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -209,7 +210,7 @@ export function toPascalCaseVN(str: string, maxLength = 40): string {
 
 export function cleanDocNumber(rawNum: string, year?: string): string {
   if (!rawNum) return '00';
-  let s = removeVietnameseTones(rawNum).trim();
+  let s = removeVietnameseTones(rawNum).trim().replace(/^\[\d{4}\][_\s-]*/, '');
   s = s.split('/')[0].split(':')[0].trim();
   s = s.replace(/^(?:19|20)\d{2}[-_\s]+/, '');
   s = s.replace(/[-_](?:19|20)\d{2}(?:[-_].*)?$/i, '');

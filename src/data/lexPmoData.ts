@@ -13,6 +13,10 @@ import {
   StageGateItem,
   Taxonomy3D,
 } from '../types/lexPmoTypes';
+import {
+  DATA_LEGAL_2026_CORE_OVERRIDES,
+  DATA_LEGAL_2026_NEW_DOCS,
+} from './dataLegal2026Catalog';
 
 export const TAXONOMY_3D: Taxonomy3D = {
   legalGroups: [
@@ -139,11 +143,13 @@ export const TAXONOMY_3D: Taxonomy3D = {
     { code: 'BXD', name: 'Bộ Xây dựng' },
     { code: 'BKHDT', name: 'Bộ Kế hoạch & Đầu tư' },
     { code: 'BTC', name: 'Bộ Tài chính' },
+    { code: 'CHQ', name: 'Cục Hải quan (Bộ Tài chính)' },
     { code: 'BTNMT', name: 'Bộ Tài nguyên & Môi trường' },
     { code: 'BCA', name: 'Bộ Công an (Cục PCCC)' },
     { code: 'BCT', name: 'Bộ Công Thương (CCN)' },
     { code: 'BKHCN', name: 'Bộ Khoa học & Công nghệ' },
     { code: 'UBND', name: 'UBND Tỉnh / Thành phố' },
+    { code: 'UBNDHN', name: 'UBND Thành phố Hà Nội' },
     { code: 'BQLKKT', name: 'Ban Quản lý KKT / KCN / FTZ' },
     { code: 'SXD', name: 'Sở Xây dựng' },
     { code: 'CDT', name: 'Chủ đầu tư (ĐẠI SƠN / SDN)' },
@@ -587,7 +593,7 @@ export const LEGAL_CATEGORY_TREE: LegalCategoryGroup[] = [
   },
 ];
 
-export const INITIAL_LEGAL_DOCS: LegalDocument[] = [
+const BASE_INITIAL_LEGAL_DOCS: LegalDocument[] = [
   {
     id: 'DOC-135',
     ssotFileName: 'XD_LUAT_QH_135_2025_HDXD_LuatXayDung1352025QH15.pdf',
@@ -2205,6 +2211,22 @@ export const INITIAL_LEGAL_DOCS: LegalDocument[] = [
       },
     ],
   },
+];
+
+export const INITIAL_LEGAL_DOCS: LegalDocument[] = [
+  ...BASE_INITIAL_LEGAL_DOCS.map(doc => {
+    const ov = DATA_LEGAL_2026_CORE_OVERRIDES[doc.id];
+    if (!ov) return doc;
+    return {
+      ...doc,
+      ssotFileName: ov.ssotFileName,
+      issueDate: ov.issueDate,
+      effectiveDate: ov.effectiveDate,
+      tags: Array.from(new Set([...(doc.tags || []), ...(ov.tags || [])])),
+      lineage: `${doc.lineage} · ${ov.lineage}`,
+    };
+  }),
+  ...DATA_LEGAL_2026_NEW_DOCS,
 ];
 
 

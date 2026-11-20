@@ -35,6 +35,11 @@ import {
   computeClientVbplBiOverview,
   searchClientVbplClauses,
 } from '../src/utils/vbplDataFoundationEngine.js';
+import { INITIAL_LEGAL_DOCS } from '../src/data/lexPmoData.js';
+import {
+  DATA_LEGAL_2026_CORE_OVERRIDES,
+  DATA_LEGAL_2026_NEW_DOCS,
+} from '../src/data/dataLegal2026Catalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1071,4 +1076,49 @@ test('VBPL Data Foundation client analytics mirror computes 6 layers, 6 BA KPIs,
   const hits = searchClientVbplClauses(sampleDocs, 'BIM');
   assert.equal(hits.length, 1);
   assert.equal(hits[0].doc_key, 'DOC-TEST-1');
+});
+
+test('Data_Legal_2026 corpus (51 real PDFs) integrates into INITIAL_LEGAL_DOCS with valid SSOT names and unique IDs', () => {
+  assert.equal(Object.keys(DATA_LEGAL_2026_CORE_OVERRIDES).length, 7);
+  assert.equal(DATA_LEGAL_2026_NEW_DOCS.length, 44);
+  assert.equal(
+    Object.keys(DATA_LEGAL_2026_CORE_OVERRIDES).length + DATA_LEGAL_2026_NEW_DOCS.length,
+    51
+  );
+
+  const ids = INITIAL_LEGAL_DOCS.map(d => d.id);
+  assert.equal(new Set(ids).size, ids.length, 'INITIAL_LEGAL_DOCS IDs must be unique');
+
+  // Verify upgraded core docs and key new docs from Data_Legal_2026
+  const doc135 = INITIAL_LEGAL_DOCS.find(d => d.id === 'DOC-135');
+  assert.equal(doc135?.ssotFileName, '135-2025_LUAT-QH15_HDXD_LuatXayDung.pdf');
+
+  const tt36 = INITIAL_LEGAL_DOCS.find(d => d.docNumber === '36/2026/TT-BXD');
+  assert.ok(tt36, 'TT 36/2026/TT-BXD should be present');
+  assert.equal(tt36?.ssotFileName, '36-2026_TT-BXD_QLCP_PhuongPhapXacDinhVaQuanLyChiPhiDTXD.pdf');
+
+  const qd1040Pl7 = INITIAL_LEGAL_DOCS.find(
+    d => d.ssotFileName === '1040-2026_QD-BXD_QLHD_MauHopDongEPC-PL7.pdf'
+  );
+  assert.ok(qd1040Pl7, 'QD 1040 PL7 EPC template should be present');
+
+  const cv9947 = INITIAL_LEGAL_DOCS.find(d => d.docNumber === '9947/BXD-VPB');
+  assert.ok(cv9947, 'CV 9947/BXD-VPB should be present');
+
+  const nd412 = INITIAL_LEGAL_DOCS.find(d => d.docNumber === '412/2026/NĐ-CP');
+  assert.ok(nd412, 'ND 412/2026/ND-CP should be present');
+
+  // Verify all 44 newly ingested real docs pass unified SSOT naming validation
+  for (const d of DATA_LEGAL_2026_NEW_DOCS) {
+    const v = validateBatchFileName(
+      d.ssotFileName,
+      'SSOT_9PART',
+      d.docType,
+      d.issuer,
+      d.title,
+      [],
+      'FILE'
+    );
+    assert.equal(v.status, 'OK', `Invalid SSOT filename on ${d.ssotFileName}: ${v.message}`);
+  }
 });
