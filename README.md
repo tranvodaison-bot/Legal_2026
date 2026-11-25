@@ -97,7 +97,7 @@ Tại **Bước 1 (`Step1CdeIngestion.tsx` — BƯỚC 1.1)**, người dùng c�
 | `VITE_FASTAPI_BASE_URL` | `http://127.0.0.1:8000/api/v1` | URL tới FastAPI + PostgreSQL 16 Backend nội bộ. |
 | `VITE_LOCAL_SCANNER_URL` | `http://127.0.0.1:8008/api/local` | URL tới Local PDF Scanner & VietOCR Sidecar nội bộ. |
 
-### 4.3. Biến Backend Nội bộ (`LEX_PMO_OS_v3.0_SSOT_Project`, tham khảo khi chạy Local Stack)
+### 4.3. Biến Backend Nội bộ (`5_LEGAL_2026`, tham khảo khi chạy Local Stack)
 - FastAPI / PostgreSQL (`03_BACKEND_DATABASE/`): `DATABASE_URL`, `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_SHEET_ID`, `DRIVE_ROOT_FOLDER_ID`.
 - VietOCR Sidecar (`04_DESKTOP_TAURI/`): `GEMINI_API_KEY`.
 - NotebookLM MCP (`07_AI_SKILLS_PROMPTS/`): `NOTEBOOKLM_COLLECTION_LEGAL`, `NOTEBOOKLM_COLLECTION_AI`, `NOTEBOOKLM_COLLECTION_REF`.
