@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from fastapi import FastAPI, HTTPException, Body, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -1169,9 +1170,63 @@ def local_health_check():
             "pytesseract_ocr": PYTESSERACT_AVAILABLE,
             "vietocr_offline": vn_ocr_predictor is not None,
             "docling_tables": docling_converter is not None,
-            "gemini_vision_fallback": gemini_client is not None
+            "gemini_vision_fallback": gemini_client is not None,
+            "secure_stream_pdf": True
         }
     }
+
+
+@app.get("/api/local/stream-pdf")
+def local_stream_pdf(
+    file_name: str = Query(..., description="Tên tệp PDF an toàn cần xem"),
+):
+    """
+    Stream tài liệu PDF an toàn, chống path traversal, không để lộ cấu trúc thư mục Google Drive.
+    """
+    safe_name = os.path.basename(file_name)
+    if ".." in safe_name or not safe_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Tên tệp không hợp lệ hoặc không phải định dạng PDF")
+
+    candidate_roots = [
+        r"G:\My Drive\02_KNOWLEDGE_LIBRARY\01_Quan_tri_Doanh_nghiep\Phap_che\Data_Legal_2026",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
+    ]
+
+    target_path = None
+    for root in candidate_roots:
+        if not os.path.exists(root):
+            continue
+        p = os.path.join(root, safe_name)
+        if os.path.isfile(p):
+            target_path = p
+            break
+        try:
+            for item in os.listdir(root):
+                sub = os.path.join(root, item)
+                if os.path.isdir(sub):
+                    sub_p = os.path.join(sub, safe_name)
+                    if os.path.isfile(sub_p):
+                        target_path = sub_p
+                        break
+            if target_path:
+                break
+        except Exception:
+            pass
+
+    if not target_path or not os.path.isfile(target_path):
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tệp PDF '{safe_name}' trong kho an toàn")
+
+    return FileResponse(
+        path=target_path,
+        media_type="application/pdf",
+        filename=safe_name,
+        headers={
+            "Content-Disposition": f"inline; filename=\"{safe_name}\"",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
 
 
 @app.post("/api/scan-file")

@@ -12,6 +12,7 @@ import analyzeHandler from '../api/gemini/analyze.js';
 import { createAnalyzeLegalHandler } from '../api/gemini/analyze-legal.js';
 import { createCompareClausesHandler } from '../api/gemini/compare-clauses.js';
 import verifyRoleHandler from '../api/verify-role.js';
+import streamPdfHandler from '../api/documents/stream-pdf.js';
 import { MAX_AUDIT_LOGS, getAuditLogs, prependAuditLog } from '../api/_lib/auditStore.js';
 import type { GeminiClientLike, GeminiGenerateContentParams } from '../api/_lib/gemini.js';
 import { toCanonicalGuardRole } from '../src/services/ssotBridgeService.js';
@@ -81,7 +82,8 @@ async function invokeOverHttp(
         : undefined,
     });
     const text = await response.text();
-    const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const json = isJson && text ? (JSON.parse(text) as Record<string, unknown>) : {};
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
@@ -1120,5 +1122,45 @@ test('Data_Legal_2026 corpus (51 real PDFs) integrates into INITIAL_LEGAL_DOCS w
       'FILE'
     );
     assert.equal(v.status, 'OK', `Invalid SSOT filename on ${d.ssotFileName}: ${v.message}`);
+  }
+});
+
+test('GET /api/documents/stream-pdf enforces security and streams PDF', async () => {
+  // 1. Rejects missing param
+  const resMissing = await invokeOverHttp(streamPdfHandler as any, {
+    method: 'GET',
+    path: '/api/documents/stream-pdf',
+  });
+  assert.equal(resMissing.status, 400);
+
+  // 2. Rejects path traversal attempt
+  const resTraversal = await invokeOverHttp(streamPdfHandler as any, {
+    method: 'GET',
+    path: '/api/documents/stream-pdf?file=../../../../Windows/win.ini',
+  });
+  assert.equal(resTraversal.status, 400);
+
+  // 3. Rejects non-pdf
+  const resNonPdf = await invokeOverHttp(streamPdfHandler as any, {
+    method: 'GET',
+    path: '/api/documents/stream-pdf?file=test.exe',
+  });
+  assert.equal(resNonPdf.status, 400);
+
+  // 4. Returns 404 for unknown file
+  const res404 = await invokeOverHttp(streamPdfHandler as any, {
+    method: 'GET',
+    path: '/api/documents/stream-pdf?file=unknown_doc_999999.pdf',
+  });
+  assert.equal(res404.status, 404);
+
+  // 5. Streams real PDF from Data_Legal_2026 if available
+  const resReal = await invokeOverHttp(streamPdfHandler as any, {
+    method: 'GET',
+    path: '/api/documents/stream-pdf?file=%5B2026%5D_206-2026_ND_CP_QLCP.pdf',
+  });
+  if (resReal.status === 200) {
+    assert.equal(resReal.headers['content-type'], 'application/pdf');
+    assert.ok(String(resReal.headers['content-disposition']).includes('inline'));
   }
 });

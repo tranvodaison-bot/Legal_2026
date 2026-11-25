@@ -10,6 +10,7 @@ import analyzeLegalHandler from './api/gemini/analyze-legal.js';
 import analyzeHandler from './api/gemini/analyze.js';
 import compareClausesHandler from './api/gemini/compare-clauses.js';
 import verifyRoleHandler from './api/verify-role.js';
+import streamPdfHandler from './api/documents/stream-pdf.js';
 
 export type { CanonicalActorRole } from './api/_lib/validation.js';
 export type { ServerAuditLog } from './api/_lib/auditStore.js';
@@ -54,6 +55,10 @@ app.all('/api/gemini/compare-clauses', (req: Request, res: Response, next: NextF
 
 app.all('/api/verify-role', (req: Request, res: Response, next: NextFunction) => {
   void verifyRoleHandler(req, res).catch(next);
+});
+
+app.all('/api/documents/stream-pdf', (req: Request, res: Response, next: NextFunction) => {
+  void streamPdfHandler(req, res).catch(next);
 });
 
 // Middleware xử lý lỗi tập trung (Ẩn hoàn toàn stack trace nội bộ khỏi phản hồi client)

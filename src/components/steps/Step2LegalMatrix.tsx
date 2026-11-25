@@ -89,6 +89,7 @@ import { AiLegalGapAnalysisCard } from "../AiLegalGapAnalysisCard";
 import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
 import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
 import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
+import { SecurePdfViewerModal } from "../SecurePdfViewerModal";
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: "🛣️",
@@ -360,6 +361,9 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     isAiRunning, setIsAiRunning,
     AI_AGENTS_LIST, runMultiAgentAnalysis,
   } = ctx;
+
+  const [isSecurePdfOpen, setIsSecurePdfOpen] = React.useState(false);
+  const [securePdfTarget, setSecurePdfTarget] = React.useState<{ fileName: string; docTitle?: string; docNumber?: string }>({ fileName: '' });
 
   return (
     <>
@@ -2809,6 +2813,26 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               <span>⚖️</span>
                               <span>Chế độ so sánh</span>
                             </button>
+
+                            {/* Nút Xem Bản PDF Gốc Bảo Mật (Zero-Trust Stream Proxy - Không mở Drive) */}
+                            {currentLegalDoc?.ssotFileName && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSecurePdfTarget({
+                                    fileName: currentLegalDoc.ssotFileName,
+                                    docTitle: currentLegalDoc.title,
+                                    docNumber: currentLegalDoc.docNumber,
+                                  });
+                                  setIsSecurePdfOpen(true);
+                                }}
+                                title="Xem trực tiếp bản scan PDF gốc có dấu đỏ an toàn (Zero-Trust Stream Proxy, không mở Drive)"
+                                className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs border border-emerald-600"
+                              >
+                                <span>🔒</span>
+                                <span>Xem PDF Gốc</span>
+                              </button>
+                            )}
                             <span className="font-bold text-xs text-[#163d5c] truncate ml-1">
                               {rightReaderMode === 'COMPARE_MODE'
                                 ? 'SO SÁNH PHÁP LÝ SONG SONG (2 VĂN BẢN)'
@@ -5904,6 +5928,15 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
               )}
             </div>
           )}
+
+      {/* MODAL XEM PDF GỐC BẢO MẬT (ZERO-TRUST PROXY) */}
+      <SecurePdfViewerModal
+        isOpen={isSecurePdfOpen}
+        onClose={() => setIsSecurePdfOpen(false)}
+        fileName={securePdfTarget.fileName}
+        docTitle={securePdfTarget.docTitle}
+        docNumber={securePdfTarget.docNumber}
+      />
     </>
   );
 };
