@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tra cứu văn bản pháp luật — Demo</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --border:#e2e5ea; --text:#1c2128; --muted:#5b6472;
+    --accent:#2f6fed; --accent-light:#eaf1ff; --highlight:#bff0c9; --radius:10px;
+    --fs:15px;
+  }
+  *{box-sizing:border-box;}
+  html{font-size:var(--fs);}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  /* HEADER */
+  header{background:var(--panel);border-bottom:1px solid var(--border);padding:.7rem 1rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:20;}
+  .brand{min-width:230px;}
+  .brand h1{font-size:1.05rem;margin:0;line-height:1.25;}
+  .brand p{font-size:.72rem;color:var(--muted);margin:.1rem 0 0;}
+  .search-wrap{flex:1;position:relative;}
+  #globalSearch{width:100%;padding:.55rem .9rem .55rem 2.1rem;border:1px solid var(--border);border-radius:8px;font-size:.9rem;background:var(--bg);}
+  #globalSearch:focus{outline:2px solid var(--accent);background:var(--panel);}
+  .search-icon{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);opacity:.5;font-size:.9rem;}
+  .kbd-hint{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);font-size:.65rem;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:1px 6px;border-radius:4px;}
+  .header-tools{display:flex;gap:.4rem;flex-shrink:0;}
+  .header-tools button{border:1px solid var(--border);background:var(--panel);border-radius:6px;width:34px;height:34px;cursor:pointer;font-size:.9rem;}
+  .header-tools button:hover{background:var(--accent-light);border-color:var(--accent);}
+
+  /* TABS */
+  .tabbar{background:var(--panel);border-bottom:1px solid var(--border);padding:0 1rem;display:flex;gap:.3rem;align-items:center;}
+  .tab{padding:.55rem .9rem;font-size:.85rem;border-bottom:2px solid transparent;cursor:pointer;color:var(--muted);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+
+  /* LAYOUT */
+  .layout{display:flex;max-width:1500px;margin:0 auto;align-items:flex-start;}
+  aside{width:260px;flex-shrink:0;padding:1rem .9rem;position:sticky;top:96px;max-height:calc(100vh - 96px);overflow-y:auto;}
+  main{flex:1;padding:1.3rem 1.6rem 3rem;min-width:0;}
+
+  .field{margin-bottom:.7rem;}
+  .field label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:.25rem;}
+  .field select,.field input[type=number]{width:100%;padding:.4rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem;background:var(--panel);}
+  .field-row{display:flex;gap:.5rem;}
+  .checks{font-size:.78rem;color:var(--text);}
+  .checks label{display:flex;align-items:center;gap:.4rem;margin:.35rem 0;cursor:pointer;}
+  .clear-link{font-size:.78rem;}
+
+  .tree{margin-top:.8rem;border-top:1px solid var(--border);padding-top:.6rem;}
+  .tree-node{}
+  .tree-node > .tn-head{display:flex;align-items:center;gap:.35rem;padding:.32rem .2rem;border-radius:6px;cursor:pointer;font-size:.85rem;}
+  .tree-node > .tn-head:hover{background:var(--accent-light);}
+  .tree-node.active > .tn-head{background:var(--accent-light);color:var(--accent);font-weight:600;}
+  .tn-caret{width:14px;font-size:.65rem;color:var(--muted);transition:transform .15s;flex-shrink:0;}
+  .tree-node.open > .tn-head > .tn-caret{transform:rotate(90deg);}
+  .tn-label{flex:1;}
+  .tn-count{font-size:.72rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:0 .4rem;}
+  .tn-children{margin-left:1.1rem;display:none;border-left:1px dashed var(--border);padding-left:.5rem;}
+  .tree-node.open > .tn-children{display:block;}
+
+  /* MAIN HOME */
+  .home-title h2{font-size:1.5rem;margin:0 0 .2rem;}
+  .home-title .cats{color:var(--muted);font-size:.9rem;margin:0 0 .9rem;}
+  .stat-line{font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;}
+  .stat-line b{color:var(--text);}
+
+  .card-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.8rem;margin-bottom:1.6rem;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;cursor:pointer;transition:.15s;}
+  .card:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(47,111,237,.08);transform:translateY(-1px);}
+  .card h3{margin:0 0 .3rem;font-size:1rem;}
+  .card .count{font-size:.8rem;color:var(--muted);}
+  .card.quick{background:var(--accent-light);border-color:transparent;}
+  .card.quick .eyebrow{font-size:.68rem;font-weight:700;color:var(--accent);letter-spacing:.04em;margin-bottom:.35rem;}
+  .card.quick h3{font-size:.95rem;}
+
+  .section-title{font-size:1.15rem;margin:0 0 .7rem;}
+  .howto{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.3rem;}
+  .howto ul{margin:0;padding-left:1.1rem;font-size:.87rem;line-height:1.75;}
+  .howto code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.05rem .35rem;font-size:.78rem;}
+  .highlight-demo{background:var(--highlight);border-radius:3px;padding:0 .1rem;}
+
+  footer{border-top:1px solid var(--border);margin-top:2rem;padding-top:1rem;font-size:.85rem;color:var(--muted);line-height:1.8;}
+  footer b{color:var(--text);}
+
+  /* RESULTS / READER VIEW */
+  .results-list{display:flex;flex-direction:column;gap:.55rem;}
+  .result-item{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.75rem .95rem;cursor:pointer;}
+  .result-item:hover{border-color:var(--accent);}
+  .result-item .rt{font-size:.9rem;font-weight:600;margin-bottom:.15rem;}
+  .result-item .rm{font-size:.75rem;color:var(--muted);}
+  .empty-state{color:var(--muted);font-size:.9rem;padding:2rem 0;text-align:center;}
+
+  .reader{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem 1.5rem;position:relative;}
+  .reader h2{margin-top:0;font-size:1.15rem;}
+  .reader-meta{font-size:.78rem;color:var(--muted);margin-bottom:1rem;}
+  .reader-body{font-size:.92rem;line-height:1.85;white-space:pre-wrap;}
+  .hl-toolbar{position:fixed;display:none;background:#222;color:#fff;padding:.35rem .5rem;border-radius:6px;font-size:.8rem;gap:.4rem;z-index:50;cursor:pointer;}
+  .hl-toolbar:hover{background:#000;}
+  .back-link{font-size:.82rem;margin-bottom:1rem;display:inline-block;}
+  .note-list{margin-top:1.3rem;border-top:1px solid var(--border);padding-top:.8rem;}
+  .note-item{font-size:.82rem;background:#fffbe8;border:1px solid #f0e2a3;border-radius:6px;padding:.5rem .7rem;margin-bottom:.4rem;}
+  .note-item .nt-text{background:var(--highlight);padding:0 .15rem;}
+
+  .disclaimer{background:#fff4e5;border:1px solid #f3d9a4;color:#7a5a12;font-size:.78rem;border-radius:8px;padding:.6rem .9rem;margin-bottom:1.2rem;}
+
+  @media(max-width:1100px){
+    .card-grid{grid-template-columns:repeat(2,1fr);}
+    aside{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Tra cứu văn bản pháp luật</h1>
+    <p>Demo giao diện — thay bằng data thật của Boss</p>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input id="globalSearch" placeholder="TÌM VĂN BẢN — có dấu hay không dấu (Ctrl+K)">
+    <span class="kbd-hint">Ctrl+K</span>
+  </div>
+  <div class="header-tools">
+    <button title="Highlight">✏️</button>
+    <button title="Menu">☰</button>
+    <button id="fontDown" title="Giảm cỡ chữ">A−</button>
+    <button id="fontUp" title="Tăng cỡ chữ">A+</button>
+  </div>
+</header>
+
+<div class="tabbar">
+  <div class="tab active" data-tab="home">🏠 Trang chủ</div>
+  <div class="tab" data-tab="results" id="resultsTab" style="display:none;">Kết quả</div>
+</div>
+
+<div class="layout">
+  <aside>
+    <div class="field">
+      <label>Loại văn bản</label>
+      <select id="filterType"><option>Tất cả</option><option>Luật</option><option>Nghị định</option><option>Thông tư</option><option>Quyết định</option></select>
+    </div>
+    <div class="field">
+      <label>Cơ quan ban hành</label>
+      <select id="filterAgency"><option>Tất cả</option><option>Bộ Tài chính</option><option>Chính phủ</option><option>Quốc hội</option><option>Tổng cục Thuế</option></select>
+    </div>
+    <div class="field field-row">
+      <div><label>Năm từ</label><input type="number" id="yearFrom" value="1993"></div>
+      <div><label>đến năm</label><input type="number" id="yearTo" value="2019"></div>
+    </div>
+    <div class="field">
+      <label>Sắp xếp</label>
+      <select><option>Thứ bậc pháp lý &amp; mới nhất</option><option>Mới nhất trước</option><option>Cũ nhất trước</option></select>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" checked> Tìm cả nội dung</label>
+      <label><input type="checkbox"> Ẩn VB hết hiệu lực</label>
+    </div>
+    <a class="clear-link" href="#" id="clearFilters">Bỏ lọc</a>
+
+    <div class="tree" id="treeRoot"></div>
+  </aside>
+
+  <main>
+    <div class="disclaimer">⚠️ Đây là <b>dữ liệu mẫu</b> để demo cơ chế (cây mục lục, search, highlight) — số hiệu văn bản trong danh sách là placeholder, chưa xác thực. Khi build thật, Boss thay bằng data đã tra cứu chuẩn.</div>
+
+    <div id="homeView">
+      <div class="home-title">
+        <h2>Tra cứu văn bản pháp luật — By Boss</h2>
+        <p class="cats">Thuế · Kế toán · Kiểm toán · Chi phí, Lao động, BHXH</p>
+      </div>
+      <p class="stat-line"><b id="statCount">729</b> văn bản hiện hành (cập nhật đến <span id="statDate">01/08/2026</span>)</p>
+
+      <div class="card-grid" id="mainCards"></div>
+      <div class="card-grid" id="quickCards" style="grid-template-columns:repeat(4,1fr);"></div>
+
+      <h3 class="section-title">Cách dùng</h3>
+      <div class="howto">
+        <ul>
+          <li>Ô 🔍 trên cùng: tìm văn bản theo đúng cụm từ, có dấu hay không dấu đều được.</li>
+          <li>Gõ <code>Ctrl</code>+<code>K</code> để nhảy nhanh vào ô tìm kiếm từ bất cứ đâu.</li>
+          <li>Bôi đen một đoạn trong văn bản đang đọc rồi bấm nút hiện ra để tạo <span class="highlight-demo">highlight</span> kèm ghi chú.</li>
+          <li>Bấm ▶ trước tên nhóm trong cây mục lục bên trái để mở rộng theo điều/khoản.</li>
+          <li>Nút <code>A−</code> / <code>A+</code> ở góc trên chỉnh cỡ chữ toàn trang.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="resultsView" style="display:none;">
+      <a href="#" class="back-link" id="backHome">← Về trang chủ</a>
+      <h3 class="section-title" id="resultsTitle">Kết quả</h3>
+      <div class="results-list" id="resultsList"></div>
+    </div>
+
+    <div id="readerView" style="display:none;"></div>
+
+    <footer>
+      <b>Boss</b> — người biên soạn và cập nhật bộ dữ liệu này.<br>
+      Liên hệ công việc, hỗ trợ: <a href="#">email@vidu.com</a><br>
+      Đây là bản demo cơ chế — chưa kết nối dữ liệu thật.
+    </footer>
+  </main>
+</div>
+
+<div class="hl-toolbar" id="hlToolbar">🖊 Highlight đoạn này</div>
+
+<script>
+/* ---------------- MOCK DATA ---------------- */
+const CATS = [
+  {code:'A', name:'Thuế', count:200, sub:[
+    {code:'I', name:'Quản lý thuế', count:20},
+    {code:'II', name:'Thuế giá trị gia tăng', count:9},
+    {code:'III', name:'Thuế thu nhập doanh nghiệp', count:13},
+    {code:'IV', name:'Thuế thu nhập cá nhân', count:6},
+    {code:'V', name:'Thuế tiêu thụ đặc biệt', count:4},
+    {code:'VI', name:'Thuế xuất nhập khẩu – Hải quan', count:38},
+    {code:'VII', name:'Thuế nhà thầu', count:1},
+    {code:'VIII', name:'Thuế khác (môn bài, tài nguyên, BVMT...)', count:97},
+    {code:'IX', name:'Hóa đơn, chứng từ', count:8},
+    {code:'X', name:'Xử phạt về thuế, hóa đơn', count:2},
+    {code:'XI', name:'Thuế hộ kinh doanh', count:2},
+  ]},
+  {code:'B', name:'Kế toán', count:151, sub:[]},
+  {code:'C', name:'Kiểm toán', count:126, sub:[]},
+  {code:'D', name:'Chi phí – Lao động – BHXH', count:140, sub:[]},
+  {code:'E', name:'Các quy định khác', count:112, sub:[]},
+  {code:'Z', name:'Văn bản đã hết hiệu lực', count:655, sub:[]},
+];
+
+const QUICK = [
+  {label:'Thuế thu nhập cá nhân', sub:'9 nhóm nội dung'},
+  {label:'Thuế giá trị gia tăng', sub:'11 nhóm nội dung'},
+  {label:'Thuế thu nhập doanh nghiệp', sub:'12 nhóm nội dung'},
+  {label:'BHXH – BHYT – BHTN', sub:'12 nhóm nội dung'},
+];
+
+// small sample doc set for search/results demo — PLACEHOLDER, not verified real data
+const DOCS = [
+  {id:1, cat:'A', title:'Thông tư hướng dẫn thi hành Luật Thuế giá trị gia tăng (mẫu)', type:'Thông tư', agency:'Bộ Tài chính', year:2014, active:true,
+    body:"Điều 1. Phạm vi điều chỉnh\nThông tư này hướng dẫn thi hành một số điều của Luật Thuế giá trị gia tăng và các văn bản hướng dẫn liên quan.\n\nĐiều 2. Đối tượng áp dụng\nTổ chức, cá nhân sản xuất, kinh doanh hàng hoá, dịch vụ chịu thuế giá trị gia tăng.\n\n[Đây là nội dung mẫu để demo tính năng highlight và đọc văn bản — không phải văn bản thật.]"},
+  {id:2, cat:'A', title:'Nghị định quy định chi tiết thi hành Luật Thuế thu nhập doanh nghiệp (mẫu)', type:'Nghị định', agency:'Chính phủ', year:2013, active:true, body:"Nội dung mẫu về thuế thu nhập doanh nghiệp..."},
+  {id:3, cat:'A', title:'Thông tư hướng dẫn quyết toán thuế thu nhập cá nhân (mẫu)', type:'Thông tư', agency:'Bộ Tài chính', year:2015, active:true, body:"Nội dung mẫu về quyết toán thuế TNCN..."},
+  {id:4, cat:'D', title:'Nghị định về bảo hiểm xã hội bắt buộc (mẫu)', type:'Nghị định', agency:'Chính phủ', year:2016, active:true, body:"Nội dung mẫu về BHXH bắt buộc..."},
+  {id:5, cat:'B', title:'Thông tư hướng dẫn chế độ kế toán doanh nghiệp nhỏ và vừa (mẫu)', type:'Thông tư', agency:'Bộ Tài chính', year:2017, active:true, body:"Nội dung mẫu về chế độ kế toán DNNVV..."},
+];
+
+/* ---------------- STATE ---------------- */
+let currentDoc = null;
+
+/* ---------------- HELPERS ---------------- */
+function stripDiacritics(str){
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+}
+
+/* ---------------- RENDER TREE ---------------- */
+function renderTree(){
+  const root = document.getElementById('treeRoot');
+  root.innerHTML = '';
+  CATS.forEach(cat=>{
+    const node = document.createElement('div');
+    node.className = 'tree-node';
+    const head = document.createElement('div');
+    head.className = 'tn-head';
+    head.innerHTML = `<span class="tn-caret">${cat.sub.length? '▶':''}</span><span class="tn-label">${cat.code}. ${cat.name}</span><span class="tn-count">${cat.count}</span>`;
+    head.addEventListener('click', (e)=>{
+      if(cat.sub.length){ node.classList.toggle('open'); }
+      showResultsForCategory(cat.code, cat.name);
+    });
+    node.appendChild(head);
+    if(cat.sub.length){
+      const children = document.createElement('div');
+      children.className = 'tn-children';
+      cat.sub.forEach(s=>{
+        const c = document.createElement('div');
+        c.className='tn-head';
+        c.style.fontSize='.8rem';
+        c.innerHTML = `<span class="tn-caret"></span><span class="tn-label">${s.code}. ${s.name}</span><span class="tn-count">${s.count}</span>`;
+        c.addEventListener('click', (e)=>{ e.stopPropagation(); showResultsForCategory(cat.code, s.name); });
+        children.appendChild(c);
+      });
+      node.appendChild(children);
+    }
+    root.appendChild(node);
+  });
+}
+
+/* ---------------- RENDER HOME CARDS ---------------- */
+function renderCards(){
+  const grid = document.getElementById('mainCards');
+  grid.innerHTML = '';
+  CATS.forEach(cat=>{
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `<h3>${cat.code}. ${cat.name}</h3><div class="count">${cat.count} văn bản</div>`;
+    el.addEventListener('click', ()=> showResultsForCategory(cat.code, cat.name));
+    grid.appendChild(el);
+  });
+  const qgrid = document.getElementById('quickCards');
+  qgrid.innerHTML = '';
+  QUICK.forEach(q=>{
+    const el = document.createElement('div');
+    el.className = 'card quick';
+    el.innerHTML = `<div class="eyebrow">TRA CỨU NHANH</div><h3>${q.label}</h3><div class="count">${q.sub}</div>`;
+    el.addEventListener('click', ()=> runSearch(q.label));
+    qgrid.appendChild(el);
+  });
+}
+
+/* ---------------- VIEW SWITCHING ---------------- */
+function showView(name){
+  document.getElementById('homeView').style.display = name==='home' ? '' : 'none';
+  document.getElementById('resultsView').style.display = name==='results' ? '' : 'none';
+  document.getElementById('readerView').style.display = name==='reader' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(name==='home') document.querySelector('.tab[data-tab="home"]').classList.add('active');
+  else {
+    const rt = document.getElementById('resultsTab');
+    rt.style.display = '';
+    rt.classList.add('active');
+  }
+}
+
+function showResultsForCategory(code, label){
+  const list = DOCS.filter(d=>d.cat===code);
+  document.getElementById('resultsTitle').textContent = `${label} (${list.length} kết quả mẫu)`;
+  renderResultsList(list);
+  showView('results');
+}
+
+function runSearch(query){
+  const q = stripDiacritics(query.trim());
+  if(!q){ showView('home'); return; }
+  const list = DOCS.filter(d=> stripDiacritics(d.title).includes(q));
+  document.getElementById('resultsTitle').textContent = `Kết quả tìm "${query}" (${list.length})`;
+  renderResultsList(list);
+  showView('results');
+}
+
+function renderResultsList(list){
+  const el = document.getElementById('resultsList');
+  if(!list.length){
+    el.innerHTML = '<div class="empty-state">Không có văn bản mẫu nào khớp. (Danh sách mẫu chỉ có 5 văn bản demo)</div>';
+    return;
+  }
+  el.innerHTML = '';
+  list.forEach(d=>{
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `<div class="rt">${d.title}</div><div class="rm">${d.type} · ${d.agency} · ${d.year} ${d.active?'':'· hết hiệu lực'}</div>`;
+    item.addEventListener('click', ()=> openReader(d));
+    el.appendChild(item);
+  });
+}
+
+function openReader(doc){
+  currentDoc = doc;
+  const el = document.getElementById('readerView');
+  el.innerHTML = `
+    <a href="#" class="back-link" id="backResults">← Về kết quả</a>
+    <div class="reader">
+      <h2>${doc.title}</h2>
+      <div class="reader-meta">${doc.type} · ${doc.agency} · ${doc.year}${doc.active?'':' · Hết hiệu lực'}</div>
+      <div class="reader-body" id="readerBody">${doc.body.replace(/</g,'&lt;')}</div>
+      <div class="note-list" id="noteList"><b style="font-size:.8rem;">Ghi chú / highlight đã lưu:</b></div>
+    </div>`;
+  document.getElementById('backResults').addEventListener('click', (e)=>{e.preventDefault(); showView('results');});
+  showView('reader');
+  loadNotes();
+}
+
+/* ---------------- HIGHLIGHT DEMO (localStorage) ---------------- */
+const hlToolbar = document.getElementById('hlToolbar');
+document.addEventListener('mouseup', (e)=>{
+  const sel = window.getSelection();
+  const text = sel.toString().trim();
+  const readerBody = document.getElementById('readerBody');
+  if(text.length>2 && readerBody && readerBody.contains(sel.anchorNode)){
+    hlToolbar.style.display='flex';
+    hlToolbar.style.left = Math.min(e.pageX, window.innerWidth-180)+'px';
+    hlToolbar.style.top = (e.pageY-38)+'px';
+    hlToolbar.onclick = ()=> saveHighlight(text);
+  } else {
+    hlToolbar.style.display='none';
+  }
+});
+
+function saveHighlight(text){
+  if(!currentDoc) return;
+  const key = 'demo_highlights_'+currentDoc.id;
+  const notes = JSON.parse(localStorage.getItem(key) || '[]');
+  notes.push({text, ts: new Date().toLocaleString('vi-VN')});
+  localStorage.setItem(key, JSON.stringify(notes));
+  hlToolbar.style.display='none';
+  loadNotes();
+}
+
+function loadNotes(){
+  if(!currentDoc) return;
+  const key = 'demo_highlights_'+currentDoc.id;
+  const notes = JSON.parse(localStorage.getItem(key) || '[]');
+  const list = document.getElementById('noteList');
+  list.innerHTML = '<b style="font-size:.8rem;">Ghi chú / highlight đã lưu (' + notes.length + '):</b>';
+  notes.forEach(n=>{
+    const d = document.createElement('div');
+    d.className='note-item';
+    d.innerHTML = `<span class="nt-text">${n.text}</span><div style="color:#8a7326;font-size:.7rem;margin-top:.2rem;">${n.ts}</div>`;
+    list.appendChild(d);
+  });
+}
+
+/* ---------------- SEARCH BAR + SHORTCUTS ---------------- */
+const searchInput = document.getElementById('globalSearch');
+searchInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') runSearch(searchInput.value); });
+document.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); searchInput.focus(); }
+});
+
+document.getElementById('fontUp').addEventListener('click', ()=>{
+  const r = document.documentElement;
+  const cur = parseFloat(getComputedStyle(r).fontSize);
+  r.style.fontSize = Math.min(cur+1, 20)+'px';
+});
+document.getElementById('fontDown').addEventListener('click', ()=>{
+  const r = document.documentElement;
+  const cur = parseFloat(getComputedStyle(r).fontSize);
+  r.style.fontSize = Math.max(cur-1, 12)+'px';
+});
+
+document.getElementById('backHome').addEventListener('click', (e)=>{e.preventDefault(); showView('home');});
+document.querySelector('.tab[data-tab="home"]').addEventListener('click', ()=> showView('home'));
+document.getElementById('resultsTab').addEventListener('click', ()=> showView('results'));
+document.getElementById('clearFilters').addEventListener('click', (e)=>{
+  e.preventDefault();
+  document.getElementById('filterType').value='Tất cả';
+  document.getElementById('filterAgency').value='Tất cả';
+  document.getElementById('yearFrom').value=1993;
+  document.getElementById('yearTo').value=2019;
+});
+
+/* ---------------- INIT ---------------- */
+renderTree();
+renderCards();
+showView('home');
+</script>
+</body>
+</html>

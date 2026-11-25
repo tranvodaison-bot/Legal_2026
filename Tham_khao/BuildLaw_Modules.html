@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOP Pháp lý Xây dựng - ĐẠI SƠN GROUP</title>
+    <meta name="theme-color" content="#991b1b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #991b1b; /* Đỏ Đại Sơn */
+            --primary-light: #fef2f2;
+            --secondary: #d97706; /* Vàng Đại Sơn */
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-main: #111827;
+            --text-muted: #4b5563;
+            --border: #e5e7eb;
+            --success: #059669;
+            --info: #0284c7;
+            --sidebar-width: 260px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* --- MOBILE HEADER --- */
+        .mobile-header { display: none; background-color: #111827; color: white; padding: 15px 20px; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; right: 0; z-index: 20; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .mobile-header-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px;}
+        .mobile-header-brand span { color: var(--secondary); }
+        .mobile-menu-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 15; opacity: 0; transition: 0.3s; }
+        .overlay.show { display: block; opacity: 1; }
+
+        /* --- SIDEBAR --- */
+        .sidebar { width: var(--sidebar-width); background-color: #111827; color: white; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 30; transition: transform 0.3s ease; overflow-y: auto; }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+        .sidebar-header { padding: 25px 20px; font-size: 20px; font-weight: 700; border-bottom: 1px solid #374151; display: flex; align-items: center; gap: 10px;}
+        .sidebar-header span { color: var(--secondary); }
+        .app-logo { height: 35px; width: 35px; object-fit: cover; border-radius: 50%; background: white;}
+        .menu-title { padding: 20px 20px 10px; font-size: 12px; text-transform: uppercase; color: #9ca3af; letter-spacing: 1px; font-weight: 600;}
+        .menu-item { padding: 12px 20px; cursor: pointer; transition: 0.2s; border-left: 4px solid transparent; font-size: 14px; color: #d1d5db; display: flex; align-items: center; gap: 10px;}
+        .menu-item:hover { background-color: #1f2937; color: #fff;}
+        .menu-item.active { background-color: #1f2937; border-left-color: var(--secondary); color: #fff; font-weight: 600; }
+        
+        /* --- MAIN CONTENT --- */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; position: relative;}
+        
+        /* CHIPS FILTER */
+        .top-filter-bar { background: var(--bg-card); padding: 15px 30px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 15px; flex-wrap: wrap;}
+        .filter-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;}
+        .chips { display: flex; gap: 10px; flex-wrap: wrap;}
+        .chip { padding: 8px 16px; border-radius: 99px; border: 1px solid var(--border); background: #f9fafb; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: 0.2s;}
+        .chip:hover { background: #f3f4f6; color: var(--text-main); border-color: #d1d5db;}
+        .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 2px 4px rgba(153, 27, 27, 0.3);}
+
+        .header-title { padding: 25px 30px 10px; }
+        .header-title h2 { color: var(--primary); font-size: 24px; font-weight: 700;}
+        .header-title p { color: var(--text-muted); font-size: 14px; margin-top: 5px; }
+        
+        .content-area { padding: 15px 30px 30px; flex: 1; max-width: 1200px; margin: 0 auto; width: 100%;}
+        
+        /* Cards & Tables */
+        .card { background: var(--bg-card); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 30px; overflow: hidden; border: 1px solid var(--border);}
+        .card-header { background: #f8fafc; padding: 16px 20px; font-size: 16px; font-weight: 600; border-bottom: 1px solid var(--border); color: var(--primary); display: flex; align-items: center; gap: 8px;}
+        .card-body { padding: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 600px;}
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.6; }
+        th { background: var(--primary-light); color: var(--primary); font-weight: 600; border-bottom: 2px solid var(--primary);}
+        .doc-no { font-weight: 700; color: var(--primary); white-space: nowrap; vertical-align: top;}
+        tr:hover td { background: #f8fafc; }
+
+        /* Flowchart */
+        .flowchart { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 10px 0; flex-wrap: wrap;}
+        .flow-node { background: #fff; border: 2px solid var(--primary); padding: 12px 15px; border-radius: 6px; font-weight: 600; text-align: center; flex: 1; min-width: 140px; cursor: pointer; transition: all 0.2s; color: var(--primary); font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+        .flow-node:hover { background: var(--primary); color: #fff; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .flow-arrow { color: #cbd5e1; font-size: 18px; font-weight: bold; }
+
+        /* Accordion */
+        .accordion-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; overflow: hidden; background: #fff; }
+        .accordion-header { padding: 16px 20px; cursor: pointer; background: #fff; font-weight: 600; display: flex; align-items: center; justify-content: space-between; transition: 0.2s; font-size: 15px;}
+        .accordion-header:hover { background: var(--primary-light); }
+        .accordion-header.active { background: var(--primary); color: #fff; }
+        .step-number { background: var(--secondary); color: #fff; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 15px; font-size: 14px; flex-shrink: 0;}
+        .accordion-body { padding: 20px; display: none; border-top: 1px solid var(--border); background: #fafafa; }
+        .accordion-body.open { display: block; animation: slideDown 0.3s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Meta Data Grid */
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .meta-box { background: #fff; border: 1px solid var(--border); padding: 12px 15px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);}
+        .meta-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; font-weight: 700; letter-spacing: 0.5px;}
+        .meta-value { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; line-height: 1.4;}
+        .meta-value.role { color: var(--info); }
+        .meta-value.time { color: var(--secondary); }
+        .meta-value.output { color: var(--success); }
+
+        /* Detail Content */
+        .detail-content { font-size: 14.5px; line-height: 1.7; color: #374151; }
+        .detail-content h4 { color: var(--primary); margin: 18px 0 8px 0; font-size: 15px; border-left: 3px solid var(--secondary); padding-left: 8px;}
+        .detail-content p { margin-bottom: 12px; text-align: justify;}
+        .detail-content ul { padding-left: 22px; margin-bottom: 15px; }
+        .detail-content li { margin-bottom: 6px; }
+        .detail-content strong { color: #111827; }
+
+        /* --- RESPONSIVE MOBILE --- */
+        @media (max-width: 768px) {
+            .mobile-header { display: flex; }
+            .sidebar { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            
+            .main-content { margin-top: 60px; }
+            .top-filter-bar { padding: 15px 20px; flex-direction: column; align-items: flex-start; gap: 10px;}
+            .header-title { padding: 15px 20px 0; }
+            .header-title h2 { font-size: 20px; }
+            .content-area { padding: 15px; }
+            
+            .flowchart { flex-direction: column; align-items: stretch; }
+            .flow-node { width: 100%; padding: 14px; font-size: 14px;}
+            .flow-arrow { transform: rotate(90deg); text-align: center; margin: -2px 0;}
+            
+            .accordion-header { padding: 14px 15px; font-size: 14px; }
+            .meta-grid { grid-template-columns: 1fr; }
+        }
+        @media (min-width: 769px) { .sidebar .sidebar-header { display: flex !important; } }
+    </style>
+</head>
+<body>
+
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <div class="mobile-header-brand">
+            <img src="logo.jpg" alt="DS" class="app-logo" onerror="this.src='https://via.placeholder.com/35/991b1b/ffffff?text=DS'">
+            <div><span>ĐẠI SƠN</span> GROUP</div>
+        </div>
+        <button class="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+    </div>
+    <div class="overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header" style="display: none;">
+            <img src="logo.jpg" alt="DS" class="app-logo" onerror="this.src='https://via.placeholder.com/35/991b1b/ffffff?text=DS'">
+            <span>ĐẠI SƠN</span> GROUP
+        </div>
+
+        <div class="menu-title">Chuẩn bị đầu tư</div>
+        <div class="menu-item active" onclick="setModule('legal')">🏛️ Pháp lý Dự án</div>
+        <div class="menu-item" onclick="setModule('cost')">💰 Quản lý Chi phí</div>
+
+        <div class="menu-title">Quản trị thi công</div>
+        <div class="menu-item" onclick="setModule('contract')">🤝 Quản lý Hợp đồng</div>
+        <div class="menu-item" onclick="setModule('schedule')">⏱️ Quản lý Tiến độ</div>
+        
+        <div class="menu-title">An toàn & Chất lượng</div>
+        <div class="menu-item" onclick="setModule('quality')">🏗️ Quản lý Chất lượng</div>
+        <div class="menu-item" onclick="setModule('testing')">🔬 Thí nghiệm & KĐ</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="main-scroll">
+        <!-- Bộ lọc Chips -->
+        <div class="top-filter-bar">
+            <div class="filter-label">🎯 Loại hình Dự án:</div>
+            <div class="chips">
+                <div class="chip active" onclick="setProjectType('kdt')">Khu Đô Thị / BĐS</div>
+                <div class="chip" onclick="setProjectType('kcn')">Khu Công Nghiệp / CCN</div>
+                <div class="chip" onclick="setProjectType('ftz')">Khu Thương Mại Tự Do (FTZ)</div>
+            </div>
+        </div>
+
+        <div class="header-title">
+            <h2 id="module-title">Đang tải...</h2>
+            <p id="module-desc">Đang tải dữ liệu...</p>
+        </div>
+        
+        <div class="content-area">
+            <div class="card">
+                <div class="card-header">📊 1. Sơ đồ quy trình tổng quát (SOP)</div>
+                <div class="card-body">
+                    <div id="flowchart-container" class="flowchart"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">⚖️ 2. Căn cứ pháp lý & Tiêu chuẩn áp dụng</div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%;">Văn bản pháp quy</th>
+                                    <th>Nội dung tham chiếu trọng tâm</th>
+                                </tr>
+                            </thead>
+                            <tbody id="legal-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="background: transparent; border: none; box-shadow: none;">
+                <h3 style="font-size: 18px; margin-bottom: 15px; color: var(--primary);">📋 3. Hướng dẫn thực hiện chi tiết</h3>
+                <div id="steps-container"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let currentModule = 'legal';
+    let currentProjectType = 'kdt';
+
+    // --- DATABASE ĐÃ ĐƯỢC CHUẨN HÓA THEO GÓP Ý CỦA CHUYÊN GIA ---
+    const database = {
+        // ==========================================
+        // 1. MODULE: PHÁP LÝ DỰ ÁN
+        // ==========================================
+        legal: {
+            // 1.1 KHU ĐÔ THỊ / BĐS
+            kdt: {
+                title: "Pháp lý Dự án Khu Đô Thị / Nhà ở",
+                desc: "Trình tự đầu tư khu đô thị, từ Đấu giá/Đấu thầu đất đến cấp Sổ hồng theo Luật Đất đai 2024 & Luật Nhà ở 2023.",
+                legal: [
+                    { no: "Luật Quy hoạch Đô thị và NT 47/2024", detail: "Lập Quy hoạch phân khu 1/2000, Quy hoạch chi tiết 1/500." },
+                    { no: "Luật Đầu tư 2025 & Luật Đấu thầu 2023", detail: "Thủ tục Lựa chọn NĐT dự án có sử dụng đất (NĐ 115/2024/NĐ-CP)." },
+                    { no: "Luật Đất đai 31/2024/QH15", detail: "Đấu giá quyền sử dụng đất, thu hồi, giao đất." },
+                    { no: "Luật Xây dựng 135/2025/QH15", detail: "Thẩm định Dự án, Thiết kế cơ sở và Cấp phép xây dựng." },
+                    { no: "Luật Nhà ở 27/2023 & KDBĐS 29/2023", detail: "Điều kiện bán nhà hình thành trong tương lai." }
+                ],
+                steps: [
+                    { id: "kdt-1", shortName: "Quy hoạch 1/2000", fullName: "Lập và Phê duyệt Quy hoạch Phân khu (1/2000)", role: "Tư vấn TK / Cơ quan NN", time: "Chuẩn bị Dự án", output: "QĐ Phê duyệt QH 1/2000", content: `<h4>Cơ sở định hình dự án:</h4><p>Nhà nước tổ chức lập hoặc Nhà đầu tư tài trợ lập QH 1/2000 làm căn cứ xác định ranh giới, tính chất khu đô thị, chỉ tiêu hạ tầng kỹ thuật và hạ tầng xã hội.</p>` },
+                    { id: "kdt-2", shortName: "Lựa chọn NĐT", fullName: "Chấp thuận chủ trương & Lựa chọn Nhà đầu tư", role: "Ban Phát triển Dự án", time: "Tiền khả thi", output: "QĐ Phê duyệt Trúng đấu giá/Đấu thầu", content: `<h4>Căn cứ theo Luật Đất đai & Đấu thầu mới:</h4><ul><li><strong>Đấu thầu:</strong> Nếu dự án thuộc diện nhà nước thu hồi đất, chưa GPMB.</li><li><strong>Đấu giá:</strong> Nếu là quỹ đất sạch do nhà nước quản lý.</li></ul>` },
+                    { id: "kdt-3", shortName: "Quy hoạch 1/500", fullName: "Lập và Phê duyệt Quy hoạch chi tiết (1/500)", role: "Tư vấn Thiết kế", time: "Sau khi Trúng thầu", output: "QĐ Phê duyệt QH 1/500", content: `<h4>Cụ thể hóa dự án:</h4><p>Nhà đầu tư lập đồ án 1/500 tuân thủ tuyệt đối chỉ tiêu của 1/2000. Lấy ý kiến cộng đồng và trình Sở Xây dựng / UBND Quận thẩm định, phê duyệt.</p>` },
+                    { id: "kdt-4", shortName: "Giao đất & Tính giá", fullName: "Giao đất và Tính tiền sử dụng đất", role: "Ban Pháp chế / CĐT", time: "Trước khi xin GPXD", output: "Sổ đỏ tổng dự án", content: `<h4>Thực thi Luật Đất đai 2024:</h4><p>CĐT phối hợp Sở TNMT lập chứng thư thẩm định giá đất cụ thể. Hoàn thành GPMB, nộp tiền sử dụng đất vào NSNN để lấy Sổ đỏ.</p>` },
+                    { id: "kdt-5", shortName: "Thẩm định & GPXD", fullName: "Thẩm định Dự án, ĐTM, PCCC và Cấp GPXD", role: "Ban QLDA", time: "Giai đoạn Thiết kế", output: "Giấy phép Xây dựng", content: `<h4>Chuỗi thủ tục liên hoàn:</h4><p>Thẩm duyệt PCCC, Thẩm định ĐTM. Cơ quan chuyên môn thẩm định Báo cáo NCKT và TK Cơ sở. Xin cấp GPXD (có thể cấp theo giai đoạn hạ tầng riêng, nhà ở riêng).</p>` },
+                    { id: "kdt-6", shortName: "Mở bán", fullName: "Pháp lý Mở bán & Cấp Sổ hồng", role: "Ban Kinh doanh", time: "Xong móng / HTKT", output: "VB Đủ ĐK Mở bán", content: `<p>Xin Sở Xây dựng cấp VB đủ điều kiện bán nhà hình thành trong tương lai sau khi xong móng/hạ tầng. Cấp Sổ hồng từng căn cho cư dân sau bàn giao.</p>` }
+                ]
+            },
+            
+            // 1.2 KHU THƯƠNG MẠI TỰ DO (FTZ ĐÀ NẴNG) - ĐÃ SỬA CHUẨN XÁC
+            ftz: {
+                title: "Pháp lý Dự án Khu Thương Mại Tự Do (FTZ Đà Nẵng)",
+                desc: "Thủ tục đầu tư đặc thù theo Nghị quyết 136/2024/QH15 áp dụng riêng cho Đà Nẵng. Ủy quyền toàn diện cho Ban Quản lý Khu TMTD.",
+                legal: [
+                    { no: "Nghị quyết 136/2024/QH15", detail: "Thành lập Khu TMTD Đà Nẵng và cơ chế ủy quyền đặc biệt." },
+                    { no: "Luật Quy hoạch Đô thị và NT 47/2024", detail: "Bắt buộc có Quy hoạch phân khu 1/2000 trước khi lập 1/500." },
+                    { no: "Luật Đầu tư 2025", detail: "Áp dụng thủ tục đầu tư đặc biệt (Nghị định 19/2025/NĐ-CP)." },
+                    { no: "Luật Xây dựng 135/2025/QH15", detail: "Cơ chế Miễn Giấy phép xây dựng trong FTZ." }
+                ],
+                steps: [
+                    { id: "ftz-1", shortName: "Thủ tục Đặc biệt", fullName: "Đăng ký đầu tư theo Thủ tục Đặc biệt", role: "Ban Đầu tư ĐS", time: "Tiền khả thi", output: "GCN Đăng ký đầu tư", content: `<h4>Áp dụng NĐ 19/2025/NĐ-CP:</h4><p>Không cần thủ tục Chấp thuận chủ trương đầu tư. Nộp hồ sơ thẳng cho <strong>Ban Quản lý Khu TMTD Đà Nẵng</strong> để cấp GCN Đăng ký đầu tư rút gọn (15 ngày).</p>` },
+                    { id: "ftz-2", shortName: "Quy hoạch 1/2000", fullName: "Lập Quy hoạch Phân khu (1/2000) Khu TMTD", role: "Ban QL Khu TMTD", time: "Quy hoạch nền tảng", output: "Quy hoạch phân khu FTZ", content: `<h4>Bắt buộc theo Luật Quy hoạch:</h4><p>Khu TMTD là khu chức năng quy mô lớn, phải được lập và phê duyệt Quy hoạch phân khu 1/2000 (Xác định rõ các phân khu: logistics, sản xuất, thương mại) do Ban QL Khu TMTD chủ trì, UBND TP Đà Nẵng phê duyệt.</p>` },
+                    { id: "ftz-3", shortName: "Quy hoạch 1/500", fullName: "Lập Quy hoạch chi tiết (1/500) Dự án", role: "Nhà đầu tư", time: "Sau khi có 1/2000", output: "Quy hoạch 1/500", content: `<h4>Cụ thể hóa dự án:</h4><p>Nhà đầu tư lập QH 1/500 cho lô đất/dự án của mình trình <strong>Ban Quản lý Khu TMTD</strong> thẩm định và phê duyệt (Không qua Sở XD).</p>` },
+                    { id: "ftz-4", shortName: "Giao & Thuê đất", fullName: "Giao đất, cho thuê đất trong FTZ", role: "Ban Pháp chế", time: "Sau khi có GCNĐT & QH", output: "Hợp đồng thuê đất", content: `<h4>Một cửa tại Ban Quản lý:</h4><p>Ban Quản lý Khu TMTD được ủy quyền trực tiếp thực hiện giao đất, cho thuê đất. Hưởng ưu đãi miễn giảm tiền thuê đất theo NQ 136.</p>` },
+                    { id: "ftz-5", shortName: "ĐTM & Miễn GPXD", fullName: "Thẩm định ĐTM, PCCC & Miễn Giấy phép XD", role: "Ban QLDA", time: "Trước Khởi công", output: "VB Thẩm định TKCS", content: `<h4>Cơ chế đặc thù:</h4><ul><li>Ban QL Khu TMTD chủ trì thẩm định ĐTM và Thiết kế cơ sở.</li><li>Công an thẩm duyệt PCCC.</li><li><strong>Công trình trong FTZ đã duyệt thiết kế được Miễn GPXD.</strong> NĐT chỉ cần gửi Thông báo khởi công.</li></ul>` },
+                    { id: "ftz-6", shortName: "Hải quan FTZ", fullName: "Thủ tục Hải quan Khu phi thuế quan", role: "Ban Vận hành", time: "Vận hành", output: "Quy chế EPE", content: `<p>Nhập khẩu vật tư, thiết bị xây dựng và vận hành nhà máy được miễn thuế XNK và VAT theo quy chế Khu phi thuế quan.</p>` }
+                ]
+            },
+
+            // 1.3 KHU CÔNG NGHIỆP / CỤM CÔNG NGHIỆP - ĐÃ BỔ SUNG BƯỚC 1/500
+            kcn: {
+                title: "Pháp lý Dự án Khu/Cụm Công nghiệp",
+                desc: "Thủ tục đầu tư hạ tầng KCN và quy trình cấp phép cho nhà máy thứ cấp.",
+                legal: [
+                    { no: "Nghị định 35/2022/NĐ-CP", detail: "Quản lý Khu công nghiệp và Khu kinh tế." },
+                    { no: "Luật Quy hoạch Đô thị và NT 47/2024", detail: "Hệ thống quy hoạch KCN: 1/2000 và 1/500." },
+                    { no: "Luật Đầu tư 2025 & Xây dựng", detail: "Trình tự đầu tư và cấp phép tại KCN." }
+                ],
+                steps: [
+                    { id: "kcn-1", shortName: "Chủ trương ĐT", fullName: "Xin Chấp thuận CTĐT Hạ tầng KCN", role: "CĐT Hạ tầng", time: "Tiền khả thi", output: "QĐ của Thủ tướng", content: `<p>Hồ sơ dự án đầu tư Hạ tầng KCN trình Bộ KH&ĐT thẩm định, Thủ tướng Chính phủ phê duyệt CTĐT.</p>` },
+                    { id: "kcn-2", shortName: "Quy hoạch 1/2000", fullName: "Lập Quy hoạch phân khu KCN (1/2000)", role: "CĐT Hạ tầng", time: "Chuẩn bị ĐT", output: "QĐ Duyệt 1/2000", content: `<p>Lập QH phân khu 1/2000 định hình toàn bộ hạ tầng khung, trạm điện, trạm xử lý nước thải tập trung.</p>` },
+                    { id: "kcn-3", shortName: "Quy hoạch 1/500", fullName: "Lập Quy hoạch chi tiết (1/500)", role: "CĐT Hạ tầng / Thứ cấp", time: "Trước thiết kế", output: "QĐ Duyệt 1/500", content: `<h4>Bước thiết yếu để cấp phép:</h4><p>CĐT Hạ tầng lập QH 1/500 cho các khu vực hạ tầng dùng chung hoặc toàn KCN. Các Nhà đầu tư thứ cấp (khi thuê đất xây nhà máy) phải lập QH 1/500 cho lô đất nhà máy của mình (hoặc Tổng mặt bằng 1/500) trình Ban QL KCN phê duyệt.</p>` },
+                    { id: "kcn-4", shortName: "Giao đất & Cho thuê", fullName: "Giao đất & Cho thuê lại đất", role: "CĐT Hạ tầng", time: "Kinh doanh", output: "Hợp đồng thuê lại đất", content: `<p>Nhà nước giao đất cho CĐT Hạ tầng KCN. CĐT tiến hành san lấp hạ tầng và ký Hợp đồng cho thuê lại đất đối với các Nhà đầu tư thứ cấp.</p>` },
+                    { id: "kcn-5", shortName: "GPXD Nhà máy", fullName: "Cấp GPXD Nhà máy (NĐT Thứ cấp)", role: "NĐT Thứ cấp", time: "Trước thi công", output: "Giấy phép Xây dựng", content: `<p>Nhà đầu tư thứ cấp nộp hồ sơ xin GPXD nhà máy tại <strong>Ban Quản lý KCNC & Các KCN Đà Nẵng</strong>. Phải có ĐTM và PCCC nhà xưởng được duyệt.</p>` }
+                ]
+            }
+        },
+
+        // ==========================================
+        // 2. MODULE CHI PHÍ (Dùng chung các loại dự án)
+        // ==========================================
+        cost: {
+            kdt: { title: "Quản lý Chi phí Dự án BĐS", desc: "Quản lý ngân sách dự án dân dụng, khu đô thị (NĐ 206/2026).", legal: [{ no: "NĐ 206/2026/NĐ-CP", detail: "Quản lý chi phí."}], steps: []},
+            kcn: { title: "Quản lý Chi phí Hạ tầng KCN", desc: "Quản lý chi phí xây dựng hạ tầng kỹ thuật KCN.", legal: [], steps: []},
+            ftz: { title: "Quản lý Chi phí Dự án FTZ", desc: "Quản lý ngân sách xây dựng trong khu phi thuế quan.", legal: [], steps: []},
+            common: {
+                title: "Quy trình Quản lý Chi phí (QS)",
+                desc: "Áp dụng chung: Từ Sơ bộ TMĐT đến Quyết toán dự án hoàn thành (NĐ 206/2026).",
+                legal: [
+                    { no: "Luật Xây dựng 135/2025/QH15", detail: "Chương V - Nguyên tắc quản lý Chi phí đầu tư xây dựng." },
+                    { no: "Nghị định 206/2026/NĐ-CP", detail: "Quy định chi tiết về quản lý chi phí đầu tư xây dựng." },
+                    { no: "Thông tư 38/2026/TT-BXD", detail: "Hệ thống định mức dự toán xây dựng công trình." }
+                ],
+                steps: [
+                    { id: "cost-1", shortName: "Sơ bộ TMĐT", fullName: "Lập Sơ bộ Tổng mức đầu tư", role: "Tư vấn / QS", time: "Báo cáo NCKT", output: "Sơ bộ TMĐT", content: `<p>Ước tính chi phí dựa trên <strong>Suất vốn đầu tư</strong> do Bộ XD công bố để xin Chủ trương đầu tư.</p>` },
+                    { id: "cost-2", shortName: "TMĐT", fullName: "Lập và Phê duyệt Tổng mức đầu tư", role: "CĐT", time: "Phê duyệt Dự án", output: "QĐ Phê duyệt TMĐT", content: `<p>Bao gồm 6 khoản mục. Là giới hạn chi phí tối đa của dự án.</p>` },
+                    { id: "cost-3", shortName: "Dự toán", fullName: "Lập và Thẩm định Dự toán xây dựng", role: "Kỹ sư QS", time: "Thiết kế BVTC", output: "Dự toán công trình", content: `<p>Bóc tách BOQ chi tiết, áp định mức TT 38/2026 và đơn giá thị trường. Trình thẩm định đảm bảo không vượt TMĐT.</p>` },
+                    { id: "cost-4", shortName: "Giá Gói thầu", fullName: "Cập nhật Giá gói thầu", role: "Phòng Đấu thầu", time: "Trước 28 ngày mở thầu", output: "Giá gói thầu cập nhật", content: `<p>Phải cập nhật lại giá gói thầu trong vòng 28 ngày trước mở thầu nếu thị trường biến động.</p>` },
+                    { id: "cost-5", shortName: "Thanh toán", fullName: "Thanh toán (IPC)", role: "QS Nhà thầu", time: "Hàng tháng", output: "Phụ lục 03.a/03.b", content: `<p>Nghiệm thu khối lượng hiện trường, lập hồ sơ thanh toán, tính trượt giá (nếu có) và khấu trừ tạm ứng.</p>` },
+                    { id: "cost-6", shortName: "Quyết toán", fullName: "Quyết toán Dự án", role: "Kiểm toán / CĐT", time: "Khi hoàn thành", output: "Báo cáo Quyết toán", content: `<p>Quyết toán hợp đồng A-B, kiểm toán độc lập và trình duyệt Quyết toán vốn ĐTXD hoàn thành.</p>` }
+                ]
+            }
+        },
+
+        // ==========================================
+        // 3. MODULE HỢP ĐỒNG (Dùng chung)
+        // ==========================================
+        contract: {
+            common: {
+                title: "Quy trình Quản lý Hợp đồng Xây dựng",
+                desc: "Nghiệp vụ đàm phán, quản lý phát sinh (VO) và thanh lý hợp đồng (NĐ 210/2026).",
+                legal: [
+                    { no: "Nghị định 210/2026/NĐ-CP", detail: "Quản lý, điều chỉnh, tạm dừng và chấm dứt Hợp đồng." },
+                    { no: "Quyết định 1040/QĐ-BXD (2026)", detail: "Mẫu Hợp đồng Xây dựng." }
+                ],
+                steps: [
+                    { id: "con-1", shortName: "Ký kết HĐ", fullName: "Thương thảo & Ký hợp đồng", role: "Pháp chế", time: "Sau KQLCNT", output: "Hợp đồng kinh tế", content: `<p>Chọn loại hợp đồng (Trọn gói, Điều chỉnh...). Rà soát bẫy pháp lý về Bất khả kháng, thanh toán.</p>` },
+                    { id: "con-2", shortName: "Bảo lãnh", fullName: "Bảo lãnh & Tạm ứng", role: "Kế toán", time: "Trước thi công", output: "Bảo lãnh HĐ & Tạm ứng", content: `<p>Nhà thầu nộp BL Thực hiện HĐ (2-10%) và BL Tạm ứng. CĐT chuyển tiền.</p>` },
+                    { id: "con-3", shortName: "Phát sinh (VO)", fullName: "Quản lý Khối lượng Phát sinh", role: "Kỹ sư QS", time: "Quá trình thi công", output: "Phụ lục Hợp đồng", content: `<p>Xác nhận lệnh thay đổi hiện trường (Site Instruction), lập đơn giá mới và ký Phụ lục HĐ.</p>` },
+                    { id: "con-4", shortName: "Thanh lý", fullName: "Thanh lý và Bảo hành", role: "CĐT / Nhà thầu", time: "Hết DA", output: "BB Thanh lý", content: `<p>Quyết toán A-B, nộp Bảo lãnh bảo hành (3-5%) và chốt công nợ cuối.</p>` }
+                ]
+            }
+        },
+
+        // ==========================================
+        // CÁC MODULE CÒN LẠI (TIẾN ĐỘ, CHẤT LƯỢNG, THÍ NGHIỆM)
+        // ==========================================
+        schedule: {
+            common: {
+                title: "Quy trình Quản lý Tiến độ Thi công",
+                desc: "Lập Baseline, theo dõi Gantt Chart và kiểm soát đường găng (NĐ 207/2026).",
+                legal: [{ no: "Nghị định 207/2026/NĐ-CP", detail: "Điều 19 - Quản lý tiến độ thi công." }],
+                steps: [
+                    { id: "sch-1", shortName: "Baseline", fullName: "Lập Tiến độ cơ sở (Baseline)", role: "Nhà thầu", time: "Sau ký HĐ", output: "Sơ đồ Gantt", content: `<p>Lập tiến độ tổng thể bằng MS Project, xác định Đường găng (Critical Path) trình CĐT duyệt.</p>` },
+                    { id: "sch-2", shortName: "Báo cáo", fullName: "Cập nhật tiến độ tuần", role: "Hiện trường", time: "Hàng tuần", output: "Báo cáo tiến độ", content: `<p>Ghi Nhật ký điện tử, cập nhật Actual % Complete so với Kế hoạch.</p>` },
+                    { id: "sch-3", shortName: "Bù tiến độ", fullName: "Xử lý chậm trễ (Crashing)", role: "Nhà thầu", time: "Khi trễ hạn", output: "Catch-up Plan", content: `<p>Tăng cường nhân lực, máy móc để ép tiến độ, hoặc thi công song song (Fast-tracking).</p>` },
+                    { id: "sch-4", shortName: "Gia hạn (EOT)", fullName: "Xin gia hạn tiến độ", role: "CĐT / Nhà thầu", time: "Sự cố khách quan", output: "Phụ lục EOT", content: `<p>Nộp hồ sơ Claim xin EOT do bất khả kháng hoặc lỗi CĐT.</p>` }
+                ]
+            }
+        },
+        quality: {
+            common: {
+                title: "Quy trình Quản lý Chất lượng Xây dựng",
+                desc: "Kiểm soát vật tư, nghiệm thu công việc và xử lý khiếm khuyết (NCR).",
+                legal: [{ no: "Nghị định 207/2026/NĐ-CP", detail: "Quản lý chất lượng, thi công và nghiệm thu." }],
+                steps: [
+                    { id: "qa-1", shortName: "Kế hoạch CL", fullName: "Lập Kế hoạch CL (ITP/QCP)", role: "QA/QC", time: "Trước thi công", output: "Bảng ITP", content: `<p>Lập danh mục công tác cần nghiệm thu, tiêu chuẩn áp dụng, và Điểm dừng kỹ thuật (Hold Point).</p>` },
+                    { id: "qa-2", shortName: "Nghiệm thu", fullName: "Nghiệm thu Hiện trường", role: "TVGS", time: "Trong thi công", output: "Biên bản NT", content: `<p>Kiểm tra CO/CQ vật tư. Nghiệm thu kích thước, cao độ công việc xây dựng.</p>` },
+                    { id: "qa-3", shortName: "Xử lý NCR", fullName: "Xử lý sự không phù hợp (NCR)", role: "TVGS / Ban QLDA", time: "Khi có lỗi", output: "Báo cáo NCR", content: `<p>Phát hành NCR yêu cầu nhà thầu đập bỏ hoặc sửa chữa cấu kiện sai thiết kế.</p>` },
+                    { id: "qa-4", shortName: "Bàn giao (TOC)", fullName: "Bàn giao đưa vào sử dụng", role: "CĐT / NN", time: "Hoàn thành", output: "Biên bản TOC", content: `<p>Tập hợp Hồ sơ Hoàn công. Cơ quan nhà nước kiểm tra và ký chấp thuận bàn giao (TOC).</p>` }
+                ]
+            }
+        },
+        testing: {
+            common: {
+                title: "Quy trình Thí nghiệm & Kiểm định Xây dựng",
+                desc: "Lấy mẫu hiện trường, thí nghiệm LAS-XD và kiểm định độc lập.",
+                legal: [{ no: "Nghị định 207/2026/NĐ-CP", detail: "Thí nghiệm chuyên ngành và Quan trắc công trình." }],
+                steps: [
+                    { id: "tst-1", shortName: "Lấy mẫu", fullName: "Lấy mẫu & Bảo dưỡng", role: "LAS / TVGS", time: "Tại hiện trường", output: "BB Lấy mẫu", content: `<p>Lấy mẫu bê tông, cắt thép, dán tem niêm phong chống đánh tráo.</p>` },
+                    { id: "tst-2", shortName: "Thí nghiệm LAB", fullName: "Thí nghiệm tại Phòng LAS", role: "Cán bộ LAS", time: "Đủ tuổi mẫu", output: "Phiếu KQ", content: `<p>Ép nén mẫu bê tông, kéo thép tại LAB và xuất phiếu kết quả hợp chuẩn.</p>` },
+                    { id: "tst-3", shortName: "Kiểm định", fullName: "Kiểm định / Thử tải độc lập", role: "ĐV Độc lập", time: "Theo YC", output: "Báo cáo KĐ", content: `<p>Thử tải tĩnh/động cọc, siêu âm đường hàn (UT/RT) bởi bên thứ 3.</p>` }
+                ]
+            }
+        }
+    };
+
+    // --- CÁC HÀM XỬ LÝ GIAO DIỆN ---
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('show');
+        document.getElementById('mobile-overlay').classList.toggle('show');
+    }
+
+    function setModule(moduleKey) {
+        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        if(window.innerWidth <= 768) toggleMenu();
+        currentModule = moduleKey;
+        renderContent();
+    }
+
+    function setProjectType(type) {
+        document.querySelectorAll('.chip').forEach(el => el.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        currentProjectType = type;
+        renderContent();
+    }
+
+    function renderContent() {
+        const modData = database[currentModule];
+        if(!modData) return;
+
+        let db = modData[currentProjectType] || modData['common'];
+
+        document.getElementById('module-title').innerText = db.title;
+        document.getElementById('module-desc').innerText = db.desc;
+
+        document.getElementById('legal-table').innerHTML = db.legal.map(item => `
+            <tr><td class="doc-no">${item.no}</td><td>${item.detail}</td></tr>
+        `).join('');
+
+        let flowHtml = '', stepsHtml = '';
+        db.steps.forEach((step, index) => {
+            flowHtml += `<div class="flow-node" onclick="scrollToStep('${step.id}')">${step.shortName}</div>`;
+            if (index < db.steps.length - 1) flowHtml += `<div class="flow-arrow">➔</div>`;
+
+            stepsHtml += `
+                <div class="accordion-item" id="${step.id}">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <div style="display:flex; align-items:center;">
+                            <span class="step-number">${index + 1}</span>
+                            <span>${step.fullName}</span>
+                        </div>
+                        <span style="font-size: 13px; color: #9ca3af; margin-left:10px;">▼</span>
+                    </div>
+                    <div class="accordion-body">
+                        <div class="meta-grid">
+                            <div class="meta-box"><div class="meta-label">Trách nhiệm</div><div class="meta-value role">👤 ${step.role}</div></div>
+                            <div class="meta-box"><div class="meta-label">Thời hạn</div><div class="meta-value time">⏱️ ${step.time}</div></div>
+                            <div class="meta-box"><div class="meta-label">Hồ sơ Output</div><div class="meta-value output">📄 ${step.output}</div></div>
+                        </div>
+                        <div class="detail-content">${step.content}</div>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('flowchart-container').innerHTML = flowHtml;
+        document.getElementById('steps-container').innerHTML = stepsHtml;
+        document.getElementById('main-scroll').scrollTo({ top: 0, behavior: 'smooth' }); 
+    }
+
+    function toggleAccordion(element) {
+        const body = element.nextElementSibling;
+        const isActive = element.classList.contains('active');
+        document.querySelectorAll('.accordion-header').forEach(el => {
+            el.classList.remove('active');
+            el.nextElementSibling.classList.remove('open');
+            el.querySelector('span:last-child').innerText = '▼';
+        });
+        if (!isActive) {
+            element.classList.add('active');
+            body.classList.add('open');
+            element.querySelector('span:last-child').innerText = '▲';
+        }
+    }
+
+    function scrollToStep(stepId) {
+        const stepEl = document.getElementById(stepId);
+        const header = stepEl.querySelector('.accordion-header');
+        if (!header.classList.contains('active')) toggleAccordion(header);
+        const headerOffset = window.innerWidth <= 768 ? 140 : 160; 
+        document.getElementById('main-scroll').scrollTo({ top: stepEl.offsetTop - headerOffset, behavior: "smooth" });
+        stepEl.style.transition = "box-shadow 0.3s";
+        stepEl.style.boxShadow = "0 0 0 3px var(--secondary)";
+        setTimeout(() => { stepEl.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)"; }, 1200);
+    }
+
+    window.onload = () => { renderContent(); };
+</script>
+</body>
+</html>

@@ -1,0 +1,3068 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexBuild 2026 – Phần mềm Quản lý Văn bản Pháp luật Xây dựng</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- SheetJS: đọc/ghi Excel cho nền tảng lưu trữ & đồng bộ dữ liệu -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            /* HSL Curated Premium Palette - Sleek Dark Mode */
+            --bg-dark: hsl(210, 36%, 8%);
+            --bg-card: hsl(212, 33%, 12%);
+            --bg-hover: hsl(212, 30%, 16%);
+            --border-color: hsl(212, 25%, 22%);
+            --border-glow: hsl(43, 74%, 49%, 0.4);
+            
+            --gold-primary: hsl(43, 74%, 49%);
+            --gold-light: hsl(43, 85%, 65%);
+            --gold-glow: hsla(43, 74%, 49%, 0.15);
+            
+            --cyan-accent: hsl(188, 86%, 53%);
+            --emerald-accent: hsl(158, 64%, 47%);
+            --rose-accent: hsl(350, 89%, 60%);
+            --purple-accent: hsl(265, 89%, 66%);
+            
+            --text-main: hsl(210, 40%, 98%);
+            --text-muted: hsl(215, 20%, 65%);
+            --text-dim: hsl(215, 15%, 45%);
+            
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-lg: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+            --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Header */
+        header {
+            background: hsla(210, 36%, 8%, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            height: 68px;
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--gold-primary), var(--gold-light));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: var(--bg-dark);
+            box-shadow: 0 4px 15px hsla(43, 74%, 49%, 0.3);
+            font-weight: 800;
+        }
+
+        .brand-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-badge {
+            background: var(--gold-glow);
+            color: var(--gold-light);
+            border: 1px solid var(--gold-primary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold-primary), var(--gold-light));
+            color: var(--bg-dark);
+            box-shadow: 0 4px 12px hsla(43, 74%, 49%, 0.25);
+        }
+        .btn-gold:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px hsla(43, 74%, 49%, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+        .btn-outline:hover {
+            border-color: var(--gold-primary);
+            color: var(--gold-light);
+            background: var(--gold-glow);
+        }
+
+        .btn-cyan {
+            background: hsla(188, 86%, 53%, 0.15);
+            border: 1px solid var(--cyan-accent);
+            color: var(--cyan-accent);
+        }
+        .btn-cyan:hover {
+            background: hsla(188, 86%, 53%, 0.25);
+            box-shadow: 0 0 15px hsla(188, 86%, 53%, 0.3);
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: 260px;
+            min-width: 260px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            padding: 24px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+        }
+
+        .nav-header {
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            padding: 12px 24px 4px;
+            margin-top: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-main);
+        }
+        .nav-item.active {
+            background: var(--gold-glow);
+            border-left-color: var(--gold-primary);
+            color: var(--gold-light);
+            font-weight: 600;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: var(--border-color);
+            color: var(--text-main);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        .nav-item.active .nav-badge {
+            background: var(--gold-primary);
+            color: var(--bg-dark);
+        }
+
+        /* Main Content Area */
+        main {
+            flex: 1;
+            padding: 32px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            height: calc(100vh - 68px);
+        }
+
+        .module-page {
+            display: none;
+            flex-direction: column;
+            gap: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+        .module-page.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .page-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Stat Cards Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+        .stat-card:hover {
+            border-color: var(--gold-primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--gold-primary);
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .stat-card:hover::after {
+            opacity: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .stat-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 8px 0 4px;
+        }
+
+        .stat-desc {
+            font-size: 12px;
+            color: var(--emerald-accent);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            opacity: 0.3;
+        }
+
+        /* Cards & Containers */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Search & Filter Toolbar */
+        .filter-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .search-input-wrap {
+            flex: 1;
+            min-width: 280px;
+            position: relative;
+        }
+        .search-input-wrap input {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px 10px 38px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            transition: var(--transition);
+        }
+        .search-input-wrap input:focus {
+            border-color: var(--gold-primary);
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+        .search-input-wrap svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            width: 18px;
+            height: 18px;
+        }
+
+        .filter-select {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            min-width: 160px;
+        }
+        .filter-select:focus {
+            border-color: var(--gold-primary);
+        }
+
+        /* Data Tables */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 14px 16px;
+            background: hsla(210, 36%, 6%, 0.5);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 16px;
+            font-size: 14px;
+            border-bottom: 1px solid hsla(212, 25%, 22%, 0.5);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: hsla(43, 74%, 49%, 0.05);
+        }
+
+        .doc-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--gold-light);
+            font-size: 13px;
+        }
+
+        .doc-title {
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .doc-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-luat { background: hsla(210, 80%, 50%, 0.15); color: #60A5FA; border: 1px solid hsla(210, 80%, 50%, 0.3); }
+        .badge-nd { background: hsla(158, 64%, 47%, 0.15); color: var(--emerald-accent); border: 1px solid hsla(158, 64%, 47%, 0.3); }
+        .badge-tt { background: hsla(43, 74%, 49%, 0.15); color: var(--gold-light); border: 1px solid hsla(43, 74%, 49%, 0.3); }
+        .badge-qd { background: hsla(350, 89%, 60%, 0.15); color: var(--rose-accent); border: 1px solid hsla(350, 89%, 60%, 0.3); }
+        
+        .badge-active { background: hsla(158, 64%, 47%, 0.15); color: var(--emerald-accent); }
+        .badge-future { background: hsla(188, 86%, 53%, 0.15); color: var(--cyan-accent); }
+        .badge-expired { background: hsla(350, 89%, 60%, 0.15); color: var(--rose-accent); }
+
+        /* Comparison Side-by-Side */
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .compare-col {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+        .compare-header {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .compare-col.old .compare-header { border-color: var(--rose-accent); color: var(--rose-accent); }
+        .compare-col.new .compare-header { border-color: var(--emerald-accent); color: var(--emerald-accent); }
+
+        .compare-item {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid hsla(212, 25%, 22%, 0.4);
+        }
+        .compare-item:last-child { border: none; margin: 0; padding: 0; }
+        .compare-topic { font-weight: 600; font-size: 13px; color: var(--gold-light); margin-bottom: 6px; }
+        .compare-text { font-size: 13.5px; line-height: 1.6; color: var(--text-main); }
+
+        /* Lifecycle Interactive Map */
+        .lifecycle-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .lifecycle-stages {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+        .stage-box {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: center;
+            position: relative;
+        }
+        .stage-box:hover, .stage-box.active {
+            border-color: var(--gold-primary);
+            background: var(--gold-glow);
+            transform: translateY(-3px);
+        }
+        .stage-num {
+            width: 28px;
+            height: 28px;
+            background: var(--border-color);
+            color: var(--text-main);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .stage-box.active .stage-num { background: var(--gold-primary); color: var(--bg-dark); }
+        .stage-title { font-weight: 600; font-size: 14px; color: var(--text-main); margin-bottom: 4px; }
+        .stage-sub { font-size: 11px; color: var(--text-muted); }
+
+        /* AI RAG Chat Assistant */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 580px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .chat-header {
+            padding: 16px 20px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .chat-msg {
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .chat-msg.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--gold-primary), var(--gold-light));
+            color: var(--bg-dark);
+            font-weight: 500;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.ai {
+            align-self: flex-start;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-input-area {
+            padding: 16px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+        }
+        .chat-input-area textarea {
+            flex: 1;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-main);
+            resize: none;
+            outline: none;
+            height: 48px;
+        }
+        .chat-input-area textarea:focus {
+            border-color: var(--gold-primary);
+        }
+
+        /* Slide-out Drawer for Document Details */
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            justify-content: flex-end;
+        }
+        .drawer-overlay.active { display: flex; }
+        .drawer-panel {
+            width: 600px;
+            max-width: 90vw;
+            height: 100vh;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+            animation: slideLeft 0.3s ease;
+        }
+        @keyframes slideLeft {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        .drawer-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .drawer-body {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .drawer-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .info-group label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .info-group .value {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-main);
+            background: var(--bg-dark);
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Domain distribution chart bars */
+        .domain-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .domain-label { width: 180px; font-size: 13px; font-weight: 500; }
+        .domain-progress { flex: 1; height: 12px; background: var(--bg-dark); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); }
+        .domain-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
+        .domain-count { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; width: 40px; text-align: right; }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120%);
+            background: var(--emerald-accent);
+            color: #fff;
+            font-size: 13.5px;
+            font-weight: 600;
+            padding: 12px 22px;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 5000;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 90vw;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Storage center modal options */
+        .store-status {
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+        .ss-on { background: hsla(158, 64%, 47%, 0.12); color: var(--emerald-accent); border: 1px solid hsla(158, 64%, 47%, 0.35); }
+        .ss-off { background: hsla(215, 15%, 45%, 0.12); color: var(--text-muted); border: 1px solid var(--border-color); }
+        .store-opt {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding: 13px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: 10px;
+            background: var(--bg-dark);
+        }
+        .store-opt:hover { border-color: var(--gold-primary); background: var(--gold-glow); }
+        .store-opt .oi { font-size: 22px; line-height: 1; margin-top: 2px; }
+        .store-opt b { font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 3px; }
+        .store-opt span { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        .store-opt.danger { border-color: hsla(350, 89%, 60%, 0.5); background: hsla(350, 89%, 60%, 0.07); }
+        .store-opt.danger:hover { border-color: var(--rose-accent); }
+        .store-opt.danger b { color: var(--rose-accent); }
+        .gs-form { display: none; padding: 12px 14px; border: 1px dashed var(--cyan-accent); border-radius: var(--radius-md); margin-bottom: 10px; }
+        .gs-form.show { display: block; }
+        .gs-form input {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 9px 12px;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            margin: 8px 0;
+            outline: none;
+        }
+        .gs-form input:focus { border-color: var(--cyan-accent); }
+
+        /* Search highlight */
+        mark { background: hsla(43, 74%, 49%, 0.35); color: var(--gold-light); border-radius: 3px; padding: 0 2px; }
+
+        /* Dòng văn bản mới thêm / đồng bộ về */
+        tr.new-row td { background: hsla(158, 64%, 47%, 0.06); border-left: 2px solid var(--emerald-accent); }
+
+        /* Dynamic status badges */
+        .badge-soon { background: hsla(30, 90%, 55%, 0.15); color: hsl(30, 90%, 60%); }
+        .badge-wait { background: hsla(188, 86%, 53%, 0.15); color: var(--cyan-accent); }
+
+        /* Doc add/edit form */
+        .doc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .doc-form-grid .full { grid-column: 1 / -1; }
+        .doc-form-grid label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 5px; }
+        .doc-form-grid input, .doc-form-grid select, .doc-form-grid textarea {
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 9px 12px;
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-main);
+            outline: none;
+        }
+        .doc-form-grid input:focus, .doc-form-grid select:focus, .doc-form-grid textarea:focus { border-color: var(--gold-primary); }
+        .doc-form-grid textarea { resize: vertical; min-height: 70px; }
+
+        .ibtn-del { padding: 6px 10px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid hsla(350, 89%, 60%, 0.4); background: transparent; color: var(--rose-accent); cursor: pointer; transition: var(--transition); }
+        .ibtn-del:hover { background: hsla(350, 89%, 60%, 0.15); }
+
+        /* Sync indicator in header */
+        .sync-chip { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border-color); color: var(--text-dim); display: none; }
+        .sync-chip.on { display: inline-flex; align-items: center; gap: 5px; border-color: hsla(158, 64%, 47%, 0.4); color: var(--emerald-accent); }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .compare-grid { grid-template-columns: 1fr; }
+            .lifecycle-stages { grid-template-columns: repeat(2, 1fr); }
+            main { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <div class="brand-icon">⚖</div>
+            <div>
+                <div class="brand-text">LexBuild <span class="brand-badge">2026</span></div>
+                <div style="font-size: 11px; color: var(--text-muted);">Phần mềm Quản lý & Trợ lý AI Văn bản Pháp luật Xây dựng</div>
+            </div>
+        </div>
+        <div class="header-controls">
+            <span class="sync-chip" id="gs-chip">🔄 Google Sheet</span>
+            <span class="sync-chip" id="fs-chip">💾 Tự động lưu</span>
+            <button class="btn btn-outline" id="fsBtn" onclick="openStore()">💾 Lưu trữ & Đồng bộ</button>
+            <button class="btn btn-outline" onclick="openApiModal()">🔑 Cài đặt AI Gemini Key</button>
+            <button class="btn btn-cyan" onclick="switchModule('module-rag')">🤖 Hỏi đáp AI RAG</button>
+            <button class="btn btn-gold" onclick="openAddDocModal()">+ Thêm văn bản nội bộ</button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside>
+            <div class="nav-header">Mục lục chính</div>
+            <div class="nav-item active" onclick="switchModule('module-dashboard', this)">
+                <span>📊</span> Tổng quan & Thống kê
+            </div>
+            <div class="nav-item" onclick="switchModule('module-library', this)">
+                <span>📚</span> Kho Văn bản Xây dựng 2026 <span class="nav-badge" id="badge-total-docs">35</span>
+            </div>
+            <div class="nav-item" onclick="switchModule('module-compare', this)">
+                <span>⚖️</span> So sánh Điểm mới (NĐ mới vs cũ)
+            </div>
+            <div class="nav-item" onclick="switchModule('module-lifecycle', this)">
+                <span>🏗️</span> Sơ đồ Vòng đời Dự án
+            </div>
+            <div class="nav-item" onclick="switchModule('module-rag', this)">
+                <span>🤖</span> Trợ lý AI Pháp chế Xây dựng
+            </div>
+            <div class="nav-item" onclick="switchModule('module-projects', this)">
+                <span>📁</span> Hồ sơ & Hợp đồng Dự án <span class="nav-badge">0</span>
+            </div>
+
+            <div class="nav-header">Lọc theo Lĩnh vực</div>
+            <div class="nav-item" onclick="filterByDomain('Quản lý chi phí')">💰 Quản lý chi phí (NĐ 206)</div>
+            <div class="nav-item" onclick="filterByDomain('Quản lý chất lượng')">🏗️ Quản lý chất lượng (NĐ 207)</div>
+            <div class="nav-item" onclick="filterByDomain('Hợp đồng xây dựng')">📝 Hợp đồng xây dựng (NĐ 210)</div>
+            <div class="nav-item" onclick="filterByDomain('Điều kiện năng lực')">🎖️ Điều kiện năng lực (NĐ 212)</div>
+            <div class="nav-item" onclick="filterByDomain('Quản lý dự án')">📈 Quản lý dự án (NĐ 217)</div>
+            <div class="nav-item" onclick="filterByDomain('Vật liệu & An toàn')">🧱 Vật liệu & An toàn (NĐ 209)</div>
+            <div class="nav-item" onclick="filterByDomain('Vốn & Quyết toán')">💵 Vốn & Quyết toán (NĐ 193/254)</div>
+        </aside>
+
+        <!-- Main Body -->
+        <main>
+            <!-- MODULE 1: DASHBOARD -->
+            <div id="module-dashboard" class="module-page active">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Hệ thống Pháp luật Xây dựng Việt Nam năm 2026</h1>
+                        <p class="page-subtitle">Đồng bộ tự động 35+ văn bản mới (Luật Xây dựng 135/2025, 9 Nghị định 2026 và các Thông tư, Quyết định BXD)</p>
+                    </div>
+                </div>
+
+                <!-- Stat Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Tổng văn bản 2026</div>
+                        <div class="stat-value" id="stat-total-docs">35</div>
+                        <div class="stat-desc">✔ Đã chuẩn hóa dữ liệu & liên kết PDF</div>
+                        <div class="stat-icon">📄</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid var(--emerald-accent);">
+                        <div class="stat-label">Nghị định mới tháng 6/2026</div>
+                        <div class="stat-value" style="color: var(--emerald-accent);">09</div>
+                        <div class="stat-desc">⚡ NĐ 193, 206, 207, 209, 210, 212, 217, 220, 254</div>
+                        <div class="stat-icon">📗</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid var(--cyan-accent);">
+                        <div class="stat-label">Hiệu lực từ 01/07/2026</div>
+                        <div class="stat-value" style="color: var(--cyan-accent);">24</div>
+                        <div class="stat-desc">⏳ Áp dụng đồng loạt cho mọi công trình</div>
+                        <div class="stat-icon">⏰</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid var(--gold-primary);">
+                        <div class="stat-label">Văn bản cũ bị bãi bỏ/thay thế</div>
+                        <div class="stat-value" style="color: var(--gold-light);">18</div>
+                        <div class="stat-desc">⚠️ NĐ 10, NĐ 06, NĐ 37, NĐ 15, TT 06, 11-13...</div>
+                        <div class="stat-icon">✂️</div>
+                    </div>
+                </div>
+
+                <!-- Domain Chart & Alert Feed -->
+                <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">📊 Phân bổ Văn bản theo Lĩnh vực Quản lý Xây dựng</div>
+                        </div>
+                        <div id="domain-chart-container">
+                            <!-- Bars will be rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">⚡ Động thái Pháp lý Nổi bật 2026</div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 14px;">
+                            <div style="padding: 12px; background: hsla(158, 64%, 47%, 0.1); border-left: 3px solid var(--emerald-accent); border-radius: var(--radius-sm);">
+                                <div style="font-size: 12px; font-weight: 700; color: var(--emerald-accent); margin-bottom: 4px;">15/06 - 19/06/2026: Chính phủ ban hành loạt 6 Nghị định cốt lõi</div>
+                                <div style="font-size: 13px; line-height: 1.5; color: var(--text-muted);">NĐ 206 (Chi phí), NĐ 207 (Chất lượng), NĐ 209 (Vật liệu), NĐ 210 (Hợp đồng), NĐ 212 (Năng lực) và NĐ 217 (Quản lý dự án) thay thế toàn bộ hệ thống Nghị định năm 2015-2021.</div>
+                            </div>
+                            <div style="padding: 12px; background: hsla(43, 74%, 49%, 0.1); border-left: 3px solid var(--gold-primary); border-radius: var(--radius-sm);">
+                                <div style="font-size: 12px; font-weight: 700; color: var(--gold-light); margin-bottom: 4px;">26/06/2026: Bộ Xây dựng công bố Mẫu Hợp đồng 1040 & Định mức TT 38</div>
+                                <div style="font-size: 13px; line-height: 1.5; color: var(--text-muted);">Ban hành 5 Mẫu Hợp đồng theo FIDIC 2017 (QĐ 1040), Hướng dẫn đo bóc khối lượng BIM (QĐ 1041) và tập định mức mới 1.500 mã hiệu (TT 38).</div>
+                            </div>
+                            <div style="padding: 12px; background: hsla(188, 86%, 53%, 0.1); border-left: 3px solid var(--cyan-accent); border-radius: var(--radius-sm);">
+                                <div style="font-size: 12px; font-weight: 700; color: var(--cyan-accent); margin-bottom: 4px;">01/07/2026: Mốc có hiệu lực đồng loạt</div>
+                                <div style="font-size: 13px; line-height: 1.5; color: var(--text-muted);">Toàn bộ các chủ đầu tư, ban quản lý dự án và nhà thầu phải áp dụng định mức chi phí mới và cơ chế quản lý hợp đồng theo Nghị định 2026.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Documents Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📄 Danh sách Văn bản Pháp luật Xây dựng mới nhất (Seed Data 2026)</div>
+                        <button class="btn btn-outline" id="btn-view-all" onclick="switchModule('module-library')">Xem toàn bộ 35 văn bản →</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Số hiệu</th>
+                                    <th>Tên Văn bản</th>
+                                    <th>Loại</th>
+                                    <th>Lĩnh vực</th>
+                                    <th>Ban hành / Hiệu lực</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-tbody">
+                                <!-- Rendered by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULE 2: LIBRARY & SEARCH -->
+            <div id="module-library" class="module-page">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Kho Tra cứu Văn bản Pháp luật Xây dựng 2026</h1>
+                        <p class="page-subtitle">Tra cứu chi tiết toàn văn, tóm tắt điểm mới và liên kết chuỗi thay thế của 35+ văn bản</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" onclick="resetFilters()">🔄 Xóa lọc</button>
+                        <button class="btn btn-gold" onclick="openAddDocModal()">+ Thêm văn bản</button>
+                    </div>
+                </div>
+
+                <!-- Search Toolbar -->
+                <div class="filter-toolbar">
+                    <div class="search-input-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" id="lib-search" placeholder="Nhập số hiệu, tên văn bản hoặc từ khóa (vd: FIDIC, BIM, định mức, 206...)" oninput="renderLibrary()">
+                    </div>
+                    <select class="filter-select" id="lib-filter-type" onchange="renderLibrary()">
+                        <option value="">Tất cả loại văn bản</option>
+                        <option value="Luật">Luật</option>
+                        <option value="Nghị định">Nghị định</option>
+                        <option value="Thông tư">Thông tư</option>
+                        <option value="Quyết định">Quyết định</option>
+                        <option value="Văn bản hợp nhất">Văn bản hợp nhất</option>
+                    </select>
+                    <select class="filter-select" id="lib-filter-domain" onchange="renderLibrary()">
+                        <option value="">Tất cả lĩnh vực</option>
+                        <option value="Xây dựng chung & Đầu tư">Xây dựng chung & Đầu tư</option>
+                        <option value="Quản lý chi phí">Quản lý chi phí</option>
+                        <option value="Quản lý chất lượng">Quản lý chất lượng</option>
+                        <option value="Hợp đồng xây dựng">Hợp đồng xây dựng</option>
+                        <option value="Điều kiện năng lực">Điều kiện năng lực</option>
+                        <option value="Quản lý dự án">Quản lý dự án</option>
+                        <option value="Vật liệu & An toàn">Vật liệu & An toàn</option>
+                        <option value="Vốn & Quyết toán">Vốn & Quyết toán</option>
+                        <option value="Thủ tục hành chính">Thủ tục hành chính</option>
+                    </select>
+                    <select class="filter-select" id="lib-filter-status" onchange="renderLibrary()">
+                        <option value="">Tất cả hiệu lực</option>
+                        <option value="on">✅ Còn hiệu lực</option>
+                        <option value="wait">⏳ Chưa hiệu lực</option>
+                        <option value="soon">⚠️ Sắp hết hiệu lực</option>
+                        <option value="off">❌ Hết hiệu lực</option>
+                    </select>
+                </div>
+
+                <!-- Results Count -->
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    Hiển thị <b id="lib-result-count" style="color: var(--gold-light);">0</b> kết quả phù hợp trong cơ sở dữ liệu.
+                </div>
+
+                <!-- Library Table -->
+                <div class="card" style="padding: 0; overflow: hidden;">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Số hiệu</th>
+                                    <th>Tên Văn bản / Nội dung chính</th>
+                                    <th>Lĩnh vực</th>
+                                    <th>Cơ quan ban hành</th>
+                                    <th>Hiệu lực</th>
+                                    <th>Văn bản bị thay thế</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="library-tbody">
+                                <!-- Rendered by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULE 3: COMPARISON ENGINE -->
+            <div id="module-compare" class="module-page">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Bộ So sánh Điểm mới (Nghị định 2026 vs Nghị định cũ)</h1>
+                        <p class="page-subtitle">Đối chiếu chi tiết thay đổi giữa hệ thống quy định xây dựng mới và quy định giai đoạn 2015-2021</p>
+                    </div>
+                    <select class="filter-select" style="min-width: 320px; font-weight: 600;" id="compare-select" onchange="renderComparison()">
+                        <option value="nd206">⚖️ Quản lý chi phí: NĐ 206/2026 vs NĐ 10/2021/NĐ-CP</option>
+                        <option value="nd207">🏗️ Quản lý chất lượng: NĐ 207/2026 vs NĐ 06/2021/NĐ-CP</option>
+                        <option value="nd210">📝 Hợp đồng xây dựng: NĐ 210/2026 vs NĐ 37/2015/NĐ-CP</option>
+                        <option value="nd217">📈 Quản lý dự án: NĐ 217/2026 vs NĐ 15/2021/NĐ-CP</option>
+                        <option value="luat135">📘 Luật Xây dựng: Luật số 135/2025/QH15 vs Luật XD 2014/2020</option>
+                    </select>
+                </div>
+
+                <div class="card" style="background: hsla(212, 33%, 12%, 0.5); border-color: var(--gold-primary);">
+                    <div style="font-size: 14px; color: var(--gold-light); font-weight: 600; margin-bottom: 4px;" id="compare-title">Đang tải đối chiếu...</div>
+                    <p style="font-size: 13px; color: var(--text-muted);" id="compare-summary">...</p>
+                </div>
+
+                <div class="compare-grid" id="compare-grid-content">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+
+            <!-- MODULE 4: LIFECYCLE MINDMAP -->
+            <div id="module-lifecycle" class="module-page">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Sơ đồ Vòng đời Quản lý Dự án & Hợp đồng Xây dựng 2026</h1>
+                        <p class="page-subtitle">Bấm vào từng giai đoạn dự án để xem các Nghị định, Thông tư và Mẫu hợp đồng chi phối</p>
+                    </div>
+                </div>
+
+                <!-- 5 Lifecycle Stages Clickable -->
+                <div class="lifecycle-stages" id="lifecycle-stages-bar">
+                    <div class="stage-box active" onclick="selectStage(1, this)">
+                        <div class="stage-num">01</div>
+                        <div class="stage-title">Chuẩn bị đầu tư</div>
+                        <div class="stage-sub">Lập Báo cáo FS, Thiết kế cơ sở, Thẩm định</div>
+                    </div>
+                    <div class="stage-box" onclick="selectStage(2, this)">
+                        <div class="stage-num">02</div>
+                        <div class="stage-title">Thực hiện dự án</div>
+                        <div class="stage-sub">Thiết kế BVTC, Dự toán, Đấu thầu, Ký hợp đồng</div>
+                    </div>
+                    <div class="stage-box" onclick="selectStage(3, this)">
+                        <div class="stage-num">03</div>
+                        <div class="stage-title">Thi công & Giám sát</div>
+                        <div class="stage-sub">Quản lý chất lượng, Nhật ký BIM, An toàn LĐ</div>
+                    </div>
+                    <div class="stage-box" onclick="selectStage(4, this)">
+                        <div class="stage-num">04</div>
+                        <div class="stage-title">Nghiệm thu & Quyết toán</div>
+                        <div class="stage-sub">Bàn giao đưa vào sử dụng, Thanh quyết toán vốn</div>
+                    </div>
+                    <div class="stage-box" onclick="selectStage(5, this)">
+                        <div class="stage-num">05</div>
+                        <div class="stage-title">Bảo trì công trình</div>
+                        <div class="stage-sub">Quy trình bảo trì, Đánh giá an toàn khai thác</div>
+                    </div>
+                </div>
+
+                <!-- Stage Details Panel -->
+                <div class="card" id="stage-detail-card" style="border-color: var(--gold-primary); min-height: 400px;">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+
+            <!-- MODULE 5: AI RAG ASSISTANT -->
+            <div id="module-rag" class="module-page">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Trợ lý AI Pháp chế Xây dựng (RAG Engine 2026)</h1>
+                        <p class="page-subtitle">Hỏi đáp điều khoản pháp luật, tra cứu định mức và tư vấn xử lý rủi ro hợp đồng theo chuẩn 2026</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-gold" onclick="fillPrompt('Hãy tóm tắt 5 điểm đổi mới quan trọng nhất của Nghị định 206/2026/NĐ-CP về quản lý chi phí đầu tư xây dựng so với Nghị định 10/2021?')">💡 Hỏi về NĐ 206 Chi phí</button>
+                        <button class="btn btn-outline" onclick="fillPrompt('Khi điều chỉnh giá hợp đồng thi công trọn gói do biến động giá vật liệu trên 15%, căn cứ pháp lý theo Nghị định 210/2026 và Quyết định 1040 áp dụng như thế nào?')">📝 Xử lý giá Hợp đồng NĐ 210</button>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px;">🤖</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 14px; color: var(--gold-light);">Gemini Legal Expert 2026</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Trang bị cơ sở tri thức toàn bộ 35 văn bản Xây dựng 2026</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-muted);" id="api-status-indicator">
+                            🔒 Chưa nhập API Key (Đang dùng chế độ Phản hồi Chuyên gia Mô phỏng)
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-msg ai">
+                            👋 <b>Xin chào! Tôi là Trợ lý AI Pháp chế Xây dựng năm 2026.</b><br><br>
+                            Tôi đã được tích hợp sẵn thông tin về <b>Luật Xây dựng số 135/2025/QH15</b>, <b>9 Nghị định mới tháng 6/2026 (NĐ 193, 206, 207, 209, 210, 212, 217, 220, 254)</b> cùng các Thông tư BXD (TT 32-42, QĐ 1040/1041).<br><br>
+                            👉 Bạn có thể hỏi tôi về quy định mới, cách xác định tổng mức đầu tư, điều kiện năng lực hành nghề, hoặc nhờ soạn thảo điều khoản hợp đồng xây dựng theo chuẩn FIDIC 2017 / QĐ 1040!
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="chat-input" placeholder="Nhập câu hỏi pháp lý của bạn vào đây (vd: Thủ tục thẩm định thiết kế cơ sở theo Nghị định 217 mới gồm những bước nào?)..." onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendChatMessage();}"></textarea>
+                        <button class="btn btn-gold" style="height: 48px; padding: 0 24px;" onclick="sendChatMessage()">Gửi câu hỏi 🚀</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULE 6: PROJECTS WORKSPACE -->
+            <div id="module-projects" class="module-page">
+                <div class="page-title-row">
+                    <div>
+                        <h1 class="page-title">Quản lý Hồ sơ & Văn bản Pháp lý Dự án</h1>
+                        <p class="page-subtitle">Lưu trữ Hợp đồng, Giấy phép, Quyết định nội bộ và kết nối trực tiếp với hành lang pháp lý 2026</p>
+                    </div>
+                    <button class="btn btn-gold" onclick="openAddDocModal()">+ Thêm hồ sơ dự án mới</button>
+                </div>
+
+                <div class="card" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📂</div>
+                    <div style="font-size: 18px; font-weight: 600; color: var(--text-main); margin-bottom: 8px;">Khu vực Hồ sơ Dự án Thực tế đang trống</div>
+                    <p style="max-width: 500px; margin: 0 auto 20px; font-size: 14px; line-height: 1.6;">Bạn có thể tải lên các hợp đồng thi công, giấy phép xây dựng, quyết định phê duyệt dự toán thực tế của công ty để AI kiểm tra rủi ro tuân thủ theo Nghị định 210 & 206.</p>
+                    <button class="btn btn-outline" onclick="openAddDocModal()">+ Thêm văn bản đầu tiên</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Slide-out Drawer for Document Details -->
+    <div class="drawer-overlay" id="doc-drawer">
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <div>
+                    <span class="badge badge-nd" id="drawer-badge">Nghị định</span>
+                    <h2 style="font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; margin-top: 8px; color: var(--gold-light);" id="drawer-num">NĐ 206/2026/NĐ-CP</h2>
+                </div>
+                <button class="btn btn-outline" style="padding: 6px 10px;" onclick="closeDrawer()">✕</button>
+            </div>
+            <div class="drawer-body">
+                <div class="info-group">
+                    <label>Tên đầy đủ của văn bản</label>
+                    <div class="value" style="font-weight: 600; color: #fff;" id="drawer-title"></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="info-group">
+                        <label>Lĩnh vực / Cơ quan</label>
+                        <div class="value" id="drawer-domain"></div>
+                    </div>
+                    <div class="info-group">
+                        <label>Ngày ban hành / Hiệu lực</label>
+                        <div class="value" id="drawer-dates"></div>
+                    </div>
+                </div>
+                <div class="info-group">
+                    <label>Tình trạng hiệu lực & Văn bản bị thay thế</label>
+                    <div class="value" style="border-left: 3px solid var(--gold-primary);" id="drawer-replace"></div>
+                </div>
+                <div class="info-group">
+                    <label>🌟 Tóm tắt Điểm mới & Nội dung Trọng tâm (2026)</label>
+                    <div class="value" style="background: hsla(43, 74%, 49%, 0.08); border-color: var(--gold-primary); line-height: 1.7;" id="drawer-summary"></div>
+                </div>
+                <div class="info-group">
+                    <label>📂 File gốc trong Workspace (Google Drive)</label>
+                    <div class="value" style="display: flex; align-items: center; justify-content: space-between; background: hsla(210, 36%, 6%, 0.8);">
+                        <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--cyan-accent);" id="drawer-filepath"></code>
+                        <button class="btn btn-gold" style="padding: 6px 12px; font-size: 12px;" id="drawer-pdf-btn" onclick="alert('File PDF gốc được lưu trữ tại workspace: ' + document.getElementById('drawer-filepath').innerText + '\nBạn có thể mở trực tiếp trong Explorer / Google Drive.')">📑 Xem toàn văn PDF</button>
+                    </div>
+                </div>
+            </div>
+            <div class="drawer-footer">
+                <button class="btn btn-outline" onclick="closeDrawer()">Đóng</button>
+                <button class="btn btn-cyan" onclick="askAiAboutCurrentDoc()">🤖 Hỏi AI về văn bản này</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Settings Modal -->
+    <div class="drawer-overlay" id="api-modal" style="justify-content: center; align-items: center;">
+        <div class="card" style="width: 480px; max-width: 90vw; background: var(--bg-card); border-color: var(--gold-primary);">
+            <div class="card-header">
+                <div class="card-title">🔑 Cài đặt AI Gemini Key (Dành cho RAG Engine)</div>
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="document.getElementById('api-modal').classList.remove('active')">✕</button>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
+                Để kích hoạt khả năng suy luận tự do với Google Gemini, hãy nhập API Key của bạn. Key sẽ chỉ lưu trong bộ nhớ trình duyệt (localStorage) trên máy của bạn.
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 6px;">Google Gemini API Key:</label>
+                <input type="password" id="gemini-key-input" placeholder="AIzaSy..." style="width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); padding: 10px; border-radius: var(--radius-sm); color: #fff; font-family: monospace;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-outline" onclick="document.getElementById('api-modal').classList.remove('active')">Hủy</button>
+                <button class="btn btn-gold" onclick="saveApiKey()">💾 Lưu cấu hình</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STORAGE & SYNC CENTER MODAL -->
+    <div class="drawer-overlay" id="store-modal" style="justify-content: center; align-items: center;">
+        <div class="card" style="width: 640px; max-width: 94vw; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-color: var(--gold-primary);">
+            <div class="card-header">
+                <div class="card-title">💾 Trung tâm Lưu trữ & Đồng bộ Dữ liệu</div>
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="closeStore()">✕</button>
+            </div>
+            <div class="store-status ss-off" id="store-status">Chưa bật tự động lưu — thay đổi được lưu tạm trong trình duyệt (localStorage).</div>
+
+            <div class="store-opt" onclick="connectFolder()">
+                <div class="oi">📂</div>
+                <div><b>Tự động lưu vào thư mục trên máy (khuyên dùng)</b>
+                <span>Chọn thư mục bất kỳ (VD: thư mục Google Drive/OneDrive đồng bộ). Mọi thay đổi tự ghi ngay vào file <b>lexbuild-data.json</b>, mở lại app tự nạp. Yêu cầu Chrome/Edge.</span></div>
+            </div>
+
+            <div class="store-opt" onclick="toggleGsForm()">
+                <div class="oi">🔄</div>
+                <div><b>Kết nối Google Sheet — đồng bộ realtime cho cả team</b>
+                <span>Dán link Google Sheet (chia sẻ "Bất kỳ ai có link"). App tự đồng bộ mỗi 60 giây — cả team cập nhật 1 nguồn, mọi máy đều thấy.</span></div>
+            </div>
+            <div class="gs-form" id="gs-form">
+                <b style="font-size: 12.5px; color: var(--cyan-accent);">Link Google Sheet (cột theo thứ tự: Lĩnh vực/Nhóm | Loại | Số hiệu | Tên/Nội dung | Ngày BH | Ngày HL | Ngày hết HL | Link DOCX | Link PDF | Cơ quan | Tóm tắt/Ghi chú)</b>
+                <input id="gs-url" placeholder="https://docs.google.com/spreadsheets/d/...">
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-outline" id="gs-disc" style="display:none" onclick="disconnectSheet()">Ngắt Google Sheet</button>
+                    <button class="btn btn-cyan" onclick="connectSheet()">✓ Kết nối & đồng bộ</button>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;" id="gs-status"></div>
+            </div>
+
+            <div class="store-opt" onclick="watchFile()">
+                <div class="oi">📡</div>
+                <div><b>Theo dõi 1 file dữ liệu — tự động cập nhật liên tục</b>
+                <span>Chọn 1 file Excel/JSON làm <b>nguồn dữ liệu chính</b>. App kiểm tra mỗi 30 giây, file đổi là nạp lại ngay. Đặt file trong thư mục Google Drive để cả team cùng cập nhật. Yêu cầu Chrome/Edge.</span></div>
+            </div>
+
+            <div class="store-opt" onclick="exportTemplate()">
+                <div class="oi">📋</div>
+                <div><b>Tải mẫu Excel chuẩn (1 sheet DATABASE đầy đủ dữ liệu)</b>
+                <span>Xuất toàn bộ văn bản về 1 sheet chuẩn 12 cột — chỉnh sửa trên Excel rồi nạp ngược lại app. Tương thích cấu trúc file APCC/XDV Thư viện Luật XD.</span></div>
+            </div>
+            <div class="store-opt" onclick="document.getElementById('tpl-in').click()">
+                <div class="oi">🔁</div>
+                <div><b>Cập nhật / thay toàn bộ dữ liệu từ file Excel mẫu</b>
+                <span>Chọn file mẫu đã chỉnh sửa — app <b>thay toàn bộ</b> dữ liệu theo file (nhận cả mẫu LexBuild lẫn mẫu XDV/APCC 11 cột). Có xác nhận trước khi thay.</span></div>
+            </div>
+
+            <div class="store-opt" onclick="exportJSON()">
+                <div class="oi">⬇️</div>
+                <div><b>Tải file dữ liệu (JSON) về máy — backup</b>
+                <span>Lưu snapshot toàn bộ dữ liệu để backup hoặc chuyển sang máy khác.</span></div>
+            </div>
+            <div class="store-opt" onclick="document.getElementById('json-in').click()">
+                <div class="oi">📥</div>
+                <div><b>Nạp lại file dữ liệu (JSON) đã lưu</b>
+                <span>Khôi phục dữ liệu từ file JSON đã tải trước đó (nhận cả JSON của app XDV Thư viện Luật).</span></div>
+            </div>
+            <div class="store-opt" onclick="exportExcel()">
+                <div class="oi">📊</div>
+                <div><b>Xuất toàn bộ ra Excel (.xlsx) nhiều sheet theo lĩnh vực</b>
+                <span>Xuất kho văn bản thành file Excel mỗi lĩnh vực 1 sheet — đồng bộ ngược về file Excel APCC gốc.</span></div>
+            </div>
+
+            <div class="store-opt" id="opt-disc" style="display:none" onclick="disconnectFolder()">
+                <div class="oi">🔌</div>
+                <div><b>Ngắt kết nối thư mục tự động lưu</b>
+                <span>Dừng ghi tự động. Dữ liệu đã lưu trong thư mục vẫn giữ nguyên.</span></div>
+            </div>
+            <div class="store-opt danger" onclick="wipeAll()">
+                <div class="oi">🗑️</div>
+                <div><b>Xóa sạch & nạp bộ dữ liệu mới hoàn toàn</b>
+                <span>Xóa toàn bộ dữ liệu hiện tại rồi nạp file Excel/JSON khác từ đầu. Có xác nhận 2 lớp.</span></div>
+            </div>
+            <div class="store-opt" onclick="resetToSeed()">
+                <div class="oi">♻️</div>
+                <div><b>Khôi phục bộ dữ liệu gốc LexBuild 2026 (35 văn bản)</b>
+                <span>Trả kho văn bản về bộ seed chuẩn 2026 tích hợp sẵn trong app.</span></div>
+            </div>
+
+            <input type="file" id="tpl-in" accept=".xlsx,.xls,.csv" style="display:none" onchange="importTemplate(this)">
+            <input type="file" id="json-in" accept=".json" style="display:none" onchange="importJSON(this)">
+            <input type="file" id="wipe-in" accept=".xlsx,.xls,.csv,.json" style="display:none" onchange="wipeLoad(this)">
+        </div>
+    </div>
+
+    <!-- ADD / EDIT DOCUMENT MODAL -->
+    <div class="drawer-overlay" id="doc-modal" style="justify-content: center; align-items: center;">
+        <div class="card" style="width: 720px; max-width: 94vw; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-color: var(--gold-primary);">
+            <div class="card-header">
+                <div class="card-title" id="doc-modal-title">＋ Thêm văn bản vào kho</div>
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="closeDocModal()">✕</button>
+            </div>
+            <div class="doc-form-grid">
+                <div>
+                    <label>Loại văn bản</label>
+                    <select id="f-type">
+                        <option>Luật</option>
+                        <option selected>Nghị định</option>
+                        <option>Thông tư</option>
+                        <option>Quyết định</option>
+                        <option>Văn bản hợp nhất</option>
+                        <option>Tiêu chuẩn</option>
+                        <option>Văn bản khác</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Lĩnh vực / Nhóm</label>
+                    <input id="f-domain" list="domain-list" placeholder="VD: Quản lý chi phí">
+                    <datalist id="domain-list"></datalist>
+                </div>
+                <div>
+                    <label>Số hiệu *</label>
+                    <input id="f-number" placeholder="VD: 206/2026/NĐ-CP">
+                </div>
+                <div>
+                    <label>Cơ quan ban hành</label>
+                    <input id="f-issuer" placeholder="VD: Chính phủ / Bộ Xây dựng">
+                </div>
+                <div class="full">
+                    <label>Tên văn bản / Nội dung chính *</label>
+                    <input id="f-title" placeholder="Tên đầy đủ của văn bản">
+                </div>
+                <div>
+                    <label>Ngày ban hành (dd/mm/yyyy)</label>
+                    <input id="f-date" placeholder="15/06/2026">
+                </div>
+                <div>
+                    <label>Ngày hiệu lực (dd/mm/yyyy)</label>
+                    <input id="f-effective" placeholder="01/07/2026">
+                </div>
+                <div>
+                    <label>Ngày hết hiệu lực (nếu có)</label>
+                    <input id="f-expired" placeholder="">
+                </div>
+                <div>
+                    <label>Văn bản bị thay thế</label>
+                    <input id="f-replace" placeholder="VD: Thay thế NĐ 10/2021/NĐ-CP">
+                </div>
+                <div>
+                    <label>Link PDF (URL hoặc đường dẫn)</label>
+                    <input id="f-pdf" placeholder="https://... hoặc 2026/...pdf">
+                </div>
+                <div>
+                    <label>Link DOCX</label>
+                    <input id="f-docx" placeholder="https://...">
+                </div>
+                <div class="full">
+                    <label>Tóm tắt điểm mới / Ghi chú</label>
+                    <textarea id="f-summary" placeholder="Tóm tắt nội dung trọng tâm, điểm mới của văn bản..."></textarea>
+                </div>
+                <div class="full">
+                    <label>File gốc trong Workspace (filepath)</label>
+                    <input id="f-filepath" placeholder="2026/Chuan ten/LEG-XD-...pdf">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px;">
+                <div style="font-size: 12px; color: var(--text-muted);" id="doc-modal-hint">💡 Thay đổi được lưu tự động vào bộ nhớ trình duyệt / thư mục đã kết nối.</div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="closeDocModal()">Hủy</button>
+                    <button class="btn btn-gold" id="doc-modal-submit" onclick="submitDocForm()">✓ Thêm văn bản</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        /* ─────────────────────────────────────────────────────────────
+           1. SEED DATA: 35+ VĂN BẢN PHÁP LUẬT XÂY DỰNG NĂM 2026
+           (Bộ gốc chỉ đọc — dữ liệu làm việc LEGAL_DOCS_2026 được nạp
+            từ localStorage / thư mục tự lưu / Google Sheet, fallback về seed)
+           ───────────────────────────────────────────────────────────── */
+        const SEED_DOCS = [
+            {
+                id: 1,
+                number: "135/2025/QH15",
+                type: "Luật",
+                domain: "Xây dựng chung & Đầu tư",
+                title: "Luật sửa đổi, bổ sung một số điều của Luật Xây dựng năm 2014 và Luật sửa đổi năm 2020",
+                issuer: "Quốc hội khóa XV",
+                date: "10/12/2025",
+                effective: "01/01/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Sửa đổi Luật XD 2014 (50/2014/QH13) & Luật XD 2020 (62/2020/QH14)",
+                summary: "Phân cấp triệt để thẩm quyền thẩm định và cấp phép xây dựng cho chính quyền địa phương; Bắt buộc áp dụng Mô hình thông tin công trình (BIM) cho công trình cấp I, đặc biệt; Đơn giản hóa thủ tục cấp giấy phép xây dựng nhà ở riêng lẻ; Đổi mới quản lý hợp đồng thiết kế - cung cấp - thi công (EPC/Turnkey).",
+                filepath: "2026/Chuan ten/LEG-XD-135-2025-LXD-QH15-LUATXAYDUNG-10122025.pdf"
+            },
+            {
+                id: 2,
+                number: "206/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Quản lý chi phí",
+                title: "Nghị định Quản lý chi phí đầu tư xây dựng (Thay thế NĐ 10/2021/NĐ-CP)",
+                issuer: "Chính phủ",
+                date: "15/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế toàn bộ Nghị định số 10/2021/NĐ-CP",
+                summary: "Đổi mới phương pháp lập Tổng mức đầu tư và dự toán xây dựng công trình; Bổ sung cơ chế tự động điều chỉnh định mức xây dựng động theo chỉ số giá thị trường; Chuẩn hóa chi phí tư vấn quản lý dự án theo thông lệ quốc tế; Quy định chặt chẽ quản lý chi phí dự phòng và xử lý biến động giá vật liệu bất thường.",
+                filepath: "2026/Chuan ten/LEG-XD-206-2026-ND-CP-QLCP-15062026 R.pdf"
+            },
+            {
+                id: 3,
+                number: "207/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Quản lý chất lượng",
+                title: "Nghị định Quản lý chất lượng, thi công xây dựng và bảo trì công trình (Thay thế NĐ 06/2021/NĐ-CP)",
+                issuer: "Chính phủ",
+                date: "15/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế toàn bộ Nghị định số 06/2021/NĐ-CP",
+                summary: "Quy định bắt buộc sử dụng Nhật ký thi công điện tử và hồ sơ nghiệm thu kỹ thuật số (BIM/CDE); Nâng cao trách nhiệm pháp lý của tư vấn giám sát và chỉ huy trưởng công trường; Quy trình đánh giá an toàn chịu lực công trình trong khai thác; Chi tiết chế độ bảo trì công trình bắt buộc.",
+                filepath: "2026/Chuan ten/LEG-XD-207-2026-ND-CP-QLCL-15062026 R.pdf"
+            },
+            {
+                id: 4,
+                number: "209/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Vật liệu & An toàn",
+                title: "Nghị định Quản lý vật liệu xây dựng (Thay thế NĐ 09/2021/NĐ-CP)",
+                issuer: "Chính phủ",
+                date: "15/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Nghị định số 09/2021/NĐ-CP",
+                summary: "Quy định tỷ lệ tối thiểu vật liệu xanh, vật liệu không nung trong công trình sử dụng vốn nhà nước; Quản lý mã số truy xuất nguồn gốc vật liệu (QR/BIM); Tiêu chuẩn kỹ thuật khai thác và sử dụng cát biển phục vụ công trình hạ tầng giao thông đô thị.",
+                filepath: "2026/Chuan ten/LEG-XD-209-2026-ND-CP-QLVLXD-15062026 R.pdf"
+            },
+            {
+                id: 5,
+                number: "210/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Hợp đồng xây dựng",
+                title: "Nghị định về Hợp đồng xây dựng (Thay thế NĐ 37/2015/NĐ-CP và các NĐ sửa đổi)",
+                issuer: "Chính phủ",
+                date: "15/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế NĐ 37/2015/NĐ-CP, NĐ 30/2021/NĐ-CP, NĐ 50/2021/NĐ-CP",
+                summary: "Chuẩn hóa hợp đồng xây dựng Việt Nam tương thích với tiêu chuẩn quốc tế FIDIC 2017; Quy định rõ cơ chế điều chỉnh giá hợp đồng trọn gói (Lump-sum) khi xảy ra biến động giá bất khả kháng (>15%); Tiêu chuẩn hóa bảo lãnh thực hiện hợp đồng, tạm ứng và thanh toán theo mốc BIM.",
+                filepath: "2026/Chuan ten/LEG-XD-210-2026-ND-CP-HDXD-15062026 R.pdf"
+            },
+            {
+                id: 6,
+                number: "212/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Điều kiện năng lực",
+                title: "Nghị định Quản lý điều kiện năng lực hoạt động xây dựng và cấp chứng chỉ hành nghề",
+                issuer: "Chính phủ",
+                date: "17/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế các điều khoản về điều kiện năng lực tại NĐ 15/2021 & NĐ 35/2023",
+                summary: "Phân cấp 100% thẩm quyền thi sát hạch và cấp chứng chỉ hành nghề Hạng II, III về Sở Xây dựng địa phương; Bổ sung chứng chỉ hành nghề mới về Chuyên gia BIM và Tư vấn công trình xanh (LEED/LOTUS); Cắt giảm 40% hồ sơ thủ tục cấp chứng chỉ năng lực tổ chức.",
+                filepath: "2026/Chuan ten/LEG-XD-212-2026-ND-CP-QLDKNLHDXD-17062026 R.pdf"
+            },
+            {
+                id: 7,
+                number: "217/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Quản lý dự án",
+                title: "Nghị định Quản lý hoạt động đầu tư xây dựng / Quản lý dự án (Thay thế NĐ 15/2021/NĐ-CP)",
+                issuer: "Chính phủ",
+                date: "19/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế toàn bộ Nghị định số 15/2021/NĐ-CP",
+                summary: "Chuẩn hóa trình tự 3 giai đoạn dự án đầu tư xây dựng; Phân định rõ trách nhiệm của cơ quan chuyên môn về xây dựng khi thẩm định Báo cáo nghiên cứu khả thi (FS) và thiết kế sau thiết kế cơ sở; Mở rộng mô hình Ban quản lý dự án chuyên ngành, khu vực.",
+                filepath: "2026/Chuan ten/LEG-XD-217-2026-ND-CP-QLHDXD-19062026 R.pdf"
+            },
+            {
+                id: 8,
+                number: "193/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Vốn & Quyết toán",
+                title: "Nghị định Quản lý, thanh toán, quyết toán vốn đầu tư công và vốn nhà nước",
+                issuer: "Chính phủ",
+                date: "01/06/2026",
+                effective: "01/06/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Nghị định 99/2021/NĐ-CP",
+                summary: "Rút ngắn 50% thời gian thẩm tra quyết toán dự án hoàn thành; Áp dụng hồ sơ quyết toán điện tử 100% qua hệ thống Kho bạc Nhà nước; Tăng mức tạm ứng vốn lên tối đa 50% đối với các dự án trọng điểm quốc gia có giải phóng mặt bằng nhanh.",
+                filepath: "2026/Chuan ten/LEG-XD-193-2026-ND-CP-QTVONDAUTU-01062026 R.pdf"
+            },
+            {
+                id: 9,
+                number: "220/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Hợp đồng xây dựng",
+                title: "Nghị định Sửa đổi, bổ sung NĐ 67/2023/NĐ-CP về bảo hiểm bắt buộc trong đầu tư xây dựng",
+                issuer: "Chính phủ",
+                date: "22/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Sửa đổi, bổ sung Nghị định 67/2023/NĐ-CP",
+                summary: "Điều chỉnh biểu phí bảo hiểm công trình xây dựng linh hoạt theo mức độ rủi ro công nghệ; Quy định bắt buộc chủ đầu tư và nhà thầu phải mua bảo hiểm cho bên thứ ba và người lao động trên công trường; Giám định tổn thất bảo hiểm bằng drone và AI.",
+                filepath: "2026/Chuan ten/LEG-XD-220-2026-ND-CP-SUADOIND672023BAOHIEM-22062026 R.pdf"
+            },
+            {
+                id: 10,
+                number: "254/2025/NĐ-CP",
+                type: "Nghị định",
+                domain: "Vốn & Quyết toán",
+                title: "Nghị định Quy định về thanh toán, quyết toán vốn đầu tư công",
+                issuer: "Chính phủ",
+                date: "26/09/2025",
+                effective: "01/01/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Quy định mới về giải ngân đầu tư công",
+                summary: "Chuẩn hóa quy trình thanh toán khối lượng hoàn thành trong vòng 3 ngày làm việc; Cơ chế gỡ vướng thu hồi tạm ứng đối với các dự án chậm tiến độ; Xử lý nghiêm trách nhiệm chủ đầu tư để xảy ra nợ đọng xây dựng cơ bản.",
+                filepath: "2026/Chuan ten/LEG-XD–254-2025-ND-CP-THANHTOANDTC-26092025.pdf"
+            },
+            {
+                id: 11,
+                number: "14/2026/NĐ-CP",
+                type: "Nghị định",
+                domain: "Thủ tục hành chính",
+                title: "Nghị định Đơn giản hóa thủ tục hành chính trong lĩnh vực hoạt động xây dựng",
+                issuer: "Chính phủ",
+                date: "13/01/2026",
+                effective: "01/02/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Cải cách thủ tục hành chính BXD",
+                summary: "Cắt giảm 40% thời gian thẩm định thiết kế triển khai sau thiết kế cơ sở và cấp giấy phép xây dựng; Liên thông thủ tục đất đai - cấp phép xây dựng - thẩm duyệt phòng cháy chữa cháy trên Cổng dịch vụ công Quốc gia.",
+                filepath: "2026/Chuan ten/LEG-XD-14-2026-ND-CP-DONGIANTTHC-13012026.pdf"
+            },
+            {
+                id: 12,
+                number: "32/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý chất lượng",
+                title: "Thông tư Hướng dẫn chi tiết một số điều về quản lý chất lượng và thi công xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "22/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn Nghị định 207/2026/NĐ-CP (Thay thế TT 10/2021/TT-BXD)",
+                summary: "Ban hành 12 biểu mẫu mới về biên bản nghiệm thu công việc, giai đoạn và hoàn thành công trình; Hướng dẫn quy trình nghiệm thu trực tuyến qua mô hình BIM 3D; Quy định rõ trách nhiệm giám sát tác giả của nhà thầu thiết kế.",
+                filepath: "2026/Chuan ten/LEG-XD-32-2026-TT-BXD-QLCL-22062026 R.pdf"
+            },
+            {
+                id: 13,
+                number: "33/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Vật liệu & An toàn",
+                title: "Thông tư Quy định quy trình đánh giá an toàn công trình trong quá trình khai thác sử dụng",
+                issuer: "Bộ Xây dựng",
+                date: "25/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn Nghị định 207/2026/NĐ-CP",
+                summary: "Bắt buộc kiểm định định kỳ 5-10 năm đối với nhà chung cư cao tầng, trường học, bệnh viện, sân vận động; Tiêu chí phân cấp nguy hiểm từ A (an toàn) đến D (nguy hiểm cực kỳ, buộc di dời khẩn cấp).",
+                filepath: "2026/Chuan ten/LEG-XD-33-2026-TT-BXD-DANHGIAANTOANCT-25062026.pdf"
+            },
+            {
+                id: 14,
+                number: "34/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý dự án",
+                title: "Thông tư Phân cấp công trình xây dựng và hướng dẫn áp dụng trong đầu tư xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "25/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Thông tư 06/2021/TT-BXD",
+                summary: "Phân cấp công trình từ Cấp đặc biệt, Cấp I, II, III, IV dựa trên quy mô kết cấu (chiều cao, nhịp, sâu ngầm) và hậu quả thiệt hại; Bổ sung tiêu chí phân cấp đối với trạm sạc xe điện, điện gió ngoài khơi và trung tâm dữ liệu (Data Center).",
+                filepath: "2026/Chuan ten/LEG-XD-34-2026-TT-BXD-PHANCAPCONGTRINH-25062026 R.pdf"
+            },
+            {
+                id: 15,
+                number: "36/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý chi phí",
+                title: "Thông tư Phương pháp xác định và quản lý chi phí đầu tư xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Thông tư 11/2021/TT-BXD",
+                summary: "Hướng dẫn tính toán chi tiết 7 khoản mục trong Tổng mức đầu tư (Bồi thường, Xây dựng, Thiết bị, QLDA, Tư vấn, Khác, Dự phòng); Công thức xác định đơn giá xây dựng tổng hợp và suất vốn đầu tư mới năm 2026.",
+                filepath: "2026/TT 36 phuong phap xac dinh va quan ly chi phi dau tu xay dung/TT36_2026_BXD.pdf"
+            },
+            {
+                id: 16,
+                number: "37/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý chi phí",
+                title: "Thông tư Phương pháp xác định định mức dự toán xây dựng và chỉ tiêu kinh tế - kỹ thuật",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Thông tư 13/2021/TT-BXD",
+                summary: "Quy chuẩn phương pháp bấm giờ, khảo sát hiện trường để lập định mức mới; Hướng dẫn áp dụng định mức cho thi công công nghệ cao (robot ép cọc, khoan hầm TBM, in 3D bê tông).",
+                filepath: "2026/TT 37 phuong phap xac dinh dinh muc du toan va cac chi tieu ktkt/TT37_2026_BXD.pdf"
+            },
+            {
+                id: 17,
+                number: "38/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý chi phí",
+                title: "Thông tư Ban hành tập Định mức xây dựng (Khảo sát, thi công, lắp đặt, sửa chữa)",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Thông tư 12/2021/TT-BXD và TT 09/2019/TT-BXD",
+                summary: "Ban hành chính thức hơn 1.500 mã hiệu định mức xây dựng mới năm 2026; Loại bỏ định mức thủ công lạc hậu; Bổ sung định mức thi công nhà siêu cao tầng (>50 tầng) và công trình ngầm đô thị.",
+                filepath: "2026/TT 38 Ban hanh dinh muc xay dung/TT38_2026_BXD.pdf"
+            },
+            {
+                id: 18,
+                number: "39/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Thủ tục hành chính",
+                title: "Thông tư Quy định về cấu trúc, tiêu chuẩn kỹ thuật và quản lý CSDL hoạt động xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Quy chuẩn CSDL Quốc gia về Xây dựng",
+                summary: "Chuẩn hóa mã định danh công trình xây dựng toàn quốc (BIM ID); Tích hợp dữ liệu giấy phép xây dựng, chứng chỉ năng lực và quy hoạch đô thị trên nền tảng Cloud quốc gia.",
+                filepath: "2026/Chuan ten/LEG-XD-39-2026-TT-BXD-CSDLHDXD-26062026.pdf"
+            },
+            {
+                id: 19,
+                number: "40/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Vật liệu & An toàn",
+                title: "Thông tư Hướng dẫn quản lý chi phí bảo trì công trình xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn Nghị định 207/2026/NĐ-CP",
+                summary: "Bảng định mức tỷ lệ (%) chi phí bảo trì thường xuyên và định kỳ cho từng cấp công trình; Hướng dẫn lập dự toán sửa chữa lớn và kiểm định an toàn trong chi phí bảo trì.",
+                filepath: "2026/Chuan ten/LEG-XD-40-2026-TT-BXD-HDQLCPBAOTRI-26062026.pdf"
+            },
+            {
+                id: 20,
+                number: "41/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Vật liệu & An toàn",
+                title: "Thông tư Hướng dẫn thực hiện quản lý chất lượng và sử dụng vật liệu xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn Nghị định 209/2026/NĐ-CP",
+                summary: "Quy chuẩn kỹ thuật quốc gia QCVN 16:2026/BXD về vật liệu xây dựng; Danh mục vật liệu bắt buộc chứng nhận hợp quy; Yêu cầu kiểm tra chất lượng thép, xi măng, kính kính cường lực tại công trường.",
+                filepath: "2026/Chuan ten/LEG-XD-41-2026-TT-BXD_QLVLXD-26062026 R.pdf"
+            },
+            {
+                id: 21,
+                number: "42/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Vật liệu & An toàn",
+                title: "Thông tư Quy định kiểm định kỹ thuật an toàn lao động đối với máy, thiết bị thi công",
+                issuer: "Bộ Xây dựng",
+                date: "29/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Quy chuẩn an toàn thiết bị thi công 2026",
+                summary: "Danh mục 25 loại cần trục tháp, vận thăng lồng, giàn giáo tự nâng, sàn treo bắt buộc kiểm định an toàn trước khi lắp đặt và vận hành trên công trường.",
+                filepath: "2026/Chuan ten/LEG-XD-42-2026-TT-BXD-ATTHIETBI-29062026.pdf"
+            },
+            {
+                id: 22,
+                number: "49/2026/TT-BXD",
+                type: "Thông tư",
+                domain: "Quản lý dự án",
+                title: "Thông tư Hướng dẫn thực hiện một số điều về quản lý dự án và thẩm định thiết kế",
+                issuer: "Bộ Xây dựng",
+                date: "30/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn Nghị định 217/2026/NĐ-CP",
+                summary: "Quy định chi tiết hồ sơ, trình tự thẩm định thiết kế triển khai sau thiết kế cơ sở; Mẫu báo cáo kết quả thẩm tra của tổ chức tư vấn độc lập.",
+                filepath: "2026/BXD_49-2026-TT-BXD_30062026.pdf"
+            },
+            {
+                id: 23,
+                number: "73/2026/TT-BTC",
+                type: "Thông tư",
+                domain: "Vốn & Quyết toán",
+                title: "Thông tư Quy định chế độ và biểu mẫu báo cáo quyết toán vốn đầu tư công dự án hoàn thành",
+                issuer: "Bộ Tài chính",
+                date: "15/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế biểu mẫu quyết toán vốn đầu tư công cũ",
+                summary: "Ban hành 10 biểu mẫu quyết toán chuẩn kỹ thuật số; Hướng dẫn lập báo cáo quyết toán đối với dự án thành phần, tiểu dự án bồi thường giải phóng mặt bằng.",
+                filepath: "2026/Chuan ten/LEG-XD-73-2026-TT-BTC-BMQTVDT.pdf"
+            },
+            {
+                id: 24,
+                number: "91/2025/TT-BTC",
+                type: "Thông tư",
+                domain: "Vốn & Quyết toán",
+                title: "Thông tư Quy định về mẫu biểu quyết toán dự án đầu tư sử dụng vốn nhà nước",
+                issuer: "Bộ Tài chính",
+                date: "01/01/2025",
+                effective: "01/01/2025",
+                status: "Có hiệu lực (2026)",
+                replace: "Chuẩn hóa biểu mẫu quyết toán",
+                summary: "Quy định chuẩn hệ thống biểu mẫu đối chiếu số liệu giải ngân kho bạc và quyết toán tài sản hình thành sau đầu tư.",
+                filepath: "2026/Chuan ten/LEG-XD-91-2025-TT-BTC-MAUQT-01012025.pdf"
+            },
+            {
+                id: 25,
+                number: "1040/2026/QĐ-BXD",
+                type: "Quyết định",
+                domain: "Hợp đồng xây dựng",
+                title: "Quyết định Ban hành Mẫu Hợp đồng Xây dựng (Thi công, Tư vấn, EPC chuẩn FIDIC)",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn áp dụng Nghị định 210/2026/NĐ-CP",
+                summary: "Ban hành 5 bộ Mẫu hợp đồng chuẩn: (1) Hợp đồng Thi công xây dựng, (2) Hợp đồng Tư vấn giám sát/thiết kế, (3) Hợp đồng EPC/Turnkey, (4) Hợp đồng thầu phụ, (5) Hợp đồng cung cấp thiết bị. Tích hợp sẵn điều khoản giải quyết tranh chấp qua DAB và Trọng tài.",
+                filepath: "2026/QĐ 1040 Mau hop dong/Mau_HD_1040_BXD.doc"
+            },
+            {
+                id: 26,
+                number: "1041/2026/QĐ-BXD",
+                type: "Quyết định",
+                domain: "Quản lý chi phí",
+                title: "Quyết định Hướng dẫn đo bóc và xác định khối lượng công trình xây dựng (BIM 5D)",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Quyết định 798/QĐ-BXD cũ",
+                summary: "Chuẩn hóa quy tắc đo bóc khối lượng công tác đất, bê tông, cốt thép, MEP; Hướng dẫn quy trình bóc tách khối lượng tự động trực tiếp từ mô hình thông tin công trình BIM 3D/5D.",
+                filepath: "2026/Chuan ten/LEG-XD-1041-2026-QD-BXD- HDXACDINHKHOILUONG-26062026.pdf"
+            },
+            {
+                id: 27,
+                number: "1078/2026/QĐ-BXD",
+                type: "Quyết định",
+                domain: "Quản lý chi phí",
+                title: "Quyết định Công bố định mức chi phí quản lý dự án và tư vấn đầu tư xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "29/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Thay thế Quyết định 548/QĐ-BXD và 656/QĐ-BXD",
+                summary: "Bảng định mức tỷ lệ (%) chi phí QLDA và tư vấn (FS, Thiết kế, Giám sát, Thẩm tra) mới nhất áp dụng từ 01/07/2026 theo 5 loại công trình Dân dụng, Công nghiệp, Giao thông, NN&PTNT và Hạ tầng kỹ thuật.",
+                filepath: "2026/BXD_1078-QD-BXD_29062026(1).pdf"
+            },
+            {
+                id: 28,
+                number: "975/2026/QĐ-BXD",
+                type: "Quyết định",
+                domain: "Thủ tục hành chính",
+                title: "Quyết định Công bố bãi bỏ, sửa đổi thủ tục hành chính ngành Xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "22/06/2026",
+                effective: "01/07/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Cải cách thủ tục hành chính",
+                summary: "Chính thức bãi bỏ 18 thủ tục rườm rà trong lĩnh vực thẩm định thiết kế, cấp phép xây dựng và cấp chứng chỉ năng lực hoạt động.",
+                filepath: "2026/Chuan ten/LEG-XD-975-2026-QD-BXD-BAIBOTTHC-22062026.pdf"
+            },
+            {
+                id: 29,
+                number: "47/VBHN-BXD",
+                type: "Văn bản hợp nhất",
+                domain: "Quản lý dự án",
+                title: "Văn bản hợp nhất Nghị định về quản lý sử dụng chung công trình hạ tầng kỹ thuật",
+                issuer: "Bộ Xây dựng",
+                date: "17/06/2026",
+                effective: "17/06/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hợp nhất NĐ 72/2012 và NĐ sửa đổi",
+                summary: "Quy định nguyên tắc quản lý, đầu tư và sử dụng chung hào kỹ thuật, tuynel ngầm, cột ăng ten viễn thông trong khu đô thị và KCN.",
+                filepath: "2026/Chuan ten/LEG-XD-47-VBHN-BXD-SDCHUNGHTKT-17062026.pdf"
+            },
+            {
+                id: 30,
+                number: "50/VBHN-BXD",
+                type: "Văn bản hợp nhất",
+                domain: "Quản lý chi phí",
+                title: "Văn bản hợp nhất Nghị định về quản lý chi phí dịch vụ công ích đô thị & thoát nước",
+                issuer: "Bộ Xây dựng",
+                date: "17/06/2026",
+                effective: "17/06/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hợp nhất quy định dịch vụ công ích",
+                summary: "Quy chuẩn định mức và phương pháp định giá dịch vụ thoát nước, xử lý nước thải, cây xanh và chiếu sáng đô thị.",
+                filepath: "2026/BXD_50-VBHN-BXD_17062026(1).pdf"
+            },
+            {
+                id: 31,
+                number: "54/VBHN-BXD",
+                type: "Văn bản hợp nhất",
+                domain: "Điều kiện năng lực",
+                title: "Văn bản hợp nhất Nghị định về điều kiện năng lực hoạt động thí nghiệm xây dựng",
+                issuer: "Bộ Xây dựng",
+                date: "26/06/2026",
+                effective: "26/06/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hợp nhất NĐ 62/2016 và NĐ sửa đổi",
+                summary: "Quy định điều kiện tiêu chuẩn ISO/IEC 17025 đối với phòng thí nghiệm LAS-XD, điều kiện kiểm định viên và trạm thí nghiệm hiện trường.",
+                filepath: "2026/Chuan ten/LEG-XD-54-VBHN-BXD-QLTHINGHIEM-26062026.pdf"
+            },
+            {
+                id: 32,
+                number: "17006/2025/HD-BTC",
+                type: "Quyết định",
+                domain: "Vốn & Quyết toán",
+                title: "Hướng dẫn công tác quyết toán dự án hoàn thành sử dụng vốn nhà nước",
+                issuer: "Bộ Tài chính",
+                date: "31/10/2025",
+                effective: "01/01/2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Hướng dẫn quyết toán chuyên sâu",
+                summary: "Hướng dẫn xử lý các tình huống vướng mắc thực tế: dự án dừng thi công vĩnh viễn, dự án mất hồ sơ gốc do thiên tai, dự án thay đổi chủ đầu tư nhiều lần.",
+                filepath: "2026/Chuan ten/LEG-XD-17006-2025-HD-BTC-HDQTOAN-31102025.pdf"
+            },
+            {
+                id: 33,
+                number: "CICON-2026",
+                type: "Quyết định",
+                domain: "Xây dựng chung & Đầu tư",
+                title: "Báo cáo Phân tích chuyên sâu Điểm mới Luật Xây dựng 2025/2026 (CICON)",
+                issuer: "Viện Kinh tế Xây dựng",
+                date: "2026",
+                effective: "2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Tài liệu chuyên khảo pháp lý",
+                summary: "Phân tích chi tiết 12 tác động lớn của Luật Xây dựng số 135/2025/QH15 đối với các Chủ đầu tư bất động sản công nghiệp và Nhà thầu thi công.",
+                filepath: "2026/CICON_So_sanh_diem_moi_Luat_Xay_dung_2025.pdf"
+            },
+            {
+                id: 34,
+                number: "ND10-vs-ND206",
+                type: "Quyết định",
+                domain: "Quản lý chi phí",
+                title: "Bảng đối chiếu thay đổi Nghị định 10/2021/NĐ-CP và Nghị định 206/2026/NĐ-CP",
+                issuer: "Ban Pháp chế Xây dựng",
+                date: "2026",
+                effective: "2026",
+                status: "Có hiệu lực (2026)",
+                replace: "Tài liệu so sánh điều khoản",
+                summary: "Bảng so sánh chi tiết từng điều khoản, nêu rõ lý do sửa đổi và cách tính toán dự toán theo quy định mới.",
+                filepath: "2026/So sanh ND 10 vs ND 206.docx"
+            },
+            {
+                id: 35,
+                number: "62/2016/NĐ-CP",
+                type: "Nghị định",
+                domain: "Điều kiện năng lực",
+                title: "Nghị định Quy định điều kiện hoạt động giám định tư pháp & thí nghiệm xây dựng",
+                issuer: "Chính phủ",
+                date: "01/07/2016",
+                effective: "01/07/2016",
+                status: "Có hiệu lực (2026)",
+                replace: "Quy định nền tảng thí nghiệm",
+                summary: "Quy định tiêu chuẩn điều kiện cơ sở vật chất, nhân sự chuyên môn và quản lý nhà nước đối với các tổ chức thí nghiệm chuyên ngành xây dựng.",
+                filepath: "2026/Chuan ten/LEG-XD-62-2016-ND-CP-QLHDTN-01072016.pdf"
+            }
+        ];
+
+        /* ═════════════════════════════════════════════════════════════
+           1B. NỀN TẢNG LƯU TRỮ & ĐỒNG BỘ DỮ LIỆU
+           (tích hợp từ XDV_APCC_ThuVienLuatXD: localStorage + IndexedDB
+            + tự lưu thư mục FS API + Excel/JSON + Google Sheet + watch file)
+           ═════════════════════════════════════════════════════════════ */
+        const LS_KEY = 'lexbuild_docs_v2';
+        const FS_FILE = 'lexbuild-data.json';
+        let LEGAL_DOCS_2026 = [];
+        let _uid = 0;
+
+        // ---- Helpers dùng chung ----
+        function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function noAccent(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
+        function hlText(text, q) {
+            if (!q) return esc(text);
+            const t = esc(text);
+            try { return t.replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>'); } catch (e) { return t; }
+        }
+        function parseD(s) { if (!s) return null; const m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; }
+
+        // Trạng thái hiệu lực ĐỘNG tính theo ngày (thay chuỗi tĩnh)
+        const ST_LABEL = { on: 'Còn hiệu lực', off: 'Hết hiệu lực', soon: 'Sắp hết hiệu lực', wait: 'Chưa hiệu lực' };
+        const ST_BADGE = { on: 'badge-active', off: 'badge-expired', soon: 'badge-soon', wait: 'badge-wait' };
+        const ST_ICON = { on: '✅', off: '❌', soon: '⚠️', wait: '⏳' };
+        function typeBadge(type) {
+            if (type === 'Nghị định') return 'badge-nd';
+            if (type === 'Thông tư') return 'badge-tt';
+            if (type === 'Quyết định' || type === 'Văn bản hợp nhất') return 'badge-qd';
+            return 'badge-luat';
+        }
+        function statusOf(d) {
+            const now = new Date();
+            const ex = parseD(d.expired), ef = parseD(d.effective);
+            if (ex && ex < now) return 'off';
+            if (ex) { const days = (ex - now) / 864e5; if (days <= 90) return 'soon'; }
+            if (ef && ef > now) return 'wait';
+            if (!ex && /hết hiệu lực|bị thay thế|bãi bỏ/i.test(d.status || '')) return 'off';
+            return 'on';
+        }
+
+        // Chuẩn hóa 1 bản ghi về schema thống nhất của LexBuild
+        const DOC_TYPES = ['Luật', 'Nghị định', 'Thông tư', 'Quyết định', 'Văn bản hợp nhất', 'Tiêu chuẩn'];
+        function normDoc(r) {
+            return {
+                id: r.id || ++_uid,
+                number: String(r.number || '').trim(),
+                type: DOC_TYPES.includes(r.type) ? r.type : (r.type || 'Văn bản khác'),
+                domain: String(r.domain || 'Chưa phân nhóm').trim(),
+                title: String(r.title || '').trim(),
+                issuer: r.issuer || '',
+                date: r.date || '',
+                effective: r.effective || '',
+                expired: r.expired || '',
+                status: r.status || '',
+                replace: r.replace || '',
+                summary: r.summary || '',
+                filepath: r.filepath || '',
+                pdf: r.pdf || '',
+                docx: r.docx || '',
+                _gs: r._gs || false,
+                _new: r._new || false
+            };
+        }
+        function syncUid() { _uid = LEGAL_DOCS_2026.reduce((m, d) => Math.max(m, +d.id || 0), 0); }
+
+        // ---- Toast thông báo ----
+        function toast(msg, warn) {
+            let t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.appendChild(t); }
+            t.style.background = warn ? 'hsl(30, 80%, 42%)' : 'var(--emerald-accent)';
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._h);
+            t._h = setTimeout(() => t.classList.remove('show'), 3200);
+        }
+
+        // ---- IndexedDB mini KV (lưu handle thư mục / file / link GS để mở lại tự kết nối) ----
+        function idb() {
+            return new Promise((res, rej) => {
+                const r = indexedDB.open('lexbuild-kv', 1);
+                r.onupgradeneeded = () => r.result.createObjectStore('kv');
+                r.onsuccess = () => res(r.result);
+                r.onerror = () => rej(r.error);
+            });
+        }
+        async function idbSet(k, v) { try { const db = await idb(); return new Promise(res => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = res; }); } catch (e) { } }
+        async function idbGet(k) { try { const db = await idb(); return new Promise(res => { const rq = db.transaction('kv').objectStore('kv').get(k); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); }); } catch (e) { return null; } }
+
+        // ---- Snapshot & Persistence (localStorage luôn bật + thư mục nếu kết nối) ----
+        function snapshot() {
+            return { app: 'LexBuild2026', updated: new Date().toISOString(), docs: LEGAL_DOCS_2026.map(({ _new, ...d }) => d) };
+        }
+        function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); } catch (e) { } }
+        function loadLocal() {
+            try {
+                const s = JSON.parse(localStorage.getItem(LS_KEY));
+                if (s && Array.isArray(s.docs) && s.docs.length) { LEGAL_DOCS_2026 = s.docs.map(normDoc); syncUid(); return true; }
+            } catch (e) { }
+            return false;
+        }
+        function persistData() { saveLocal(); saveToDisk(); }
+        function refreshUI() {
+            updateCounts(); rebuildDomainOptions();
+            renderDashboard(); renderLibrary();
+        }
+
+        function updateCounts() {
+            const n = LEGAL_DOCS_2026.length;
+            const b = document.getElementById('badge-total-docs'); if (b) b.innerText = n;
+            const s = document.getElementById('stat-total-docs'); if (s) s.innerText = n;
+            const v = document.getElementById('btn-view-all'); if (v) v.innerText = 'Xem toàn bộ ' + n + ' văn bản →';
+        }
+        function rebuildDomainOptions() {
+            const domains = [...new Set(LEGAL_DOCS_2026.map(d => d.domain))].sort();
+            const sel = document.getElementById('lib-filter-domain');
+            if (sel) {
+                const cur = sel.value;
+                sel.innerHTML = '<option value="">Tất cả lĩnh vực</option>' + domains.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+                if (domains.includes(cur)) sel.value = cur;
+            }
+            const dl = document.getElementById('domain-list');
+            if (dl) dl.innerHTML = domains.map(d => `<option value="${esc(d)}">`).join('');
+        }
+
+        // Thay TOÀN BỘ dữ liệu bằng bộ mới + dựng lại giao diện + lưu
+        function replaceAllData(docs) {
+            LEGAL_DOCS_2026 = docs.map(normDoc);
+            syncUid();
+            persistData();
+            refreshUI();
+        }
+
+        /* ---- TỰ ĐỘNG LƯU VÀO THƯ MỤC (File System Access API — Chrome/Edge) ---- */
+        let dirHandle = null, saveTimer = null;
+
+        function storeUI() {
+            const on = !!dirHandle;
+            const ss = document.getElementById('store-status');
+            if (ss) {
+                ss.className = 'store-status ' + (on ? 'ss-on' : 'ss-off');
+                ss.innerHTML = on
+                    ? '✅ Tự động lưu đang <b>BẬT</b> — thư mục: <b>' + esc(dirHandle.name) + '</b> · file: ' + FS_FILE + '. Dữ liệu cũng được lưu song song trong trình duyệt.'
+                    : 'Chưa kết nối thư mục — thay đổi vẫn được lưu tự động trong trình duyệt (localStorage) của máy này.';
+            }
+            const d = document.getElementById('opt-disc'); if (d) d.style.display = on ? 'flex' : 'none';
+            const chip = document.getElementById('fs-chip');
+            if (chip) { chip.classList.toggle('on', on); if (on) chip.innerHTML = '💾 ' + esc(dirHandle.name); }
+            const btn = document.getElementById('fsBtn');
+            if (btn) { btn.innerHTML = on ? '✅ Đang tự lưu: ' + esc(dirHandle.name) : '💾 Lưu trữ & Đồng bộ'; btn.onclick = openStore; }
+        }
+
+        async function connectFolder() {
+            if (!window.showDirectoryPicker) {
+                alert('Trình duyệt này chưa hỗ trợ lưu trực tiếp vào thư mục.\nVui lòng dùng Chrome hoặc Edge để bật tự động lưu.\n(Dữ liệu vẫn đang được lưu trong trình duyệt.)');
+                return;
+            }
+            try {
+                if (dirHandle) {
+                    const p = await dirHandle.requestPermission({ mode: 'readwrite' });
+                    if (p === 'granted') { storeUI(); await loadFromDisk(); await saveToDisk(true); return; }
+                }
+                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'lexbuild-2026' });
+                await idbSet('dir', dirHandle);
+                const loaded = await loadFromDisk();
+                await saveToDisk(true);
+                storeUI();
+                toast(loaded ? '📂 Đã kết nối & nạp dữ liệu từ ' + dirHandle.name : '📂 Đã kết nối thư mục ' + dirHandle.name + ' — dữ liệu sẽ tự động lưu');
+            } catch (e) { if (e.name !== 'AbortError') alert('Không kết nối được thư mục: ' + e.message); }
+        }
+        async function disconnectFolder() {
+            dirHandle = null;
+            await idbSet('dir', null);
+            storeUI();
+            toast('🔌 Đã ngắt tự động lưu thư mục (dữ liệu vẫn lưu trong trình duyệt)', true);
+        }
+        async function loadFromDisk() {
+            if (!dirHandle) return false;
+            try {
+                const fh = await dirHandle.getFileHandle(FS_FILE);
+                const txt = await (await fh.getFile()).text();
+                const docs = parseJSONData(txt);
+                if (docs.length) { LEGAL_DOCS_2026 = docs; syncUid(); saveLocal(); refreshUI(); return true; }
+            } catch (e) { /* file chưa tồn tại -> sẽ tạo khi lưu */ }
+            return false;
+        }
+        async function saveToDisk(now) {
+            if (!dirHandle) return;
+            clearTimeout(saveTimer);
+            const doSave = async () => {
+                try {
+                    const fh = await dirHandle.getFileHandle(FS_FILE, { create: true });
+                    const w = await fh.createWritable();
+                    await w.write(JSON.stringify(snapshot(), null, 1));
+                    await w.close();
+                    toast('💾 Đã lưu vào ' + dirHandle.name + '\\' + FS_FILE);
+                } catch (e) { toast('Không lưu được vào thư mục: ' + e.message, true); }
+            };
+            now ? await doSave() : saveTimer = setTimeout(doSave, 600);
+        }
+
+        /* ---- PARSER DÙNG CHUNG: JSON / Excel (nhận cả định dạng XDV_APCC) ---- */
+        const XDV_TYPE = t => (['Luật', 'Nghị định', 'Thông tư', 'Quyết định', 'Văn bản hợp nhất', 'Tiêu chuẩn'].includes(t) ? t : 'Văn bản khác');
+        function fromXdvRec(r, group) {
+            return normDoc({
+                id: ++_uid, type: XDV_TYPE(r.loai), number: r.so, title: r.nd,
+                domain: String(group || 'Chưa phân nhóm').replace(/^\d+\.\s*/, ''),
+                date: r.bh || '', effective: r.hl || '', expired: r.hhl || '',
+                docx: r.docx || '', pdf: r.pdf || '', summary: r.gc || ''
+            });
+        }
+        function parseJSONData(text) {
+            const saved = JSON.parse(text);
+            if (saved && Array.isArray(saved.docs)) return saved.docs.map(normDoc);                 // định dạng LexBuild
+            if (saved && saved.data && typeof saved.data === 'object') {                             // định dạng XDV ThuVienPhapLuat
+                const out = [];
+                Object.keys(saved.data).forEach(g => (saved.data[g] || []).forEach(r => { if (String(r.so || '').trim()) out.push(fromXdvRec(r, g)); }));
+                return out;
+            }
+            throw new Error('File JSON không đúng định dạng dữ liệu của App (LexBuild hoặc XDV).');
+        }
+        function parseWorkbookData(buf, asString) {
+            const wb = XLSX.read(buf, { type: asString ? 'string' : 'array' });
+            const ws = wb.Sheets['DATABASE'] || wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            if (!rows.length) throw new Error('File rỗng.');
+            const head = rows[0].map(x => noAccent(x));
+            if (!head.some(h => h.includes('so hieu'))) throw new Error('Không tìm thấy dòng tiêu đề chuẩn (cột "Số hiệu"). Hãy dùng file tải từ nút "Tải mẫu Excel chuẩn".');
+            const isLexBuild = head.some(h => h.includes('linh vuc') || h.includes('ten van ban'));
+            const out = [];
+            rows.slice(1).forEach(r => {
+                const c = r.map(x => String(x || '').trim());
+                if (isLexBuild) {
+                    // Mẫu LexBuild 13 cột: Loại|Số hiệu|Tên VB|Lĩnh vực|Cơ quan|BH|HL|Hết HL|Thay thế|Tóm tắt|PDF|DOCX|File gốc
+                    const [type, number, title, domain, issuer, date, effective, expired, replace, summary, pdf, docx, filepath] = c;
+                    if (!number || !title) return;
+                    out.push(normDoc({ id: ++_uid, type: XDV_TYPE(type), number, title, domain, issuer, date, effective, expired, replace, summary, pdf, docx, filepath }));
+                } else {
+                    // Mẫu XDV/APCC 11 cột: Nhóm|Loại|Số hiệu|Nội dung|BH|HL|Hết HL|DOCX|PDF|EN|Ghi chú
+                    const [grp, loai, so, nd, bh, hlv, hhl, docx, pdf, en, gc] = c;
+                    if (!so || !nd) return;
+                    out.push(fromXdvRec({ loai, so, nd, bh, hl: hlv, hhl, docx, pdf, en, gc }, grp));
+                }
+            });
+            return out;
+        }
+
+        /* ---- XUẤT / NẠP EXCEL & JSON ---- */
+        const TPL_HEAD = ['Loại', 'Số hiệu', 'Tên văn bản', 'Lĩnh vực', 'Cơ quan ban hành', 'Ngày ban hành', 'Ngày hiệu lực', 'Ngày hết hiệu lực', 'Văn bản bị thay thế', 'Tóm tắt điểm mới', 'Link PDF', 'Link DOCX', 'File gốc'];
+        function docToRow(d) { return [d.type, d.number, d.title, d.domain, d.issuer, d.date, d.effective, d.expired, d.replace, d.summary, d.pdf, d.docx, d.filepath]; }
+
+        function exportTemplate() {
+            const rows = [TPL_HEAD, ...LEGAL_DOCS_2026.map(docToRow)];
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = [{ wch: 14 }, { wch: 20 }, { wch: 70 }, { wch: 24 }, { wch: 18 }, { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 40 }, { wch: 80 }, { wch: 32 }, { wch: 32 }, { wch: 40 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'DATABASE');
+            XLSX.writeFile(wb, 'MAU-LexBuild2026-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            toast('📋 Đã tải mẫu Excel chuẩn (' + LEGAL_DOCS_2026.length + ' dòng)');
+        }
+        function importTemplate(inp) {
+            const f = inp.files[0]; if (!f) return;
+            const rd = new FileReader();
+            rd.onload = e => {
+                try {
+                    const docs = parseWorkbookData(e.target.result);
+                    if (!docs.length) throw new Error('File không có dòng dữ liệu hợp lệ.');
+                    if (!confirm('Cập nhật toàn bộ dữ liệu từ file mẫu?\n\n• ' + docs.length + ' văn bản\n• Dữ liệu hiện tại trong app sẽ được THAY THẾ hoàn toàn.\n• Thay đổi được lưu ngay vào trình duyệt / thư mục đã kết nối.')) return;
+                    replaceAllData(docs); closeStore();
+                    toast('🔁 Đã cập nhật ' + docs.length + ' văn bản từ file Excel mẫu');
+                } catch (err) { alert('Không cập nhật được: ' + err.message); }
+            };
+            rd.readAsArrayBuffer(f); inp.value = '';
+        }
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify(snapshot(), null, 1)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'lexbuild-data-' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast('⬇️ Đã tải file dữ liệu JSON');
+        }
+        function importJSON(inp) {
+            const f = inp.files[0]; if (!f) return;
+            const rd = new FileReader();
+            rd.onload = e => {
+                try {
+                    const docs = parseJSONData(e.target.result);
+                    if (!docs.length) throw new Error('File không có văn bản hợp lệ.');
+                    replaceAllData(docs); closeStore();
+                    toast('📥 Đã nạp ' + docs.length + ' văn bản từ file JSON');
+                } catch (err) { alert('Không nạp được file: ' + err.message); }
+            };
+            rd.readAsText(f); inp.value = '';
+        }
+        function exportExcel() {
+            const wb = XLSX.utils.book_new();
+            const head = TPL_HEAD.filter(h => h !== 'Lĩnh vực');
+            const domains = [...new Set(LEGAL_DOCS_2026.map(d => d.domain))];
+            domains.forEach(g => {
+                const rows = LEGAL_DOCS_2026.filter(d => d.domain === g).map(d => docToRow(d).filter((_, i) => i !== 3));
+                const ws = XLSX.utils.aoa_to_sheet([head, ...rows]);
+                ws['!cols'] = [{ wch: 14 }, { wch: 20 }, { wch: 70 }, { wch: 18 }, { wch: 13 }, { wch: 13 }, { wch: 15 }, { wch: 40 }, { wch: 80 }, { wch: 32 }, { wch: 32 }, { wch: 40 }];
+                XLSX.utils.book_append_sheet(wb, ws, g.substring(0, 31).replace(/[\\/?*\[\]:]/g, ' '));
+            });
+            XLSX.writeFile(wb, 'LexBuild2026-KhoVanBan-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+            toast('📊 Đã xuất Excel toàn bộ kho văn bản (' + domains.length + ' sheet)');
+        }
+
+        /* ---- XÓA SẠCH & NẠP MỚI / KHÔI PHỤC SEED ---- */
+        function wipeAll() {
+            if (!confirm('⚠️ XÓA SẠCH toàn bộ dữ liệu hiện tại và nạp bộ dữ liệu MỚI hoàn toàn?\n\nSau khi xác nhận, hãy chọn file dữ liệu mới (Excel mẫu hoặc JSON).')) return;
+            document.getElementById('wipe-in').click();
+        }
+        function wipeLoad(inp) {
+            const f = inp.files[0]; if (!f) return;
+            const isJson = /\.json$/i.test(f.name);
+            const rd = new FileReader();
+            rd.onload = e => {
+                try {
+                    const docs = isJson ? parseJSONData(e.target.result) : parseWorkbookData(e.target.result);
+                    if (!docs.length) throw new Error('File mới không có dòng dữ liệu hợp lệ.');
+                    if (!confirm('Xác nhận LẦN CUỐI:\n\nNạp bộ dữ liệu mới → ' + docs.length + ' văn bản.\nDữ liệu cũ sẽ bị thay thế hoàn toàn (trừ khi đã backup).')) return;
+                    replaceAllData(docs); closeStore();
+                    toast('🗑️ Đã thay mới: ' + docs.length + ' văn bản từ ' + f.name);
+                } catch (err) { alert('Không nạp được file mới: ' + err.message); }
+            };
+            isJson ? rd.readAsText(f) : rd.readAsArrayBuffer(f);
+            inp.value = '';
+        }
+        function resetToSeed() {
+            if (!confirm('♻️ Khôi phục bộ dữ liệu gốc LexBuild 2026 (' + SEED_DOCS.length + ' văn bản)?\nDữ liệu hiện tại sẽ bị thay thế.')) return;
+            replaceAllData(SEED_DOCS.map(d => ({ ...d })));
+            closeStore();
+            toast('♻️ Đã khôi phục bộ dữ liệu gốc ' + SEED_DOCS.length + ' văn bản');
+        }
+
+        /* ---- GOOGLE SHEET REALTIME SYNC (poll 60s qua endpoint gviz CSV) ---- */
+        const GS_POLL = 60000;
+        let gsUrl = null, gsTimer = null;
+        function gsCsvUrl(url) {
+            const m = String(url).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            if (!m) return null;
+            const gid = (String(url).match(/[#&?]gid=(\d+)/) || [])[1];
+            return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/gviz/tq?tqx=out:csv' + (gid ? '&gid=' + gid : '');
+        }
+        function toggleGsForm() {
+            const f = document.getElementById('gs-form');
+            f.classList.toggle('show');
+            if (gsUrl) document.getElementById('gs-url').value = gsUrl;
+        }
+        async function connectSheet() {
+            const url = document.getElementById('gs-url').value.trim();
+            if (!gsCsvUrl(url)) { alert('Link Google Sheet không hợp lệ.\nVí dụ đúng: https://docs.google.com/spreadsheets/d/ABC123.../edit'); return; }
+            gsUrl = url;
+            await idbSet('gsUrl', url);
+            const ok = await syncSheet(true);
+            if (ok) { startGsPoll(); document.getElementById('gs-disc').style.display = 'inline-flex'; }
+        }
+        async function disconnectSheet() {
+            gsUrl = null;
+            await idbSet('gsUrl', null);
+            clearInterval(gsTimer);
+            LEGAL_DOCS_2026 = LEGAL_DOCS_2026.filter(d => !d._gs);
+            document.getElementById('gs-chip').classList.remove('on');
+            document.getElementById('gs-disc').style.display = 'none';
+            document.getElementById('gs-status').textContent = '';
+            persistData(); refreshUI();
+            toast('🔌 Đã ngắt Google Sheet', true);
+        }
+        function startGsPoll() { clearInterval(gsTimer); gsTimer = setInterval(() => syncSheet(false), GS_POLL); }
+        async function syncSheet(manual) {
+            if (!gsUrl) return false;
+            try {
+                const resp = await fetch(gsCsvUrl(gsUrl), { cache: 'no-store' });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — kiểm tra Sheet đã chia sẻ "Bất kỳ ai có link" chưa');
+                const csv = await resp.text();
+                const wb = XLSX.read(csv, { type: 'string' });
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+                // Thay toàn bộ khối _gs bằng dữ liệu mới nhất -> sửa/xóa trên Sheet cũng phản ánh xuống app
+                LEGAL_DOCS_2026 = LEGAL_DOCS_2026.filter(d => !d._gs);
+                let n = 0;
+                rows.forEach((r, idx) => {
+                    const [grp, loai, so, nd, bh, hlv, hhl, docx, pdf, issuer, gc] = r.map(x => String(x || '').trim());
+                    if (!so || !nd) return;
+                    if (idx === 0 && noAccent(so).includes('so hieu')) return; // bỏ dòng tiêu đề
+                    const doc = fromXdvRec({ loai, so, nd, bh, hl: hlv, hhl, docx, pdf, gc }, grp || 'Văn bản bổ sung (Google Sheet)');
+                    doc.issuer = issuer || '';
+                    doc._gs = true; doc._new = true;
+                    LEGAL_DOCS_2026.push(doc);
+                    n++;
+                });
+                const t = new Date().toTimeString().slice(0, 5);
+                const chip = document.getElementById('gs-chip');
+                chip.classList.add('on');
+                chip.innerHTML = '🔄 GS ' + t + ' (' + n + ' VB)';
+                document.getElementById('gs-status').textContent = '✅ Đồng bộ lần cuối ' + t + ' — ' + n + ' văn bản từ Sheet. Tự lặp lại mỗi 60 giây.';
+                persistData(); refreshUI();
+                if (manual) toast('🔄 Đã đồng bộ ' + n + ' văn bản từ Google Sheet');
+                return true;
+            } catch (e) {
+                document.getElementById('gs-status').textContent = '❌ Lỗi đồng bộ: ' + e.message;
+                if (manual) alert('Không đồng bộ được Google Sheet:\n' + e.message + '\n\nKiểm tra: (1) Sheet chia sẻ "Bất kỳ ai có link — Người xem", (2) link đúng định dạng, (3) máy có internet.');
+                return false;
+            }
+        }
+
+        /* ---- THEO DÕI 1 FILE NGUỒN — TỰ ĐỘNG CẬP NHẬT (poll 30s) ---- */
+        const WATCH_POLL = 30000;
+        let watchHandle = null, watchTimer = null, watchSig = null;
+        async function watchFile() {
+            if (watchHandle) {
+                if (confirm('Đang theo dõi file "' + watchHandle.name + '".\n\nBấm OK để DỪNG theo dõi, Cancel để giữ nguyên.')) await stopWatch();
+                return;
+            }
+            if (!window.showOpenFilePicker) { alert('Trình duyệt này chưa hỗ trợ theo dõi file tự động.\nVui lòng dùng Chrome hoặc Edge.'); return; }
+            try {
+                const [h] = await window.showOpenFilePicker({ types: [{ description: 'Dữ liệu', accept: { 'application/json': ['.json'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'text/csv': ['.csv'] } }] });
+                watchHandle = h;
+                await idbSet('watch', h);
+                await checkWatch(true);
+                startWatchPoll();
+                closeStore();
+            } catch (e) { if (e.name !== 'AbortError') alert('Không chọn được file: ' + e.message); }
+        }
+        function startWatchPoll() { clearInterval(watchTimer); watchTimer = setInterval(() => checkWatch(false), WATCH_POLL); }
+        async function checkWatch(manual) {
+            if (!watchHandle) return;
+            try {
+                if (watchHandle.queryPermission) {
+                    const p = await watchHandle.queryPermission();
+                    if (p !== 'granted') { const rp = await watchHandle.requestPermission(); if (rp !== 'granted') return; }
+                }
+                const file = await watchHandle.getFile();
+                const sig = file.name + '|' + file.size + '|' + file.lastModified;
+                if (sig === watchSig && !manual) return; // chưa đổi -> bỏ qua
+                const changed = sig !== watchSig;
+                watchSig = sig;
+                const isJson = /\.json$/i.test(file.name);
+                const docs = isJson ? parseJSONData(await file.text()) : parseWorkbookData(await file.arrayBuffer());
+                if (!docs.length) { if (manual) alert('File nguồn không có dòng hợp lệ.'); return; }
+                replaceAllData(docs);
+                if (manual || changed) toast('📡 ' + (changed ? 'File nguồn đã đổi — cập nhật ' + docs.length + ' văn bản' : 'Đã kiểm tra, dữ liệu mới nhất'));
+            } catch (e) { if (manual) alert('Lỗi theo dõi file: ' + e.message); }
+        }
+        async function stopWatch() {
+            watchHandle = null; watchSig = null;
+            await idbSet('watch', null);
+            clearInterval(watchTimer);
+            toast('📡 Đã dừng theo dõi file nguồn', true);
+        }
+
+        /* ---- TRUNG TÂM LƯU TRỮ: mở/đóng ---- */
+        function openStore() { storeUI(); document.getElementById('store-modal').classList.add('active'); }
+        function closeStore() { document.getElementById('store-modal').classList.remove('active'); }
+
+        /* ---- KHÔI PHỤC KẾT NỐI KHI MỞ LẠI APP ---- */
+        async function restoreConnections() {
+            try {
+                const h = await idbGet('dir');
+                if (h) {
+                    dirHandle = h;
+                    const p = await h.queryPermission({ mode: 'readwrite' });
+                    if (p === 'granted') { await loadFromDisk(); storeUI(); }
+                    else {
+                        // Giữ handle, chờ 1 click cấp lại quyền (quy định trình duyệt)
+                        const btn = document.getElementById('fsBtn');
+                        if (btn) { btn.innerHTML = '⚠️ Nhấn để kích hoạt lại tự lưu'; btn.onclick = connectFolder; }
+                        const chip = document.getElementById('fs-chip');
+                        if (chip) { chip.classList.add('on'); chip.innerHTML = '⚠️ Chờ cấp quyền lưu'; }
+                    }
+                }
+            } catch (e) { }
+            try {
+                const w = await idbGet('watch');
+                if (w) {
+                    watchHandle = w;
+                    const p = await w.queryPermission();
+                    if (p === 'granted') { await checkWatch(false); startWatchPoll(); }
+                }
+            } catch (e) { }
+            try {
+                const u = await idbGet('gsUrl');
+                if (u) {
+                    gsUrl = u;
+                    document.getElementById('gs-disc').style.display = 'inline-flex';
+                    await syncSheet(false);
+                    startGsPoll();
+                }
+            } catch (e) { }
+        }
+
+        /* ---- NẠP DỮ LIỆU BAN ĐẦU: localStorage > seed ---- */
+        if (!loadLocal()) { LEGAL_DOCS_2026 = SEED_DOCS.map(d => normDoc({ ...d })); syncUid(); }
+
+        /* ─────────────────────────────────────────────────────────────
+           2. MODULE NAVIGATION & UI CONTROLS
+           ───────────────────────────────────────────────────────────── */
+        function switchModule(moduleId, navEl) {
+            // Hide all pages
+            document.querySelectorAll('.module-page').forEach(el => el.classList.remove('active'));
+            document.getElementById(moduleId).classList.add('active');
+
+            // Update sidebar active state
+            if (navEl) {
+                document.querySelectorAll('aside .nav-item').forEach(el => el.classList.remove('active'));
+                navEl.classList.add('active');
+            }
+
+            // If switching to specific modules, trigger render
+            if (moduleId === 'module-dashboard') renderDashboard();
+            if (moduleId === 'module-library') renderLibrary();
+            if (moduleId === 'module-compare') renderComparison();
+            if (moduleId === 'module-lifecycle') renderLifecycle(1);
+        }
+
+        function filterByDomain(domainName) {
+            switchModule('module-library');
+            document.getElementById('lib-filter-domain').value = domainName;
+            document.getElementById('lib-search').value = '';
+            renderLibrary();
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           3. DASHBOARD RENDERER
+           ───────────────────────────────────────────────────────────── */
+        function renderDashboard() {
+            // Render Recent 6 documents
+            const tbody = document.getElementById('dashboard-tbody');
+            tbody.innerHTML = '';
+            
+            const recentDocs = LEGAL_DOCS_2026.slice(0, 7);
+            let dashHtml = '';
+            recentDocs.forEach(doc => {
+                const st = statusOf(doc);
+                dashHtml += `
+                    <tr>
+                        <td class="doc-num">${esc(doc.number)}</td>
+                        <td>
+                            <div class="doc-title">${esc(doc.title)}</div>
+                            <div class="doc-meta"><span>🏢 ${esc(doc.issuer)}</span></div>
+                        </td>
+                        <td><span class="badge ${typeBadge(doc.type)}">${esc(doc.type)}</span></td>
+                        <td><span style="font-weight: 500; color: var(--cyan-accent);">${esc(doc.domain)}</span></td>
+                        <td style="font-size: 13px;">${esc(doc.effective)}</td>
+                        <td><span class="badge ${ST_BADGE[st]}">${ST_ICON[st]} ${ST_LABEL[st]}</span></td>
+                        <td>
+                            <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="openDocDrawer(${doc.id})">🔍 Xem</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = dashHtml;
+
+            // Render Domain Distribution Chart Bars
+            const domainCounts = {};
+            LEGAL_DOCS_2026.forEach(d => {
+                domainCounts[d.domain] = (domainCounts[d.domain] || 0) + 1;
+            });
+
+            const chartContainer = document.getElementById('domain-chart-container');
+            chartContainer.innerHTML = '';
+            
+            const colors = ['var(--gold-primary)', 'var(--emerald-accent)', 'var(--cyan-accent)', 'var(--rose-accent)', 'var(--purple-accent)', 'hsl(210, 80%, 60%)'];
+            let idx = 0;
+            const total = LEGAL_DOCS_2026.length;
+
+            for (const [dom, count] of Object.entries(domainCounts)) {
+                const pct = Math.round((count / total) * 100);
+                const color = colors[idx % colors.length];
+                chartContainer.innerHTML += `
+                    <div class="domain-bar-row">
+                        <div class="domain-label" style="color: ${color};">${dom}</div>
+                        <div class="domain-progress">
+                            <div class="domain-fill" style="width: ${pct}%; background: ${color};"></div>
+                        </div>
+                        <div class="domain-count">${count} VB (${pct}%)</div>
+                    </div>
+                `;
+                idx++;
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           4. LIBRARY & SEARCH ENGINE
+           ───────────────────────────────────────────────────────────── */
+        function renderLibrary() {
+            const query = document.getElementById('lib-search').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('lib-filter-type').value;
+            const domainFilter = document.getElementById('lib-filter-domain').value;
+            const statusFilter = document.getElementById('lib-filter-status').value;
+
+            // Tìm kiếm KHÔNG DẤU trên số hiệu, tên, tóm tắt, lĩnh vực, cơ quan, VB thay thế
+            const nq = noAccent(query);
+            const filtered = LEGAL_DOCS_2026.filter(doc => {
+                const matchQuery = !nq ||
+                    noAccent(doc.number + ' ' + doc.title + ' ' + doc.summary + ' ' + doc.domain + ' ' + doc.issuer + ' ' + doc.replace).includes(nq);
+
+                const matchType = !typeFilter || doc.type === typeFilter;
+                const matchDomain = !domainFilter || doc.domain === domainFilter;
+                const matchStatus = !statusFilter || statusOf(doc) === statusFilter;
+
+                return matchQuery && matchType && matchDomain && matchStatus;
+            });
+
+            document.getElementById('lib-result-count').innerText = filtered.length;
+            const tbody = document.getElementById('library-tbody');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">🔎 Không tìm thấy văn bản pháp luật nào phù hợp với điều kiện tra cứu.</td></tr>`;
+                return;
+            }
+
+            let libHtml = '';
+            filtered.forEach(doc => {
+                const st = statusOf(doc);
+                let links = '';
+                if (doc.pdf && /^https?:/i.test(doc.pdf)) links += ` <a href="${esc(doc.pdf)}" target="_blank" style="color: var(--rose-accent); font-size: 11px; font-weight: 700; text-decoration: none;">[PDF]</a>`;
+                if (doc.docx && /^https?:/i.test(doc.docx)) links += ` <a href="${esc(doc.docx)}" target="_blank" style="color: var(--cyan-accent); font-size: 11px; font-weight: 700; text-decoration: none;">[DOCX]</a>`;
+                libHtml += `
+                    <tr class="${doc._new ? 'new-row' : ''}">
+                        <td class="doc-num">${hlText(doc.number, query)}<div style="margin-top: 4px;"><span class="badge ${typeBadge(doc.type)}" style="font-size: 10px;">${esc(doc.type)}</span>${doc._gs ? ' <span class="badge badge-future" style="font-size: 10px;" title="Đồng bộ từ Google Sheet">GS</span>' : ''}</div></td>
+                        <td>
+                            <div class="doc-title">${hlText(doc.title, query)}${links}</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.5;">${hlText(String(doc.summary).substring(0, 140), query)}${doc.summary.length > 140 ? '...' : ''}</div>
+                        </td>
+                        <td><span style="font-weight: 500; color: var(--cyan-accent); font-size: 13px;">${hlText(doc.domain, query)}</span></td>
+                        <td style="font-size: 13px;">${esc(doc.issuer)}</td>
+                        <td style="font-size: 13px; font-weight: 600; color: var(--emerald-accent);">${esc(doc.effective)}<div style="margin-top: 4px;"><span class="badge ${ST_BADGE[st]}" style="font-size: 10px;">${ST_ICON[st]} ${ST_LABEL[st]}</span></div>${doc.expired ? `<div style="font-size: 11px; color: var(--rose-accent); margin-top: 2px;">Hết: ${esc(doc.expired)}</div>` : ''}</td>
+                        <td style="font-size: 12px; color: var(--gold-light);">${esc(doc.replace)}</td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <button class="btn btn-gold" style="padding: 6px 12px; font-size: 12px;" onclick="openDocDrawer(${doc.id})">📖 Chi tiết</button>
+                                <div style="display: flex; gap: 6px;">
+                                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 12px;" title="Sửa văn bản" onclick="editDoc(${doc.id})">✏️</button>
+                                    <button class="ibtn-del" title="Xóa văn bản" onclick="deleteDoc(${doc.id})">🗑️</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = libHtml;
+        }
+
+        function resetFilters() {
+            document.getElementById('lib-search').value = '';
+            document.getElementById('lib-filter-type').value = '';
+            document.getElementById('lib-filter-domain').value = '';
+            document.getElementById('lib-filter-status').value = '';
+            renderLibrary();
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           5. DRAWER FOR DETAILS & PDF LINKING
+           ───────────────────────────────────────────────────────────── */
+        function openDocDrawer(id) {
+            const doc = LEGAL_DOCS_2026.find(d => d.id === id);
+            if (!doc) return;
+
+            document.getElementById('drawer-badge').innerText = doc.type;
+            document.getElementById('drawer-num').innerText = doc.number;
+            document.getElementById('drawer-title').innerText = doc.title;
+            document.getElementById('drawer-domain').innerText = doc.domain + ' — ' + doc.issuer;
+            document.getElementById('drawer-dates').innerText = 'Ban hành: ' + doc.date + '  |  Hiệu lực: ' + doc.effective + (doc.expired ? '  |  Hết HL: ' + doc.expired : '');
+            const st = statusOf(doc);
+            document.getElementById('drawer-replace').innerText = ST_ICON[st] + ' ' + ST_LABEL[st] + (doc.replace ? ' — ' + doc.replace : '');
+            document.getElementById('drawer-summary').innerText = doc.summary;
+            document.getElementById('drawer-filepath').innerText = doc.filepath || doc.pdf || '(chưa có file gốc)';
+
+            const pdfBtn = document.getElementById('drawer-pdf-btn');
+            if (doc.pdf && /^https?:/i.test(doc.pdf)) {
+                pdfBtn.innerText = '📑 Mở PDF trực tuyến';
+                pdfBtn.onclick = () => window.open(doc.pdf, '_blank');
+            } else {
+                pdfBtn.innerText = '📑 Xem toàn văn PDF';
+                pdfBtn.onclick = () => alert('File PDF gốc được lưu trữ tại workspace: ' + (doc.filepath || '(chưa khai báo)') + '\nBạn có thể mở trực tiếp trong Explorer / Google Drive.');
+            }
+
+            document.getElementById('doc-drawer').classList.add('active');
+        }
+
+        function closeDrawer() {
+            document.getElementById('doc-drawer').classList.remove('active');
+        }
+
+        function askAiAboutCurrentDoc() {
+            const num = document.getElementById('drawer-num').innerText;
+            const title = document.getElementById('drawer-title').innerText;
+            closeDrawer();
+            switchModule('module-rag');
+            fillPrompt(`Hãy phân tích chi tiết ý nghĩa pháp lý và các tác động thực tiễn của văn bản ${num}: "${title}" đối với nhà thầu và chủ đầu tư trong năm 2026?`);
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           6. REGULATORY COMPARISON ENGINE
+           ───────────────────────────────────────────────────────────── */
+        const COMPARISON_DATA = {
+            nd206: {
+                title: "⚖️ Đối chiếu Nghị định Quản lý Chi phí: NĐ 206/2026/NĐ-CP vs NĐ 10/2021/NĐ-CP",
+                summary: "Nghị định 206/2026/NĐ-CP mang tính cách mạng trong phân bổ rủi ro chi phí, thay đổi cơ chế định mức động và chuẩn hóa định mức chi phí quản lý dự án theo thông lệ quốc tế.",
+                oldName: "Nghị định 10/2021/NĐ-CP (Quy định cũ)",
+                newName: "Nghị định 206/2026/NĐ-CP (Quy định mới từ 01/07/2026)",
+                items: [
+                    {
+                        topic: "1. Phương pháp lập Tổng mức đầu tư (TMĐT)",
+                        oldText: "Tách biệt cứng nhắc 7 khoản mục chi phí; chi phí dự phòng khối lượng phát sinh và trượt giá tính theo công thức tĩnh thiếu linh hoạt.",
+                        newText: "Bổ sung phương pháp lập dự toán dựa trên dữ liệu mô hình thông tin công trình BIM 5D; Chi phí dự phòng được linh hoạt điều chỉnh theo chỉ số giá xây dựng động do BXD và địa phương công bố theo tháng."
+                    },
+                    {
+                        topic: "2. Quản lý Định mức xây dựng",
+                        oldText: "Định mức thường bị lạc hậu so với công nghệ thi công hiện đại; quy trình xin thỏa thuận định mức mới phức tạp, kéo dài 6-12 tháng.",
+                        newText: "Quy định cơ chế tự động điều chỉnh định mức theo thực tế thi công; Giao quyền chủ động cho Chủ đầu tư được quyết định định mức cho công tác mới và chỉ báo cáo cơ quan quản lý sau khi nghiệm thu."
+                    },
+                    {
+                        topic: "3. Chi phí Quản lý dự án & Tư vấn",
+                        oldText: "Tính theo định mức tỷ lệ (%) ban hành kèm Thông tư số 12/2021/TT-BXD, mức phí thường thấp hơn chi phí thực tế cho các dự án phức tạp.",
+                        newText: "Áp dụng bảng định mức mới theo Quyết định số 1078/2026/QĐ-BXD (tăng trung bình 15-20% cho dự án hạ tầng kỹ thuật và công nghiệp cao); Cho phép thuê tư vấn nước ngoài theo đơn giá chuyên gia quốc tế."
+                    },
+                    {
+                        topic: "4. Giải quyết Biến động giá vật liệu",
+                        oldText: "Khi giá vật liệu biến động bất thường, việc bù giá phải chờ hướng dẫn riêng của UBND tỉnh hoặc Thủ tướng Chính phủ gây ách tắc thi công.",
+                        newText: "Quy định rõ trong Nghị định: Trường hợp chỉ số giá vật liệu biến động trên 15%, Chủ đầu tư được quyền tự chủ thẩm định và phê duyệt điều chỉnh giá hợp đồng trên cơ sở xác nhận của Sở Xây dựng."
+                    }
+                ]
+            },
+            nd207: {
+                title: "🏗️ Đối chiếu Quản lý Chất lượng & Thi công: NĐ 207/2026/NĐ-CP vs NĐ 06/2021/NĐ-CP",
+                summary: "Nghị định 207/2026/NĐ-CP tập trung số hóa quy trình quản lý chất lượng thi công, nâng cao tiêu chuẩn nghiệm thu và minh bạch hóa trách nhiệm bảo trì công trình.",
+                oldName: "Nghị định 06/2021/NĐ-CP (Quy định cũ)",
+                newName: "Nghị định 207/2026/NĐ-CP (Quy định mới từ 01/07/2026)",
+                items: [
+                    {
+                        topic: "1. Nhật ký thi công & Hồ sơ nghiệm thu",
+                        oldText: "Chấp nhận chủ yếu hình thức nhật ký bằng giấy, ký tay trực tiếp trên công trường; khó kiểm soát lùi ngày ký nghiệm thu.",
+                        newText: "Chính thức công nhận và khuyến khích áp dụng Nhật ký thi công điện tử, chữ ký số và hệ thống Môi trường dữ liệu chung (CDE); hồ sơ nghiệm thu được lưu trữ Cloud không thể làm giả thời gian."
+                    },
+                    {
+                        topic: "2. Trách nhiệm của Tư vấn giám sát (TVGS)",
+                        oldText: "Quy định chung chung, khi xảy ra sự cố chất lượng thường chỉ quy trách nhiệm cho Nhà thầu thi công.",
+                        newText: "Quy định TVGS phải chịu trách nhiệm liên đới bồi thường thiệt hại vật chất nếu ký nghiệm thu khống khối lượng hoặc bỏ qua lỗi vi phạm quy chuẩn kỹ thuật (QCVN)."
+                    },
+                    {
+                        topic: "3. Kiểm tra công tác nghiệm thu đưa vào sử dụng",
+                        oldText: "Cơ quan nhà nước phải kiểm tra hiện trường tất cả các công trình Cấp I, Cấp II, Cấp đặc biệt gây quá tải hồ sơ.",
+                        newText: "Phân cấp mạnh: Cơ quan nhà nước chỉ kiểm tra các công trình có ảnh hưởng lớn đến an toàn cộng đồng; Các công trình còn lại được chấp nhận kết quả thẩm tra của Tổ chức kiểm định độc lập."
+                    }
+                ]
+            },
+            nd210: {
+                title: "📝 Đối chiếu Hợp đồng Xây dựng: NĐ 210/2026/NĐ-CP vs NĐ 37/2015/NĐ-CP",
+                summary: "Nghị định 210/2026/NĐ-CP chuẩn hóa hợp đồng xây dựng Việt Nam tiệm cận mẫu hợp đồng quốc tế FIDIC 2017, tháo gỡ điểm nghẽn về hợp đồng trọn gói.",
+                oldName: "Nghị định 37/2015/NĐ-CP (Quy định cũ)",
+                newName: "Nghị định 210/2026/NĐ-CP & QĐ 1040/2026 (Quy định mới)",
+                items: [
+                    {
+                        topic: "1. Hợp đồng Trọn gói (Lump-sum)",
+                        oldText: "Nguyên tắc bất di bất dịch 'không điều chỉnh giá', kể cả khi thị trường xảy ra bão giá vật liệu khiến nhà thầu thua lỗ nặng, đình công.",
+                        newText: "Bổ sung điều khoản: Hợp đồng trọn gói được phép điều chỉnh giá khi xảy ra sự kiện bất khả kháng hoặc hoàn cảnh thay đổi cơ bản theo Bộ luật Dân sự (khi trượt giá vượt >15%)."
+                    },
+                    {
+                        topic: "2. Giải quyết Tranh chấp Hợp đồng",
+                        oldText: "Chủ yếu ra Tòa án hoặc Trọng tài, thủ tục kiện tụng kéo dài nhiều năm khiến công trình bị bỏ hoang.",
+                        newText: "Chính thức thiết lập chế định Ban Xử lý Tranh chấp Hợp đồng (DAB/DAAB) trên công trường; Phán quyết của DAB có hiệu lực thực thi tạm thời ngay lập tức để giữ tiến độ dự án."
+                    },
+                    {
+                        topic: "3. Bảo lãnh & Tạm ứng Hợp đồng",
+                        oldText: "Mức tạm ứng quy định cứng từ 10% - 50%, bảo lãnh thực hiện hợp đồng từ 2% - 10%.",
+                        newText: "Quy định chi tiết cơ chế giảm dần giá trị bảo lãnh tạm ứng theo tỷ lệ khối lượng nghiệm thu hoàn thành từng đợt, giúp nhà thầu giải tỏa vốn lưu động."
+                    }
+                ]
+            },
+            nd217: {
+                title: "📈 Đối chiếu Quản lý Dự án Đầu tư: NĐ 217/2026/NĐ-CP vs NĐ 15/2021/NĐ-CP",
+                summary: "Nghị định 217/2026/NĐ-CP phân định rõ ranh giới trách nhiệm thẩm định của cơ quan nhà nước và chủ đầu tư, tối ưu thủ tục hành chính.",
+                oldName: "Nghị định 15/2021/NĐ-CP (Quy định cũ)",
+                newName: "Nghị định 217/2026/NĐ-CP & NĐ 14/2026 (Quy định mới)",
+                items: [
+                    {
+                        topic: "1. Thẩm định Báo cáo nghiên cứu khả thi (FS)",
+                        oldText: "Cơ quan chuyên môn về xây dựng thẩm định cả về kỹ thuật lẫn chi tiết chi phí dự toán, vừa trùng lặp vừa chậm trễ.",
+                        newText: "Cơ quan nhà nước chỉ tập trung thẩm định về tuân thủ quy hoạch, an toàn kết cấu và sự phù hợp quy chuẩn; Việc thẩm định dự toán chi tiết giao quyền tự chịu trách nhiệm cho Chủ đầu tư."
+                    },
+                    {
+                        topic: "2. Mô hình Ban Quản lý Dự án (BQLDA)",
+                        oldText: "Khó khăn trong việc thuê chuyên gia tư vấn hoặc chuyển đổi mô hình BQLDA chuyên ngành.",
+                        newText: "Mở rộng mô hình BQLDA khu vực; Cho phép Chủ đầu tư được thuê Tư vấn Quản lý dự án (PMC) toàn diện theo chuẩn quốc tế cho các công trình vốn hỗn hợp."
+                    }
+                ]
+            },
+            luat135: {
+                title: "📘 Đối chiếu Luật Xây dựng: Luật số 135/2025/QH15 vs Luật XD 2014/2020",
+                summary: "Luật số 135/2025/QH15 là đạo luật khung mới nhất, triệt để thực hiện chủ trương phân cấp, phân quyền và chuyển đổi số ngành Xây dựng.",
+                oldName: "Luật Xây dựng 2014 / Sửa đổi 2020",
+                newName: "Luật Xây dựng số 135/2025/QH15 (Hiệu lực 01/01/2026)",
+                items: [
+                    {
+                        topic: "1. Phân cấp quản lý nhà nước",
+                        oldText: "Bộ Xây dựng và các Bộ quản lý công trình chuyên ngành ôm đồm quá nhiều thủ tục thẩm định công trình Cấp I.",
+                        newText: "Phân cấp gần như toàn bộ thẩm quyền thẩm định, cấp phép xây dựng công trình Cấp I về cho UBND cấp tỉnh và Sở Xây dựng địa phương quản lý."
+                    },
+                    {
+                        topic: "2. Chuyển đổi số & Mô hình BIM",
+                        oldText: "Chỉ khuyến khích áp dụng BIM trong thiết kế và thi công.",
+                        newText: "Luật hóa bắt buộc: Từ năm 2026, toàn bộ công trình đầu tư công Cấp I, Cấp đặc biệt phải nộp hồ sơ thiết kế và nghiệm thu bằng mô hình thông tin công trình BIM."
+                    }
+                ]
+            }
+        };
+
+        function renderComparison() {
+            const key = document.getElementById('compare-select').value;
+            const data = COMPARISON_DATA[key];
+            if (!data) return;
+
+            document.getElementById('compare-title').innerText = data.title;
+            document.getElementById('compare-summary').innerText = data.summary;
+
+            const container = document.getElementById('compare-grid-content');
+            
+            let oldHtml = `<div class="compare-col old"><div class="compare-header"><span>📕 ${data.oldName}</span></div>`;
+            let newHtml = `<div class="compare-col new"><div class="compare-header"><span>📗 ${data.newName}</span></div>`;
+
+            data.items.forEach(item => {
+                oldHtml += `
+                    <div class="compare-item">
+                        <div class="compare-topic">${item.topic}</div>
+                        <div class="compare-text">${item.oldText}</div>
+                    </div>
+                `;
+                newHtml += `
+                    <div class="compare-item">
+                        <div class="compare-topic">${item.topic}</div>
+                        <div class="compare-text" style="color: var(--emerald-accent); font-weight: 500;">✔ ${item.newText}</div>
+                    </div>
+                `;
+            });
+
+            oldHtml += `</div>`;
+            newHtml += `</div>`;
+
+            container.innerHTML = oldHtml + newHtml;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           7. LIFECYCLE INTERACTIVE MAP RENDERER
+           ───────────────────────────────────────────────────────────── */
+        const LIFECYCLE_DATA = {
+            1: {
+                title: "Giai đoạn 1: Chuẩn bị Đầu tư & Thẩm định Báo cáo FS",
+                desc: "Giai đoạn lập Báo cáo nghiên cứu tiền khả thi, Khả thi (FS), thiết kế cơ sở và xin chấp thuận chủ trương đầu tư, quy hoạch.",
+                docs: [
+                    { num: "Luật số 135/2025/QH15", name: "Luật Xây dựng mới 2026 - Phân cấp thẩm định FS cho địa phương", role: "Luật khung quyết định chủ trương" },
+                    { num: "Nghị định 217/2026/NĐ-CP", name: "Quản lý dự án đầu tư xây dựng - Chi tiết trình tự thẩm định thiết kế cơ sở", role: "Nghị định chi phối trực tiếp" },
+                    { num: "Nghị định 14/2026/NĐ-CP", name: "Đơn giản hóa TTHC - Liên thông đất đai, quy hoạch và xây dựng", role: "Rút ngắn thủ tục 40%" },
+                    { num: "Thông tư 34/2026/TT-BXD", name: "Phân cấp công trình xây dựng - Xác định thẩm quyền cơ quan thẩm định", role: "Quy chuẩn cấp công trình" }
+                ]
+            },
+            2: {
+                title: "Giai đoạn 2: Thực hiện Dự án (Thiết kế BVTC, Dự toán, Đấu thầu, Hợp đồng)",
+                desc: "Triển khai thiết kế kỹ thuật, bản vẽ thi công, lập dự toán chi tiết, tổ chức lựa chọn nhà thầu và ký kết hợp đồng thi công/tư vấn.",
+                docs: [
+                    { num: "Nghị định 206/2026/NĐ-CP", name: "Quản lý chi phí đầu tư xây dựng - Phương pháp lập và thẩm tra dự toán", role: "Kim chỉ nam quản lý dự toán" },
+                    { num: "Nghị định 210/2026/NĐ-CP", name: "Hợp đồng xây dựng - Cơ chế đàm phán, bảo lãnh và điều khoản trọn gói", role: "Pháp lý cốt lõi hợp đồng" },
+                    { num: "Quyết định 1040/2026/QĐ-BXD", name: "5 Mẫu hợp đồng chuẩn BXD (Thi công, Tư vấn, EPC chuẩn FIDIC 2017)", role: "Mẫu hợp đồng bắt buộc áp dụng" },
+                    { num: "Thông tư 36, 37, 38/2026/TT-BXD", name: "Bộ Thông tư Phương pháp chi phí, Định mức dự toán 1.500 mã hiệu", role: "Căn cứ tính đơn giá thi công" }
+                ]
+            },
+            3: {
+                title: "Giai đoạn 3: Thi công Xây dựng & Quản lý Chất lượng trên Công trường",
+                desc: "Quá trình thực hiện thi công thực tế, giám sát chất lượng, quản lý vật liệu đầu vào, an toàn lao động và nhật ký công trình.",
+                docs: [
+                    { num: "Nghị định 207/2026/NĐ-CP", name: "Quản lý chất lượng, thi công - Bắt buộc nhật ký điện tử và BIM", role: "Quản lý chất lượng hiện trường" },
+                    { num: "Nghị định 209/2026/NĐ-CP", name: "Quản lý vật liệu xây dựng - Chứng nhận hợp quy QCVN 16:2026", role: "Kiểm soát vật liệu đầu vào" },
+                    { num: "Nghị định 212/2026/NĐ-CP", name: "Điều kiện năng lực - Kiểm tra chứng chỉ hành nghề chỉ huy trưởng, giám sát", role: "Điều kiện nhân sự thi công" },
+                    { num: "Thông tư 32, 41, 42/2026/TT-BXD", name: "Hướng dẫn nghiệm thu kỹ thuật, kiểm định an toàn thiết bị cần trục", role: "Biểu mẫu và kiểm định an toàn" }
+                ]
+            },
+            4: {
+                title: "Giai đoạn 4: Nghiệm thu hoàn thành, Bàn giao & Thanh quyết toán",
+                desc: "Tổ chức kiểm tra công tác nghiệm thu đưa vào sử dụng, thanh toán khối lượng hoàn thành, lập hồ sơ hoàn công và quyết toán vốn đầu tư.",
+                docs: [
+                    { num: "Nghị định 193/2026/NĐ-CP", name: "Quản lý, quyết toán vốn đầu tư công - Quyết toán điện tử 100% kho bạc", role: "Quyết toán vốn dự án" },
+                    { num: "Nghị định 254/2025/NĐ-CP", name: "Thanh toán vốn đầu tư - Quy trình giải ngân trong 3 ngày làm việc", role: "Thanh toán khối lượng" },
+                    { num: "Thông tư 73/2026/TT-BTC", name: "Biểu mẫu báo cáo quyết toán dự án hoàn thành mới của Bộ Tài chính", role: "Biểu mẫu quyết toán chuẩn" },
+                    { num: "Quyết định 1041/2026/QĐ-BXD", name: "Hướng dẫn đo bóc khối lượng quyết toán trực tiếp từ mô hình BIM 5D", role: "Đo bóc khối lượng quyết toán" }
+                ]
+            },
+            5: {
+                title: "Giai đoạn 5: Bảo hành, Bảo trì & Đánh giá An toàn công trình khai thác",
+                desc: "Thực hiện trách nhiệm bảo hành công trình, lập kế hoạch bảo trì định kỳ 5-10 năm và đánh giá khả năng chịu lực công trình trong quá trình sử dụng.",
+                docs: [
+                    { num: "Nghị định 207/2026/NĐ-CP", name: "Chương V: Quy định về bảo trì công trình xây dựng và trách nhiệm chủ sở hữu", role: "Pháp lý bảo trì công trình" },
+                    { num: "Thông tư 33/2026/TT-BXD", name: "Quy trình đánh giá an toàn công trình xây dựng trong khai thác sử dụng", role: "Kiểm định định kỳ chung cư/công cộng" },
+                    { num: "Thông tư 40/2026/TT-BXD", name: "Hướng dẫn quản lý và định mức chi phí bảo trì công trình xây dựng", role: "Dự toán chi phí bảo trì" }
+                ]
+            }
+        };
+
+        function selectStage(stageNum, el) {
+            document.querySelectorAll('#lifecycle-stages-bar .stage-box').forEach(b => b.classList.remove('active'));
+            if (el) el.classList.add('active');
+            renderLifecycle(stageNum);
+        }
+
+        function renderLifecycle(stageNum) {
+            const data = LIFECYCLE_DATA[stageNum];
+            if (!data) return;
+
+            const card = document.getElementById('stage-detail-card');
+            let html = `
+                <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 1px;">Giai đoạn trọng tâm ${stageNum}/5</div>
+                    <h2 style="font-family: 'Outfit', sans-serif; font-size: 22px; color: #fff; margin: 6px 0;">${data.title}</h2>
+                    <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6;">${data.desc}</p>
+                </div>
+                <div style="font-weight: 600; font-size: 14px; color: var(--gold-light); margin-bottom: 14px;">📚 Các Văn bản Pháp luật Xây dựng 2026 chi phối trực tiếp giai đoạn này:</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px;">
+            `;
+
+            data.docs.forEach(d => {
+                html += `
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; display: flex; flex-direction: column; justify-content: space-between; transition: var(--transition);" onmouseover="this.style.borderColor='var(--gold-primary)'" onmouseout="this.style.borderColor='var(--border-color)'">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span class="doc-num" style="font-size: 14px;">${d.num}</span>
+                                <span class="badge badge-nd">${d.role}</span>
+                            </div>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--text-main); line-height: 1.4;">${d.name}</div>
+                        </div>
+                        <div style="margin-top: 14px; text-align: right;">
+                            <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="switchModule('module-library'); document.getElementById('lib-search').value='${d.num.split('/')[0]}'; renderLibrary();">🔍 Tra cứu trong Kho</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            card.innerHTML = html;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           8. AI GEMINI RAG CHAT ASSISTANT
+           ───────────────────────────────────────────────────────────── */
+        function openApiModal() {
+            const key = localStorage.getItem('gemini_api_key_2026') || '';
+            document.getElementById('gemini-key-input').value = key;
+            document.getElementById('api-modal').classList.add('active');
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('gemini-key-input').value.trim();
+            if (key) {
+                localStorage.setItem('gemini_api_key_2026', key);
+                document.getElementById('api-status-indicator').innerHTML = `🟢 <b>Đã kết nối Google Gemini API</b> (Sẵn sàng suy luận RAG)`;
+                document.getElementById('api-status-indicator').style.color = 'var(--emerald-accent)';
+                alert('💾 Đã lưu cấu hình API Key thành công!');
+            } else {
+                localStorage.removeItem('gemini_api_key_2026');
+                document.getElementById('api-status-indicator').innerHTML = `🔒 Chưa nhập API Key (Đang dùng chế độ Phản hồi Chuyên gia Mô phỏng)`;
+                document.getElementById('api-status-indicator').style.color = 'var(--text-muted)';
+            }
+            document.getElementById('api-modal').classList.remove('active');
+        }
+
+        function fillPrompt(text) {
+            document.getElementById('chat-input').value = text;
+            document.getElementById('chat-input').focus();
+        }
+
+        async function sendChatMessage() {
+            const inputEl = document.getElementById('chat-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            const chatBox = document.getElementById('chat-messages');
+            
+            // Append user msg
+            chatBox.innerHTML += `<div class="chat-msg user">${esc(text)}</div>`;
+            inputEl.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Append loading indicator
+            const loadingId = 'loading-' + Date.now();
+            chatBox.innerHTML += `<div class="chat-msg ai" id="${loadingId}">⏳ <i>AI đang tra cứu ${LEGAL_DOCS_2026.length} văn bản xây dựng năm 2026 và suy luận...</i></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const apiKey = localStorage.getItem('gemini_api_key_2026');
+
+            if (apiKey && apiKey.startsWith('AIza')) {
+                // Real Gemini API Call
+                try {
+                    const systemContext = `Bạn là Trợ lý AI Pháp chế Xây dựng hàng đầu Việt Nam năm 2026. Bạn am hiểu sâu sắc về Luật Xây dựng số 135/2025/QH15, 9 Nghị định mới của Chính phủ ban hành tháng 6/2026 (NĐ 193, 206, 207, 209, 210, 212, 217, 220, 254) và các Thông tư Bộ Xây dựng TT 32-42, QĐ mẫu hợp đồng 1040/1041. Hãy trả lời chính xác, trích dẫn rõ số hiệu nghị định/thông tư và giải thích dễ hiểu cho kỹ sư/chủ đầu tư.`;
+                    
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{ text: systemContext + "\n\nCâu hỏi của người dùng: " + text }]
+                            }]
+                        })
+                    });
+
+                    const resJson = await response.json();
+                    const aiAnswer = resJson.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                    document.getElementById(loadingId).innerHTML = `🤖 <b>Gemini Legal RAG:</b><br><br>` + aiAnswer;
+                } catch (e) {
+                    document.getElementById(loadingId).innerHTML = `⚠️ <b>Lỗi kết nối Gemini API:</b> ${e.message}.<br>Hãy kiểm tra lại API Key trong phần Cài đặt.`;
+                }
+            } else {
+                // Expert Simulated Response based on keywords
+                setTimeout(() => {
+                    let reply = "";
+                    const t = text.toLowerCase();
+
+                    if (t.includes('206') || t.includes('chi phí') || t.includes('dự toán') || t.includes('10/2021')) {
+                        reply = `💡 <b>Phân tích pháp lý theo Nghị định 206/2026/NĐ-CP (Quản lý chi phí đầu tư xây dựng):</b><br><br>` +
+                                `<b>1. Điểm đổi mới cốt lõi:</b> NĐ 206 thay thế NĐ 10/2021, bổ sung cơ chế tự động điều chỉnh định mức xây dựng động theo chỉ số giá thị trường do Bộ Xây dựng công bố hàng tháng.<br>` +
+                                `<b>2. Về chi phí dự phòng:</b> Cho phép chủ đầu tư linh hoạt điều chỉnh dự phòng khối lượng phát sinh khi ứng dụng mô hình thông tin công trình BIM 5D theo Quyết định số 1041/2026/QĐ-BXD.<br>` +
+                                `<b>3. Chi phí Quản lý dự án & Tư vấn:</b> Áp dụng định mức tỷ lệ mới tăng trung bình 15-20% theo Quyết định 1078/2026/QĐ-BXD từ ngày 01/07/2026.<br><br>` +
+                                `📑 <i>Căn cứ pháp lý: Điều 9, Điều 14 Nghị định 206/2026/NĐ-CP & Thông tư 36/2026/TT-BXD.</i>`;
+                    } else if (t.includes('210') || t.includes('hợp đồng') || t.includes('trọn gói') || t.includes('1040') || t.includes('fidic')) {
+                        reply = `📝 <b>Tư vấn Hợp đồng Xây dựng theo Nghị định 210/2026/NĐ-CP & QĐ 1040/2026/QĐ-BXD:</b><br><br>` +
+                                `<b>1. Gỡ vướng Hợp đồng trọn gói (Lump-sum):</b> NĐ 210 cho phép điều chỉnh giá hợp đồng trọn gói trong trường hợp bất khả kháng hoặc hoàn cảnh thay đổi cơ bản khiến biến động giá vật liệu vượt quá 15% (Điều 18).<br>` +
+                                `<b>2. Mẫu Hợp đồng chuẩn FIDIC 2017:</b> Quyết định số 1040/2026/QĐ-BXD ban hành 5 mẫu hợp đồng mới, chuẩn hóa điều khoản Ban xử lý tranh chấp (DAB/DAAB) giúp xử lý nhanh vướng mắc ngay tại công trường.<br>` +
+                                `<b>3. Bảo lãnh tạm ứng:</b> Cơ chế mới cho phép giảm dần giá trị bảo lãnh tạm ứng tỷ lệ thuận với khối lượng nghiệm thu hoàn thành từng đợt.<br><br>` +
+                                `📑 <i>Căn cứ pháp lý: Nghị định 210/2026/NĐ-CP & Mẫu hợp đồng số 01/2026 (QĐ 1040).</i>`;
+                    } else if (t.includes('năng lực') || t.includes('chứng chỉ') || t.includes('212') || t.includes('hành nghề')) {
+                        reply = `🎖️ <b>Quy định Điều kiện Năng lực hoạt động xây dựng theo Nghị định 212/2026/NĐ-CP:</b><br><br>` +
+                                `<b>1. Phân cấp 100%:</b> Thẩm quyền sát hạch và cấp chứng chỉ hành nghề Hạng II, Hạng III chính thức được giao toàn bộ về Sở Xây dựng các tỉnh/thành phố.<br>` +
+                                `<b>2. Chứng chỉ mới năm 2026:</b> Bổ sung chứng chỉ hành nghề cho chuyên gia Tư vấn BIM và Tư vấn Công trình xanh (LEED/LOTUS/EDGE).<br>` +
+                                `<b>3. Cắt giảm thủ tục:</b> Cắt giảm 40% thành phần hồ sơ và thời gian cấp chứng chỉ năng lực tổ chức theo tinh thần Nghị định 14/2026/NĐ-CP.<br><br>` +
+                                `📑 <i>Căn cứ pháp lý: Điều 12, Điều 24 Nghị định 212/2026/NĐ-CP.</i>`;
+                    } else {
+                        reply = `🤖 <b>Phản hồi từ Cơ sở tri thức LexBuild 2026:</b><br><br>` +
+                                `Vấn đề bạn quan tâm được điều chỉnh trong hành lang pháp lý xây dựng mới có hiệu lực từ ngày 01/07/2026. Cụ thể:<br>` +
+                                `- Nếu liên quan đến <b>trình tự dự án & thẩm định thiết kế</b>: Vui lòng tham khảo <b>Nghị định 217/2026/NĐ-CP</b> và <b>Thông tư 49/2026/TT-BXD</b>.<br>` +
+                                `- Nếu liên quan đến <b>nghiệm thu chất lượng & nhật ký thi công điện tử BIM</b>: Vui lòng tham khảo <b>Nghị định 207/2026/NĐ-CP</b> và <b>Thông tư 32/2026/TT-BXD</b>.<br><br>` +
+                                `💡 <i>Mẹo: Để AI suy luận sâu theo tình huống cụ thể hoặc soạn thảo văn bản, hãy nhập Google Gemini API Key trong menu Cài đặt ở góc trên bên phải!</i>`;
+                    }
+
+                    document.getElementById(loadingId).innerHTML = reply;
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }, 800);
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           8B. CRUD VĂN BẢN (thêm / sửa / xóa — lưu tự động)
+           ───────────────────────────────────────────────────────────── */
+        let editDocId = null;
+        const DOC_FORM_FIELDS = { 'f-type': 'type', 'f-domain': 'domain', 'f-number': 'number', 'f-issuer': 'issuer', 'f-title': 'title', 'f-date': 'date', 'f-effective': 'effective', 'f-expired': 'expired', 'f-replace': 'replace', 'f-pdf': 'pdf', 'f-docx': 'docx', 'f-summary': 'summary', 'f-filepath': 'filepath' };
+
+        function openAddDocModal() {
+            editDocId = null;
+            Object.keys(DOC_FORM_FIELDS).forEach(id => { const el = document.getElementById(id); if (el.tagName !== 'SELECT') el.value = ''; });
+            document.getElementById('doc-modal-title').innerText = '＋ Thêm văn bản vào kho';
+            document.getElementById('doc-modal-submit').innerText = '✓ Thêm văn bản';
+            document.getElementById('doc-modal').classList.add('active');
+        }
+        function editDoc(id) {
+            const doc = LEGAL_DOCS_2026.find(d => d.id === id);
+            if (!doc) return;
+            editDocId = id;
+            Object.entries(DOC_FORM_FIELDS).forEach(([fid, key]) => { document.getElementById(fid).value = doc[key] || ''; });
+            document.getElementById('doc-modal-title').innerText = '✏️ Sửa văn bản: ' + doc.number;
+            document.getElementById('doc-modal-submit').innerText = '✓ Lưu thay đổi';
+            document.getElementById('doc-modal').classList.add('active');
+        }
+        function closeDocModal() { document.getElementById('doc-modal').classList.remove('active'); editDocId = null; }
+        function submitDocForm() {
+            const vals = {};
+            Object.entries(DOC_FORM_FIELDS).forEach(([fid, key]) => { vals[key] = document.getElementById(fid).value.trim(); });
+            if (!vals.number || !vals.title) { alert('Vui lòng nhập Số hiệu và Tên văn bản.'); return; }
+            if (editDocId) {
+                const i = LEGAL_DOCS_2026.findIndex(d => d.id === editDocId);
+                if (i > -1) LEGAL_DOCS_2026[i] = normDoc({ ...LEGAL_DOCS_2026[i], ...vals });
+                toast('✏️ Đã cập nhật ' + vals.number);
+            } else {
+                LEGAL_DOCS_2026.push(normDoc({ ...vals, id: ++_uid, _new: true }));
+                toast('＋ Đã thêm ' + vals.number + ' vào kho văn bản');
+            }
+            closeDocModal();
+            persistData(); refreshUI();
+        }
+        function deleteDoc(id) {
+            const doc = LEGAL_DOCS_2026.find(d => d.id === id);
+            if (!doc) return;
+            if (!confirm('Xóa văn bản?\n\n' + doc.number + ' — ' + doc.title + '\n\nThao tác sẽ được lưu tự động.')) return;
+            LEGAL_DOCS_2026 = LEGAL_DOCS_2026.filter(d => d.id !== id);
+            persistData(); refreshUI();
+            toast('🗑️ Đã xóa ' + doc.number);
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           9. INITIALIZE ON LOAD
+           ───────────────────────────────────────────────────────────── */
+        window.addEventListener('DOMContentLoaded', () => {
+            updateCounts();
+            rebuildDomainOptions();
+            renderDashboard();
+            renderLibrary();
+            renderComparison();
+            renderLifecycle(1);
+            storeUI();
+            restoreConnections(); // khôi phục thư mục tự lưu / Google Sheet / watch file
+
+            // Đóng modal khi bấm ra ngoài
+            ['store-modal', 'doc-modal'].forEach(id => {
+                const el = document.getElementById(id);
+                el.addEventListener('click', e => { if (e.target === el) el.classList.remove('active'); });
+            });
+
+            // Check if API key is stored
+            if (localStorage.getItem('gemini_api_key_2026')) {
+                document.getElementById('api-status-indicator').innerHTML = `🟢 <b>Đã kết nối Google Gemini API</b> (Sẵn sàng suy luận RAG)`;
+                document.getElementById('api-status-indicator').style.color = 'var(--emerald-accent)';
+            }
+        });
+    </script>
+</body>
+</html>
