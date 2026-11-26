@@ -14,6 +14,7 @@ import {
   LAW_ROADMAPS,
   INITIAL_QAQC_CONTROLS,
 } from './data/lexPmoData';
+import { createRealDataLegalBatchItems } from './data/realDataLegal2026Batch';
 import {
   AiLegalGapAnalysis,
   AnalyzedFileItem,
@@ -677,7 +678,7 @@ export function useLexPmoOrchestrator() {
   const [readerKeywordSearch, setReaderKeywordSearch] = useState('');
 
   const [droppedFilesQueue, setDroppedFilesQueue] = useState<AnalyzedFileItem[]>(() =>
-    createSampleBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO')
+    createRealDataLegalBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO')
   );
   const [renameLogs, setRenameLogs] = useState<RenameLogEntry[]>([
     {

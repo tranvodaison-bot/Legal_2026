@@ -2820,7 +2820,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 type="button"
                                 onClick={() => {
                                   setSecurePdfTarget({
-                                    fileName: currentLegalDoc.ssotFileName,
+                                    fileName: currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName,
                                     docTitle: currentLegalDoc.title,
                                     docNumber: currentLegalDoc.docNumber,
                                   });

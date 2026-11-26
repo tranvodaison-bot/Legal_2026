@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TAXONOMY_3D, LEGAL_CATEGORY_TREE } from "../../data/lexPmoData";
+import { createRealDataLegalBatchItems } from "../../data/realDataLegal2026Batch";
+import { SecurePdfViewerModal } from "../SecurePdfViewerModal";
 import {
   AnalyzedFileItem,
   ApprovalWorkflowItem,
@@ -389,6 +391,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
   // Local Progressive Disclosure UI state (Drawer/Accordion mặc định ĐÓNG)
   const [isAdvancedDrawerOpen, setIsAdvancedDrawerOpen] = useState(false);
+  const [isSecurePdfOpen, setIsSecurePdfOpen] = useState(false);
+  const [securePdfTarget, setSecurePdfTarget] = useState<{ fileName: string; docTitle?: string; docNumber?: string }>({ fileName: "" });
   const [advancedTab, setAdvancedTab] = useState<AdvancedDrawerTab>("BATCH_TOOLS");
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
@@ -1785,6 +1789,26 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     }
   };
 
+  const handleLoadRealDataLegalBatch = () => {
+    const realBatch = createRealDataLegalBatchItems(
+      activeProjectArchetype,
+      batchNamingStandard,
+      folderNamingPreset
+    );
+    setDroppedFilesQueue(realBatch);
+    const first = realBatch.find(s => s.itemKind === "FILE") || realBatch[0];
+    if (first) {
+      setActiveBatchItemId(first.id);
+      setActiveRawFile(first.rawFile);
+      setNamingForm(prev => ({
+        ...prev,
+        ...first.suggestion,
+        rawContentToParse: first.extractedText,
+      }));
+    }
+    showToast(`Đã nạp toàn bộ ${realBatch.length} hồ sơ thực tế từ kho Data_Legal_2026!`);
+  };
+
   const handleLoadSampleBatch = () => {
     const samples = createSampleBatchItems(
       activeProjectArchetype,
@@ -2010,14 +2034,24 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               </button>
             </div>
 
-            {/* Link nhỏ nạp thử dữ liệu mẫu */}
-            <button
-              type="button"
-              onClick={handleLoadSampleBatch}
-              className="mt-3.5 text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-4 cursor-pointer"
-            >
-              Nạp thử dữ liệu mẫu
-            </button>
+            {/* Lựa chọn nạp kho thực tế vs nạp mẫu demo */}
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={handleLoadRealDataLegalBatch}
+                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold border border-emerald-500/30 cursor-pointer flex items-center gap-1.5 transition shadow-sm"
+                title="Nạp toàn bộ 160 hồ sơ pháp lý thực tế từ kho Data_Legal_2026 trên Drive"
+              >
+                <span>📂 Nạp Kho Thực Tế (160 tệp)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleLoadSampleBatch}
+                className="text-slate-400 hover:text-slate-200 underline underline-offset-4 cursor-pointer text-[11px]"
+              >
+                Nạp 8 mẫu demo
+              </button>
+            </div>
           </div>
 
           {/* Thẻ Phải (30%): Nạp Dữ Liệu Thực Tế (CSV/Excel) */}
@@ -2265,12 +2299,20 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 Hãy kéo thả File/Thư mục ở phía trên, nạp file CSV thực tế hoặc{" "}
                 <button
                   type="button"
-                  onClick={handleLoadSampleBatch}
-                  className="text-emerald-400 hover:underline font-semibold cursor-pointer"
+                  onClick={handleLoadRealDataLegalBatch}
+                  className="text-emerald-400 hover:underline font-bold cursor-pointer"
                 >
-                  nạp thử dữ liệu mẫu
+                  nạp toàn bộ kho Data_Legal_2026 (160 tệp)
+                </button>{" "}
+                (hoặc{" "}
+                <button
+                  type="button"
+                  onClick={handleLoadSampleBatch}
+                  className="text-slate-400 hover:underline cursor-pointer"
+                >
+                  nạp 8 mẫu demo
                 </button>
-                .
+                ).
               </p>
             </div>
           ) : (
@@ -2726,9 +2768,28 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   {/* Trình đọc nội dung & Tìm từ khóa */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h4 className="text-xs font-bold uppercase text-emerald-400">
-                        Nội dung văn bản bóc tách ({parsedPreviewNodes.length} Chương/Điều)
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold uppercase text-emerald-400">
+                          Nội dung văn bản bóc tách ({parsedPreviewNodes.length} Chương/Điều)
+                        </h4>
+                        {activeBatchItem?.originalName.toLowerCase().endsWith(".pdf") && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSecurePdfTarget({
+                                fileName: activeBatchItem.originalName,
+                                docTitle: activeBatchItem.suggestion.rawSummary || activeBatchItem.originalName,
+                                docNumber: `${activeBatchItem.suggestion.docType} ${activeBatchItem.suggestion.rawNumber}`,
+                              });
+                              setIsSecurePdfOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                            title="Xem trực tiếp bản scan PDF gốc có dấu đỏ an toàn (Zero-Trust Proxy, không mở Drive)"
+                          >
+                            <span>🔒 Xem PDF Gốc</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={readerKeywordSearch}
@@ -3344,6 +3405,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           </aside>
         </div>
       )}
+
+      {/* MODAL XEM PDF GỐC BẢO MẬT (ZERO-TRUST PROXY) */}
+      <SecurePdfViewerModal
+        isOpen={isSecurePdfOpen}
+        onClose={() => setIsSecurePdfOpen(false)}
+        fileName={securePdfTarget.fileName}
+        docTitle={securePdfTarget.docTitle}
+        docNumber={securePdfTarget.docNumber}
+      />
     </div>
   );
 };

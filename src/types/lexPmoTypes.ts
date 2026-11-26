@@ -114,6 +114,7 @@ export interface LegalParsedStructure {
 export interface LegalDocument {
   id: string;
   ssotFileName: string;
+  rawFileName?: string;
   docNumber: string;
   docType: string;
   issuer: string;
