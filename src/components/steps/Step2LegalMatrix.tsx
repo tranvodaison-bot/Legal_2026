@@ -2236,28 +2236,14 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 <div className="font-bold text-base" style={{ color: 'var(--chu)' }}>
                                   {currentLegalDoc.title}
                                 </div>
-                                {currentLegalDoc.lineage && (
-                                  <div className="text-xs" style={{ color: 'var(--chu-m)' }}>
-                                    {currentLegalDoc.lineage}
-                                  </div>
-                                )}
                                 {loadingFullDocId === currentLegalDoc.id ? (
                                   <div className="mt-2 px-3 py-1.5 rounded bg-sky-500/15 border border-sky-500/35 text-xs font-semibold text-sky-900 dark:text-sky-200 flex items-center gap-2">
                                     <span>⏳</span>
-                                    <span>Đang nạp toàn văn nguyên bản đầy đủ từ kho SQLite...</span>
-                                  </div>
-                                ) : currentLegalDoc.fullTextSource === 'VERBATIM_SQLITE' && currentLegalDoc.fullTextMeta ? (
-                                  <div className="mt-2 px-3 py-1.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-xs font-semibold text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
-                                    <span>
-                                      ✓ Toàn văn đầy đủ nguyên bản chuẩn NĐ 30/2020 ({currentLegalDoc.fullTextMeta.totalPages} trang ·{' '}
-                                      {currentLegalDoc.articleCount || currentLegalDoc.nodes.length} Điều/Mục ·{' '}
-                                      {currentLegalDoc.fullTextMeta.totalChars.toLocaleString('vi-VN')} ký tự ·{' '}
-                                      {currentLegalDoc.fullTextMeta.sourceType})
-                                    </span>
+                                    <span>Đang nạp toàn văn nguyên bản...</span>
                                   </div>
                                 ) : currentLegalDoc.fullTextSource === 'SUMMARY_ONLY' ? (
                                   <div className="mt-2 px-3 py-1.5 rounded bg-amber-500/15 border border-amber-500/40 text-xs font-medium text-amber-950 dark:text-amber-200">
-                                    ⚠️ Văn bản tham chiếu lịch sử chưa có tệp gốc trong kho Data_Legal_2026 — đang hiển thị khung tóm lược ({currentLegalDoc.nodes.length} mục). Nạp tệp PDF/Word gốc tại Bước 1 để đọc đủ 100% toàn văn.
+                                    ⚠️ Văn bản tham chiếu lịch sử chưa có tệp gốc — đang hiển thị khung tóm lược ({currentLegalDoc.nodes.length} mục).
                                   </div>
                                 ) : null}
                               </div>
@@ -3596,9 +3582,6 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                             <div className="text-[11px] text-slate-600">
                                               <b>Trạng thái:</b> {leftDoc.status}
                                             </div>
-                                            <div className="text-[11px] text-slate-500 italic">
-                                              {leftDoc.lineage}
-                                            </div>
                                           </td>
                                           <td className="p-3 align-top space-y-1.5">
                                             <div className="font-bold text-slate-900 leading-snug">
@@ -3627,9 +3610,6 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                             </div>
                                             <div className="text-[11px] text-slate-600">
                                               <b>Trạng thái:</b> {rightDoc.status}
-                                            </div>
-                                            <div className="text-[11px] text-slate-500 italic">
-                                              {rightDoc.lineage}
                                             </div>
                                           </td>
                                         </tr>
