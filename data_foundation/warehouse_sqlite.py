@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
@@ -114,6 +115,7 @@ class VbplWarehouseSQLite:
     def _connect(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=5000;")
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA foreign_keys=ON;")
         try:
@@ -281,6 +283,33 @@ class VbplWarehouseSQLite:
                     updated_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS fact_rename_operations (
+                    op_id TEXT PRIMARY KEY,
+                    batch_id TEXT NOT NULL,
+                    doc_key TEXT,
+                    operation_mode TEXT NOT NULL,
+                    item_kind TEXT NOT NULL DEFAULT 'FILE',
+                    source_path TEXT NOT NULL,
+                    target_path TEXT NOT NULL,
+                    vault_path TEXT DEFAULT '',
+                    original_name TEXT NOT NULL,
+                    new_name TEXT NOT NULL,
+                    sha256_before TEXT NOT NULL,
+                    sha256_after TEXT NOT NULL,
+                    cde_status TEXT NOT NULL DEFAULT 'S0',
+                    qlvb_group TEXT NOT NULL DEFAULT 'SSOT_9PART',
+                    actor_name TEXT NOT NULL DEFAULT 'Single User (CĐT)',
+                    status TEXT NOT NULL DEFAULT 'COMMITTED',
+                    error_message TEXT DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    reverted_at TEXT DEFAULT ''
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_rename_ops_batch
+                    ON fact_rename_operations(batch_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_rename_ops_sha
+                    ON fact_rename_operations(sha256_before);
+
                 -- ============================================================
                 -- 3. ANALYTICAL SQL VIEWS (TẦNG 4: DATA ANALYST)
                 -- ============================================================
@@ -380,7 +409,20 @@ class VbplWarehouseSQLite:
                     r.source_ssot_name;
                 """
             )
+            self._migrate_columns(conn)
             self._seed_dimensions(conn)
+
+    def _migrate_columns(self, conn: sqlite3.Connection) -> None:
+        """Migration an toàn cho DB hiện hữu: thêm cột truy vết vật lý nếu chưa có."""
+        cols = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(fact_vbpl_documents)").fetchall()
+        }
+        for col_name in ("sub_folder", "source_path", "vault_path", "curated_path"):
+            if col_name not in cols:
+                conn.execute(
+                    f"ALTER TABLE fact_vbpl_documents ADD COLUMN {col_name} TEXT NOT NULL DEFAULT ''"
+                )
 
     def _seed_dimensions(self, conn: sqlite3.Connection) -> None:
         conn.executemany(
@@ -410,10 +452,20 @@ class VbplWarehouseSQLite:
         clauses_df: pd.DataFrame,
         relations_df: pd.DataFrame,
         run_meta: Dict[str, Any],
+        doc_key_migrations: Optional[Dict[str, str]] = None,
     ) -> Dict[str, int]:
         """Nạp toàn bộ Silver DataFrames vào Star Schema + FTS5 (Full Refresh Idempotent)."""
         with self._connect() as conn:
-            # Xóa dữ liệu Fact/Bridge cũ để nạp đồng bộ 100% từ Silver (giữ nguyên fact_personal_notes & fact_dq_runs)
+            # Bảo toàn fact_personal_notes khi doc_key cũ (sha1 tên) chuyển sang doc_key ổn định (sha256)
+            if doc_key_migrations:
+                for old_k, new_k in doc_key_migrations.items():
+                    if old_k and new_k and old_k != new_k:
+                        conn.execute(
+                            "UPDATE fact_personal_notes SET doc_key = ? WHERE doc_key = ?",
+                            (new_k, old_k),
+                        )
+
+            # Xóa dữ liệu Fact/Bridge cũ để nạp đồng bộ 100% từ Silver (giữ nguyên fact_personal_notes, fact_dq_runs, fact_rename_operations)
             conn.execute("DELETE FROM fts_vbpl_clauses;")
             conn.execute("DELETE FROM fact_vbpl_relations;")
             conn.execute("DELETE FROM bridge_doc_tags;")
@@ -449,18 +501,23 @@ class VbplWarehouseSQLite:
                 conn.execute(
                     """
                     INSERT INTO fact_vbpl_documents (
-                        doc_key, ssot_file_name, original_name, sha256, source_system, source_type,
+                        doc_key, ssot_file_name, original_name, sub_folder, source_path, vault_path, curated_path,
+                        sha256, source_system, source_type,
                         ocr_applied, total_pages, doc_type_code, issuer_code, doc_number, issue_year,
                         domain_code, title, issue_date, effective_date, effect_status, is_amended,
                         chapter_count, article_count, clause_count, has_full_structure, naming_valid,
                         dq_score, dq_completeness, dq_validity, dq_uniqueness, dq_timeliness,
                         dq_issues_json, ingested_at, processed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row["doc_key"],
                         row["ssot_file_name"],
                         row["original_name"],
+                        row.get("sub_folder") or "",
+                        row.get("source_path") or "",
+                        row.get("vault_path") or "",
+                        row.get("curated_path") or "",
                         row["sha256"],
                         row["source_system"],
                         row["source_type"],
@@ -608,41 +665,255 @@ class VbplWarehouseSQLite:
             cur = conn.execute(sql, params)
             return [dict(r) for r in cur.fetchall()]
 
-    def search_clauses_fts(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
-        """Tìm kiếm toàn văn FTS5 trên toàn bộ Điều/Khoản/Điểm."""
+    def search_clauses_fts(
+        self,
+        query: str,
+        limit: int = 30,
+        domain_code: Optional[str] = None,
+        doc_type_code: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Tìm kiếm toàn văn FTS5 trên toàn bộ Điều/Khoản/Điểm (an toàn với ký tự đặc biệt)."""
         q = (query or "").strip()
         if not q:
             return []
-        # Làm sạch ký tự đặc biệt FTS5 để tránh syntax error
-        tokens = [t for t in q.replace('"', " ").split() if t]
+        # Tách token chữ/số Unicode sạch để NĐ-CP, 135/2025/QH15, LAS-XD không gây fts5 syntax error
+        tokens = re.findall(r"[0-9A-Za-zÀ-ỹ]+", q)
+        if not tokens:
+            return []
         fts_expr = " ".join(f'"{t}"' for t in tokens)
+
+        where_parts = ["fts_vbpl_clauses MATCH ?"]
+        params: List[Any] = [fts_expr]
+        if domain_code and domain_code.strip().upper() != "ALL":
+            where_parts.append("d.domain_code = ?")
+            params.append(domain_code.strip().upper())
+        if doc_type_code and doc_type_code.strip().upper() != "ALL":
+            where_parts.append("d.doc_type_code = ?")
+            params.append(doc_type_code.strip().upper())
+        params.append(max(1, min(100, int(limit))))
+
+        sql = f"""
+            SELECT
+                f.clause_key,
+                f.doc_key,
+                f.ssot_file_name,
+                d.original_name,
+                d.sub_folder,
+                d.title AS doc_title,
+                d.doc_number,
+                d.vault_path,
+                d.curated_path,
+                f.article_number,
+                f.title,
+                snippet(fts_vbpl_clauses, 5, '【', '】', ' … ', 28) AS snippet,
+                c.node_level,
+                c.chapter_title,
+                d.doc_type_code,
+                d.issuer_code,
+                d.domain_code,
+                d.issue_year,
+                d.effect_status
+            FROM fts_vbpl_clauses f
+            JOIN fact_vbpl_clauses c ON c.clause_key = f.clause_key
+            JOIN fact_vbpl_documents d ON d.doc_key = f.doc_key
+            WHERE {' AND '.join(where_parts)}
+            ORDER BY bm25(fts_vbpl_clauses)
+            LIMIT ?
+        """
         with self._connect() as conn:
-            cur = conn.execute(
+            cur = conn.execute(sql, tuple(params))
+            return [dict(r) for r in cur.fetchall()]
+
+    def get_document_clauses(self, doc_key_or_name: str) -> Optional[Dict[str, Any]]:
+        """Lấy đầy đủ thông tin văn bản và toàn bộ Điều/Khoản từ SQLite cho 1 văn bản."""
+        key = (doc_key_or_name or "").strip()
+        if not key:
+            return None
+        with self._connect() as conn:
+            doc_row = conn.execute(
                 """
-                SELECT
-                    f.clause_key,
-                    f.doc_key,
-                    f.ssot_file_name,
-                    f.article_number,
-                    f.title,
-                    snippet(fts_vbpl_clauses, 5, '【', '】', ' … ', 28) AS snippet,
-                    c.node_level,
-                    c.chapter_title,
-                    d.doc_type_code,
-                    d.issuer_code,
-                    d.domain_code,
-                    d.issue_year,
-                    d.effect_status
-                FROM fts_vbpl_clauses f
-                JOIN fact_vbpl_clauses c ON c.clause_key = f.clause_key
-                JOIN fact_vbpl_documents d ON d.doc_key = f.doc_key
-                WHERE fts_vbpl_clauses MATCH ?
-                ORDER BY bm25(fts_vbpl_clauses)
+                SELECT * FROM fact_vbpl_documents
+                WHERE doc_key = ? OR ssot_file_name = ? OR original_name = ?
+                LIMIT 1
+                """,
+                (key, key, key),
+            ).fetchone()
+            if not doc_row:
+                return None
+            d = dict(doc_row)
+            clauses = conn.execute(
+                """
+                SELECT clause_key, order_index, node_level, chapter_title, article_number,
+                       clause_index, point_index, title, content_text, clause_count, word_count
+                FROM fact_vbpl_clauses
+                WHERE doc_key = ?
+                ORDER BY order_index ASC
+                """,
+                (d["doc_key"],),
+            ).fetchall()
+            d["clauses"] = [dict(c) for c in clauses]
+            return d
+
+    def list_hydrated_documents(
+        self,
+        include_nodes: bool = True,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        """Trả về danh sách văn bản chuẩn cấu trúc `LegalDocument` để Hydrate Frontend sau F5."""
+        with self._connect() as conn:
+            docs = conn.execute(
+                """
+                SELECT * FROM fact_vbpl_documents
+                ORDER BY ingested_at DESC, issue_year DESC, ssot_file_name ASC
                 LIMIT ?
                 """,
-                (fts_expr, max(1, min(100, int(limit)))),
-            )
-            return [dict(r) for r in cur.fetchall()]
+                (max(1, min(2000, int(limit))),),
+            ).fetchall()
+            if not docs:
+                return []
+
+            doc_keys = [r["doc_key"] for r in docs]
+            placeholders = ",".join("?" for _ in doc_keys)
+
+            gates_map: Dict[str, List[str]] = {k: [] for k in doc_keys}
+            for r in conn.execute(
+                f"SELECT doc_key, gate_code FROM bridge_doc_gate WHERE doc_key IN ({placeholders})",
+                tuple(doc_keys),
+            ):
+                gates_map[r["doc_key"]].append(r["gate_code"])
+
+            axes_map: Dict[str, List[str]] = {k: [] for k in doc_keys}
+            for r in conn.execute(
+                f"SELECT doc_key, project_axis_code FROM bridge_doc_project WHERE doc_key IN ({placeholders})",
+                tuple(doc_keys),
+            ):
+                axes_map[r["doc_key"]].append(r["project_axis_code"])
+
+            tags_map: Dict[str, List[str]] = {k: [] for k in doc_keys}
+            for r in conn.execute(
+                f"SELECT doc_key, tag_label FROM bridge_doc_tags WHERE doc_key IN ({placeholders})",
+                tuple(doc_keys),
+            ):
+                tags_map[r["doc_key"]].append(r["tag_label"])
+
+            nodes_map: Dict[str, List[Dict[str, Any]]] = {k: [] for k in doc_keys}
+            if include_nodes:
+                for r in conn.execute(
+                    f"""
+                    SELECT doc_key, clause_key, node_level, article_number, title, content_text, clause_count
+                    FROM fact_vbpl_clauses
+                    WHERE doc_key IN ({placeholders})
+                    ORDER BY order_index ASC
+                    """,
+                    tuple(doc_keys),
+                ):
+                    nodes_map[r["doc_key"]].append(
+                        {
+                            "id": r["clause_key"],
+                            "level": r["node_level"],
+                            "code": r["article_number"] or "",
+                            "title": r["title"] or "",
+                            "content": r["content_text"] or "",
+                            "clauseCount": int(r["clause_count"] or 0),
+                        }
+                    )
+
+            status_vi_map = {
+                "ACTIVE": "Còn hiệu lực",
+                "UPCOMING": "Sắp có hiệu lực",
+                "AMENDED": "Đã sửa đổi/bổ sung",
+                "EXPIRED": "Hết hiệu lực",
+            }
+            out: List[Dict[str, Any]] = []
+            for r in docs:
+                dk = r["doc_key"]
+                eff_code = r["effect_status"] or "ACTIVE"
+                out.append(
+                    {
+                        "id": dk,
+                        "docKey": dk,
+                        "ssotFileName": r["ssot_file_name"],
+                        "rawFileName": r["original_name"],
+                        "subFolder": r["sub_folder"] or "",
+                        "sourcePath": r["source_path"] or "",
+                        "vaultPath": r["vault_path"] or "",
+                        "curatedPath": r["curated_path"] or "",
+                        "sha256": r["sha256"],
+                        "sourceSystem": r["source_system"],
+                        "docType": r["doc_type_code"],
+                        "issuer": r["issuer_code"],
+                        "docNumber": r["doc_number"],
+                        "year": int(r["issue_year"]),
+                        "primaryDomain": r["domain_code"],
+                        "title": r["title"],
+                        "issueDate": r["issue_date"] or "",
+                        "effectiveDate": r["effective_date"] or "",
+                        "status": status_vi_map.get(eff_code, "Còn hiệu lực"),
+                        "effectStatusCode": eff_code,
+                        "isAmended": bool(r["is_amended"]),
+                        "projectAxes": axes_map.get(dk) or [],
+                        "linkedGates": gates_map.get(dk) or [],
+                        "tags": tags_map.get(dk) or [],
+                        "dqScore": int(r["dq_score"] or 0),
+                        "articleCount": int(r["article_count"] or 0),
+                        "clauseCount": int(r["clause_count"] or 0),
+                        "nodes": nodes_map.get(dk) or [],
+                    }
+                )
+            return out
+
+    def record_rename_operations(self, rows: List[Dict[str, Any]]) -> None:
+        if not rows:
+            return
+        with self._connect() as conn:
+            for r in rows:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO fact_rename_operations (
+                        op_id, batch_id, doc_key, operation_mode, item_kind,
+                        source_path, target_path, vault_path, original_name, new_name,
+                        sha256_before, sha256_after, cde_status, qlvb_group,
+                        actor_name, status, error_message, created_at, reverted_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        r["op_id"],
+                        r["batch_id"],
+                        r.get("doc_key") or "",
+                        r["operation_mode"],
+                        r.get("item_kind") or "FILE",
+                        r["source_path"],
+                        r["target_path"],
+                        r.get("vault_path") or "",
+                        r["original_name"],
+                        r["new_name"],
+                        r.get("sha256_before") or "",
+                        r.get("sha256_after") or "",
+                        r.get("cde_status") or "S0",
+                        r.get("qlvb_group") or "SSOT_9PART",
+                        r.get("actor_name") or "Single User (CĐT)",
+                        r.get("status") or "COMMITTED",
+                        r.get("error_message") or "",
+                        r.get("created_at") or utc_now_iso(),
+                        r.get("reverted_at") or "",
+                    ),
+                )
+
+    def list_rename_operations(self, limit: int = 100) -> List[Dict[str, Any]]:
+        return self.query_rows(
+            "SELECT * FROM fact_rename_operations ORDER BY created_at DESC, op_id DESC LIMIT ?",
+            (max(1, min(500, int(limit))),),
+        )
+
+    def mark_rename_reverted(self, op_ids: List[str], reverted_at: str) -> None:
+        if not op_ids:
+            return
+        with self._connect() as conn:
+            for oid in op_ids:
+                conn.execute(
+                    "UPDATE fact_rename_operations SET status = 'REVERTED', reverted_at = ? WHERE op_id = ?",
+                    (reverted_at, oid),
+                )
 
     def upsert_personal_note(
         self,
@@ -700,6 +971,7 @@ class VbplWarehouseSQLite:
             "fact_vbpl_relations",
             "fact_dq_runs",
             "fact_personal_notes",
+            "fact_rename_operations",
         ]
         counts: Dict[str, int] = {}
         with self._connect() as conn:

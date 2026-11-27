@@ -290,19 +290,61 @@ def extract_text_hybrid_pipeline(pdf_path: str, extract_full_tables: bool = Fals
     }
 
 
-def _read_docx_xml_fallback(file_path: str) -> str:
-    """Đọc đoạn văn bản từ file .docx chuẩn OOXML khi máy trạm chưa cài python-docx."""
-    paragraphs: List[str] = []
+def _extract_docx_full_text(file_path: str) -> Tuple[str, int]:
+    """Đọc toàn vẹn cả đoạn văn (<w:p>) và bảng biểu (<w:tbl>) theo đúng thứ tự DOM trong .docx."""
+    if DOCX_AVAILABLE:
+        doc = docx.Document(file_path)
+        w_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        blocks: List[str] = []
+        para_idx = 0
+        tbl_idx = 0
+        for child in doc.element.body:
+            tag = child.tag
+            if tag == f"{w_ns}p" and para_idx < len(doc.paragraphs):
+                txt = doc.paragraphs[para_idx].text.strip()
+                para_idx += 1
+                if txt:
+                    blocks.append(txt)
+            elif tag == f"{w_ns}tbl" and tbl_idx < len(doc.tables):
+                tbl = doc.tables[tbl_idx]
+                tbl_idx += 1
+                for row in tbl.rows:
+                    cells = [re.sub(r"\s+", " ", c.text).strip() for c in row.cells]
+                    if any(cells):
+                        blocks.append(" | ".join(cells))
+            elif tag == f"{w_ns}p":
+                para_idx += 1
+            elif tag == f"{w_ns}tbl":
+                tbl_idx += 1
+        full_text = "\n".join(blocks)
+        total_pages = max(1, len(blocks) // 30 + 1)
+        return full_text, total_pages
+
+    blocks_xml: List[str] = []
     with zipfile.ZipFile(file_path, "r") as zf:
         xml_bytes = zf.read("word/document.xml")
     root = ET.fromstring(xml_bytes)
     w_ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-    for p_el in root.iter(f"{w_ns}p"):
-        texts = [t_el.text for t_el in p_el.iter(f"{w_ns}t") if t_el.text]
-        line = "".join(texts).strip()
-        if line:
-            paragraphs.append(line)
-    return "\n".join(paragraphs)
+    body = root.find(f"{w_ns}body") or root
+    for child in body:
+        if child.tag == f"{w_ns}p":
+            texts = [t_el.text for t_el in child.iter(f"{w_ns}t") if t_el.text]
+            line = "".join(texts).strip()
+            if line:
+                blocks_xml.append(line)
+        elif child.tag == f"{w_ns}tbl":
+            for tr in child.iter(f"{w_ns}tr"):
+                row_cells: List[str] = []
+                for tc in tr.iter(f"{w_ns}tc"):
+                    cell_txt = " ".join(
+                        "".join(t.text or "" for t in p.iter(f"{w_ns}t")).strip()
+                        for p in tc.iter(f"{w_ns}p")
+                    ).strip()
+                    row_cells.append(re.sub(r"\s+", " ", cell_txt))
+                if any(row_cells):
+                    blocks_xml.append(" | ".join(row_cells))
+    full_text = "\n".join(blocks_xml)
+    return full_text, max(1, len(full_text.splitlines()) // 30 + 1)
 
 
 class LegalDocumentParser:
@@ -314,14 +356,7 @@ class LegalDocumentParser:
         ext = file_path.lower().rsplit(".", 1)[-1] if "." in file_path else ""
 
         if ext == "docx":
-            if DOCX_AVAILABLE:
-                doc = docx.Document(file_path)
-                paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-                full_text = "\n".join(paragraphs)
-                total_pages = len(doc.paragraphs) // 30 + 1
-            else:
-                full_text = _read_docx_xml_fallback(file_path)
-                total_pages = max(1, len(full_text.splitlines()) // 30 + 1)
+            full_text, total_pages = _extract_docx_full_text(file_path)
             return {
                 "source_type": "DOCX_NATIVE",
                 "ocr_applied": False,
@@ -1151,6 +1186,8 @@ def classify_3_axes_and_9_parts(
 class ScanFolderRequest(BaseModel):
     folder_path: str
     extract_tables: bool = False
+    recursive: bool = True
+    max_files: int = 300
     project_code: str = "KCN"
     gate_code: Optional[str] = None
 
@@ -1202,11 +1239,14 @@ def local_stream_pdf(
 
     candidate_roots = [
         r"G:\My Drive\02_KNOWLEDGE_LIBRARY\01_Quan_tri_Doanh_nghiep\Phap_che\Data_Legal_2026",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl", "02_silver", "curated_files"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl", "01_bronze", "raw_files"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
     ]
 
     target_path = None
+    lower_safe = safe_name.lower()
     for root in candidate_roots:
         if not os.path.exists(root):
             continue
@@ -1215,13 +1255,13 @@ def local_stream_pdf(
             target_path = p
             break
         try:
-            for item in os.listdir(root):
-                sub = os.path.join(root, item)
-                if os.path.isdir(sub):
-                    sub_p = os.path.join(sub, safe_name)
-                    if os.path.isfile(sub_p):
-                        target_path = sub_p
+            for walk_root, _, files in os.walk(root):
+                for item in files:
+                    if item.lower() == lower_safe or item.lower().endswith(f"_{lower_safe}"):
+                        target_path = os.path.join(walk_root, item)
                         break
+                if target_path:
+                    break
             if target_path:
                 break
         except Exception:
@@ -1315,15 +1355,39 @@ def scan_local_folder(req: ScanFolderRequest):
 
     results = []
     seen_hashes = {}
+    scanned_paths: List[Tuple[str, str, str]] = []
 
-    for fname in os.listdir(req.folder_path):
+    if req.recursive:
+        for walk_root, dirs, files in os.walk(req.folder_path):
+            dirs.sort()
+            for fname in sorted(files):
+                if fname.startswith("~$"):
+                    continue
+                lower_name = fname.lower()
+                if not (lower_name.endswith(".pdf") or lower_name.endswith(".docx")):
+                    continue
+                rel_dir = os.path.relpath(walk_root, req.folder_path)
+                rel_folder = "" if rel_dir == "." else rel_dir.replace("\\", "/")
+                scanned_paths.append((fname, os.path.join(walk_root, fname), rel_folder))
+                if len(scanned_paths) >= max(1, min(1000, req.max_files)):
+                    break
+            if len(scanned_paths) >= max(1, min(1000, req.max_files)):
+                break
+    else:
+        for fname in sorted(os.listdir(req.folder_path)):
+            if fname.startswith("~$"):
+                continue
+            lower_name = fname.lower()
+            if not (lower_name.endswith(".pdf") or lower_name.endswith(".docx")):
+                continue
+            full_path = os.path.join(req.folder_path, fname)
+            if os.path.isfile(full_path):
+                scanned_paths.append((fname, full_path, ""))
+            if len(scanned_paths) >= max(1, min(1000, req.max_files)):
+                break
+
+    for fname, full_path, rel_folder in scanned_paths:
         lower_name = fname.lower()
-        if not (lower_name.endswith(".pdf") or lower_name.endswith(".docx")):
-            continue
-        full_path = os.path.join(req.folder_path, fname)
-        if not os.path.isfile(full_path):
-            continue
-
         file_hash = compute_sha256(full_path)
         is_duplicate = file_hash in seen_hashes
         seen_hashes.setdefault(file_hash, fname)
@@ -1364,6 +1428,7 @@ def scan_local_folder(req: ScanFolderRequest):
 
         results.append({
             "original_name": fname,
+            "relative_folder": rel_folder,
             "full_path": full_path,
             "sha256": file_hash,
             "is_duplicate": is_duplicate,
@@ -1379,9 +1444,45 @@ def scan_local_folder(req: ScanFolderRequest):
 
 @app.post("/api/local/batch-rename")
 def batch_rename_with_audit(req: BatchRenameRequest):
+    if DATA_FOUNDATION_AVAILABLE:
+        from pathlib import Path
+        from data_foundation.contracts import DEFAULT_DATA_LAKE_ROOT
+        from data_foundation.vault_manager import execute_batch_operation
+        from data_foundation.warehouse_sqlite import VbplWarehouseSQLite
+
+        lake_root = Path(DEFAULT_DATA_LAKE_ROOT)
+        warehouse = VbplWarehouseSQLite(lake_root / "04_warehouse" / "vbpl_warehouse.sqlite")
+        items = [
+            {
+                "item_kind": "FILE",
+                "source_path": it.old_path,
+                "original_name": os.path.basename(it.old_path),
+                "ssot_file_name": it.new_name,
+            }
+            for it in req.items
+        ]
+        try:
+            res = execute_batch_operation(
+                warehouse=warehouse,
+                lake_root=lake_root,
+                items=items,
+                operation_mode="INPLACE_RENAME",
+            )
+            return {
+                "status": "success",
+                "batch_id": res["batch_id"],
+                "renamed_count": res["file_ops_count"],
+                "vault_saved_count": res["vault_saved_count"],
+            }
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
     batch_id = datetime.now().strftime("BATCH_%Y%m%d_%H%M%S")
     operations = []
-
     for item in req.items:
         if not os.path.exists(item.old_path):
             continue
@@ -1391,47 +1492,32 @@ def batch_rename_with_audit(req: BatchRenameRequest):
             continue
         shutil.move(item.old_path, new_path)
         operations.append({"old_path": item.old_path, "new_path": new_path})
-
-    # Lưu nhật ký phục vụ Hoàn tác (Undo 100%)
-    history = []
-    if os.path.exists(AUDIT_LOG_FILE):
-        with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
-            history = json.load(f)
-
-    history.append({
-        "batch_id": batch_id,
-        "timestamp": datetime.now().isoformat(),
-        "operations": operations
-    })
-
-    with open(AUDIT_LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-
     return {"status": "success", "batch_id": batch_id, "renamed_count": len(operations)}
 
 
 @app.post("/api/local/undo-last-rename")
 def undo_last_rename():
-    if not os.path.exists(AUDIT_LOG_FILE):
-        raise HTTPException(status_code=404, detail="Không có lịch sử đổi tên để hoàn tác")
+    if DATA_FOUNDATION_AVAILABLE:
+        from pathlib import Path
+        from data_foundation.contracts import DEFAULT_DATA_LAKE_ROOT
+        from data_foundation.vault_manager import undo_operations
+        from data_foundation.warehouse_sqlite import VbplWarehouseSQLite
 
-    with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
-        history = json.load(f)
+        lake_root = Path(DEFAULT_DATA_LAKE_ROOT)
+        warehouse = VbplWarehouseSQLite(lake_root / "04_warehouse" / "vbpl_warehouse.sqlite")
+        try:
+            res = undo_operations(warehouse=warehouse, lake_root=lake_root)
+            return {
+                "status": "reverted",
+                "restored_count": res["reverted_count"],
+                "reverted_op_ids": res["reverted_op_ids"],
+            }
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
 
-    if not history:
-        raise HTTPException(status_code=400, detail="Lịch sử đổi tên trống")
-
-    last_batch = history.pop()
-    restored = 0
-    for op in reversed(last_batch.get("operations", [])):
-        if os.path.exists(op["new_path"]):
-            shutil.move(op["new_path"], op["old_path"])
-            restored += 1
-
-    with open(AUDIT_LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-
-    return {"status": "reverted", "batch_id": last_batch["batch_id"], "restored_count": restored}
+    raise HTTPException(status_code=404, detail="Không có lịch sử đổi tên để hoàn tác")
 
 
 if DATA_FOUNDATION_AVAILABLE and create_data_foundation_router is not None:

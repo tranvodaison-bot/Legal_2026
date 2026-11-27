@@ -21,10 +21,10 @@
   - Đã micro-polish đệm phải & chống tràn tab `Gần đây` Cột 2 (`Step2LegalMatrix.tsx`).
   - Đã đồng bộ hệ biến màu Sáng/Tối (`--giay`, `--panel`, `--chu`, `--line`, `--d3-*`) sang 5 phân hệ PMO (`Step1`, `Step3–6`), biểu đồ D3 (`ApprovalFlowD3Diagram`, `Step5PortfolioDashboard`, `LawGenealogyTreeDiagram`), `DigitalSignoffModal`, `LAW_ROADMAP`/`CROSS_EXAM`, và gỡ `class="dark"` cứng ở `index.html`.
   - Đã vá 4 lỗi xuất script `.ps1` (BOM, `-LiteralPath`, single-quote escape, `Join-Path` thư mục con, mặc định `Copy-Item`) & đồng bộ 4 điểm lệch nhỏ naming rules TS ↔ Python.
-- **Wave 2 (Data Foundation ACID & Dedup `sha256`):**
-  - Khử trùng 2 pha ưu tiên `sha256` 64-char + ổn định `doc_key` chống bóng ma & chống `WEB_APP_SYNC` ghi đè mất full-text trong `lake_pipeline.py`.
-  - Xây `vault_manager.py` + bảng `fact_rename_operations` trong SQLite WAL (Binary Vault `01_bronze/raw_files/`, chế độ `COPY_TO_SILVER` vs `INPLACE_RENAME` Undo ACID, chặn `403` lên `Data_Legal_2026`).
-  - Mở API `/commit-batch`, `/documents` (hydrate), `/rename-operations(/undo)`; sửa trích xuất `.docx` đọc cả `doc.tables`.
+- **Wave 2 (Data Foundation ACID & Dedup `sha256` — Đã hoàn tất 2026-11-27):**
+  - Đã hoàn tất khử trùng 2 pha ưu tiên `sha256` 64-char, ổn định `doc_key` & chống `WEB_APP_SYNC` ghi đè mất full-text trong `lake_pipeline.py`.
+  - Đã xây `vault_manager.py` + bảng `fact_rename_operations` trong SQLite WAL (Binary Vault `01_bronze/raw_files/`, chế độ `COPY_TO_SILVER` vs `INPLACE_RENAME` Undo ACID, chặn `403` lên `Data_Legal_2026`).
+  - Đã mở API `/commit-batch`, `/documents` (hydrate), `/rename-operations(/undo)`; nâng cấp trích xuất `.docx` đọc trọn vẹn `doc.tables` & `scan-folder` đệ quy (`5/5` Python tests PASS).
 - **Wave 3 (P1 — Xem `.docx`/`.doc` Zero-Trust, Nạp FTS5 & Nối 2 chiều Bước 1):**
   - Proxy Node thuần `/api/documents/preview-docx` & `/list-forms` (`mammoth` + cache `.doc` + `word-extractor` fallback) + `SecureDocumentViewerModal.tsx` (xem/in A4 cho `.docx`, `.doc`, 29 biểu mẫu NĐ 14/2026, 7 mẫu HĐ QĐ 1040).
   - Nạp toàn văn `107` tệp gốc + `29` biểu mẫu NĐ 14 (`= 136` tệp bổ sung → `187` tài liệu SQLite FTS5) + API `node:sqlite` `/search-fts` & `/clauses` nối thẳng vào `Step2` & `Step6`.

@@ -90,10 +90,13 @@ class RawVbplRecord(BaseModel):
     record_id: str
     source_system: str = Field(default="LOCAL_SCANNER")  # LOCAL_SCANNER | WEB_APP | CSV_IMPORT | APP_SEED
     source_path: str = ""
+    sub_folder: str = ""
+    vault_path: str = ""
+    curated_path: str = ""
     original_name: str
     ssot_file_name: str = ""
     sha256: str = ""
-    source_type: str = "PDF_NATIVE"  # PDF_NATIVE | PDF_OCR | DOCX_NATIVE | WEB_SEED | CSV_ROW
+    source_type: str = "PDF_NATIVE"  # PDF_NATIVE | PDF_OCR | DOCX_NATIVE | DOC_CONVERTED | WEB_SEED | CSV_ROW
     ocr_applied: bool = False
     total_pages: int = 1
     doc_type: str = "ND"
@@ -120,6 +123,10 @@ class CleanVbplDocument(BaseModel):
     doc_key: str
     ssot_file_name: str
     original_name: str
+    sub_folder: str = ""
+    source_path: str = ""
+    vault_path: str = ""
+    curated_path: str = ""
     sha256: str
     source_system: str
     source_type: str

@@ -197,6 +197,252 @@ class TestVbplDataFoundation6Layers(unittest.TestCase):
             self.assertEqual(r_xlsx.status_code, 200)
             self.assertIn("spreadsheetml", r_xlsx.headers.get("content-type", ""))
 
+    def test_dedup_sha256_rename_and_preserve_fulltext(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            lake_root = Path(tmp_dir) / "vbpl_lake"
+            pipeline = VbplDataLakePipeline(root_dir=str(lake_root))
+            real_sha = "a" * 64
+            full_text = (
+                "CHÍNH PHỦ\nSố: 207/2026/NĐ-CP\n"
+                "Điều 1. Nghiệm thu chất lượng công trình xây dựng\n"
+                "1. Yêu cầu thí nghiệm LAS-XD đầy đủ trước khi nghiệm thu giai đoạn.\n"
+                + (" Nội dung quy định chi tiết rất dài. " * 25)
+            )
+            pipeline.ingest_raw_records(
+                [
+                    {
+                        "ssot_file_name": "NghiDinh207ChuaChuan.pdf",
+                        "original_name": "NghiDinh207ChuaChuan.pdf",
+                        "sha256": real_sha,
+                        "doc_type": "ND",
+                        "issuer_code": "CP",
+                        "doc_number": "207",
+                        "issue_year": 2026,
+                        "primary_domain": "QLCL",
+                        "title": "Nghị định 207",
+                        "raw_text": full_text,
+                    }
+                ],
+                source_system="DATA_LEGAL_2026_CORPUS",
+            )
+            pipeline.run_medallion_etl()
+
+            # Gắn ghi chú cá nhân theo legacy doc_key hoặc current doc_key
+            docs_before = pipeline.warehouse.list_hydrated_documents()
+            self.assertEqual(len(docs_before), 1)
+            doc_key = docs_before[0]["docKey"]
+            self.assertEqual(doc_key, f"DOC-{real_sha[:12].upper()}")
+            pipeline.warehouse.upsert_personal_note(
+                doc_key=doc_key,
+                clause_key=f"{doc_key}-N0001",
+                note_text="Ghi chú quan trọng cần giữ",
+            )
+
+            # Đổi tên cùng file (cùng SHA-256) và đồng bộ từ WEB_APP với snippet ngắn
+            pipeline.ingest_raw_records(
+                [
+                    {
+                        "ssot_file_name": "207-2026_ND-CP_QLCL_QuanLyChatLuongCongTrinh.pdf",
+                        "original_name": "NghiDinh207ChuaChuan.pdf",
+                        "sha256": real_sha,
+                        "doc_type": "ND",
+                        "issuer_code": "CP",
+                        "doc_number": "207",
+                        "issue_year": 2026,
+                        "primary_domain": "QLCL",
+                        "title": "Nghị định 207/2026/NĐ-CP",
+                        "linked_gates": ["G12", "G14"],
+                        "raw_text": "Snippet ngắn 600 ký tự",
+                    }
+                ],
+                source_system="WEB_APP",
+            )
+            etl_res = pipeline.run_medallion_etl()
+            self.assertEqual(etl_res["silver"]["documents"], 1)
+            docs_after = pipeline.warehouse.list_hydrated_documents()
+            self.assertEqual(len(docs_after), 1)
+            self.assertEqual(docs_after[0]["dqScore"], docs_after[0]["dqScore"])
+            self.assertEqual(
+                docs_after[0]["ssotFileName"],
+                "207-2026_ND-CP_QLCL_QuanLyChatLuongCongTrinh.pdf",
+            )
+            # Đảm bảo không bị snippet ngắn ghi đè mất toàn văn FTS5
+            fts_hits = pipeline.warehouse.search_clauses_fts("LAS-XD")
+            self.assertEqual(len(fts_hits), 1)
+            self.assertEqual(len(pipeline.warehouse.list_personal_notes(doc_key=doc_key)), 1)
+
+    def test_vault_and_copy_to_silver_undo(self) -> None:
+        from data_foundation.vault_manager import compute_file_sha256, execute_batch_operation, undo_operations
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            lake_root = Path(tmp_dir) / "vbpl_lake"
+            src_dir = Path(tmp_dir) / "source"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            src_file = src_dir / "Nghi dinh 206.pdf"
+            src_file.write_bytes(b"%PDF-1.4 sample content 206")
+
+            pipeline = VbplDataLakePipeline(root_dir=str(lake_root))
+            res = execute_batch_operation(
+                warehouse=pipeline.warehouse,
+                lake_root=lake_root,
+                operation_mode="COPY_TO_SILVER",
+                items=[
+                    {
+                        "source_path": str(src_file),
+                        "original_name": src_file.name,
+                        "ssot_file_name": "206-2026_ND-CP_QLCP_QuanLyChiPhi.pdf",
+                        "primary_domain": "QLCP",
+                        "issue_year": 2026,
+                    }
+                ],
+            )
+            self.assertEqual(res["vault_saved_count"], 1)
+            vault_file = lake_root / res["operations"][0]["vault_path"]
+            silver_file = lake_root / res["enriched_items"][0]["curated_path"]
+            self.assertTrue(vault_file.is_file())
+            self.assertTrue(silver_file.is_file())
+            self.assertTrue(src_file.is_file())
+            self.assertEqual(compute_file_sha256(silver_file), compute_file_sha256(src_file))
+
+            undo_res = undo_operations(
+                warehouse=pipeline.warehouse,
+                lake_root=lake_root,
+                batch_id=res["batch_id"],
+            )
+            self.assertEqual(undo_res["reverted_count"], 1)
+            self.assertFalse(silver_file.exists())
+            self.assertTrue(src_file.is_file())
+            self.assertTrue(vault_file.is_file())
+
+    def test_inplace_rename_acid_undo_and_protected_guard(self) -> None:
+        from data_foundation.vault_manager import execute_batch_operation, undo_operations
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            lake_root = Path(tmp_dir) / "vbpl_lake"
+            work_dir = Path(tmp_dir) / "work"
+            work_dir.mkdir(parents=True, exist_ok=True)
+            f1 = work_dir / "raw_1.pdf"
+            f2 = work_dir / "raw_2.pdf"
+            f1.write_bytes(b"pdf one")
+            f2.write_bytes(b"pdf two")
+
+            pipeline = VbplDataLakePipeline(root_dir=str(lake_root))
+            # 1. Phải chặn Data_Legal_2026 khi dùng INPLACE_RENAME
+            with self.assertRaises(PermissionError):
+                execute_batch_operation(
+                    warehouse=pipeline.warehouse,
+                    lake_root=lake_root,
+                    operation_mode="INPLACE_RENAME",
+                    items=[
+                        {
+                            "source_path": r"G:\My Drive\02_KNOWLEDGE_LIBRARY\01_Quan_tri_Doanh_nghiep\Phap_che\Data_Legal_2026\test.pdf",
+                            "original_name": "test.pdf",
+                            "ssot_file_name": "01-2026_ND-CP_HDXD_Test.pdf",
+                        }
+                    ],
+                )
+
+            # 2. Đổi tên trực tiếp + Undo ACID
+            res = execute_batch_operation(
+                warehouse=pipeline.warehouse,
+                lake_root=lake_root,
+                operation_mode="INPLACE_RENAME",
+                items=[
+                    {
+                        "source_path": str(f1),
+                        "original_name": f1.name,
+                        "ssot_file_name": "01-2026_ND-CP_HDXD_One.pdf",
+                    },
+                    {
+                        "source_path": str(f2),
+                        "original_name": f2.name,
+                        "ssot_file_name": "02-2026_ND-CP_HDXD_Two.pdf",
+                    },
+                ],
+            )
+            self.assertEqual(res["file_ops_count"], 2)
+            self.assertFalse(f1.exists())
+            self.assertTrue((work_dir / "01-2026_ND-CP_HDXD_One.pdf").is_file())
+            self.assertTrue((work_dir / "02-2026_ND-CP_HDXD_Two.pdf").is_file())
+
+            undo_res = undo_operations(
+                warehouse=pipeline.warehouse,
+                lake_root=lake_root,
+                batch_id=res["batch_id"],
+            )
+            self.assertEqual(undo_res["reverted_count"], 2)
+            self.assertTrue(f1.is_file())
+            self.assertTrue(f2.is_file())
+
+    def test_commit_batch_hydrate_docx_tables_and_fts_special_chars(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "local_scanner_engine",
+            Path(__file__).resolve().parent.parent / "desktop-sidecar" / "local_scanner_engine.py",
+        )
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _extract_docx_full_text = mod._extract_docx_full_text
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            lake_root = Path(tmp_dir) / "vbpl_lake"
+            docs_dir = Path(tmp_dir) / "docs"
+            docs_dir.mkdir(parents=True, exist_ok=True)
+            docx_path = docs_dir / "MauHD_1040.docx"
+            d = docx.Document()
+            d.add_paragraph("MẪU HỢP ĐỒNG EPC")
+            tbl = d.add_table(rows=2, cols=2)
+            tbl.cell(0, 0).text = "Hạng mục"
+            tbl.cell(0, 1).text = "Giá trị hợp đồng"
+            tbl.cell(1, 0).text = "Thi công trạm biến áp"
+            tbl.cell(1, 1).text = "Nghị định 207/2026/NĐ-CP và 135/2025/QH15"
+            d.save(str(docx_path))
+
+            extracted_tbl_text, _ = _extract_docx_full_text(str(docx_path))
+            self.assertIn("Thi công trạm biến áp | Nghị định 207/2026/NĐ-CP", extracted_tbl_text)
+
+            test_app = FastAPI()
+            test_app.include_router(create_data_foundation_router(root_dir=str(lake_root)))
+            client = TestClient(test_app)
+
+            r_commit = client.post(
+                "/api/data-foundation/commit-batch",
+                json={
+                    "operation_mode": "COPY_TO_SILVER",
+                    "actor_name": "CĐT Test",
+                    "items": [
+                        {
+                            "source_path": str(docx_path),
+                            "original_name": docx_path.name,
+                            "ssot_file_name": "1040-2026_QD-BXD_QLHD_MauHDEPC.docx",
+                            "doc_type": "QD",
+                            "issuer_code": "BXD",
+                            "doc_number": "1040",
+                            "issue_year": 2026,
+                            "primary_domain": "QLHD",
+                            "title": "Mẫu hợp đồng EPC QĐ 1040",
+                            "linked_gates": ["G11"],
+                            "raw_text": extracted_tbl_text,
+                        }
+                    ],
+                },
+            )
+            self.assertEqual(r_commit.status_code, 200)
+            body = r_commit.json()
+            self.assertEqual(body["vault_saved_count"], 1)
+            self.assertEqual(len(body["hydrated_documents"]), 1)
+
+            r_docs = client.get("/api/data-foundation/documents")
+            self.assertEqual(r_docs.status_code, 200)
+            self.assertEqual(r_docs.json()["total"], 1)
+
+            # Kiểm tra tìm kiếm FTS5 có ký tự đặc biệt (NĐ-CP, 135/2025/QH15) không gây lỗi syntax
+            pipeline = VbplDataLakePipeline(root_dir=str(lake_root))
+            self.assertEqual(len(pipeline.warehouse.search_clauses_fts("NĐ-CP")), 1)
+            self.assertEqual(len(pipeline.warehouse.search_clauses_fts("135/2025/QH15")), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -178,22 +178,53 @@ def _parse_clauses_from_raw_text(
 
     if preamble_lines:
         pre_txt = "\n".join(preamble_lines)
-        clauses_out.insert(
-            0,
-            CleanVbplClause(
-                clause_key=f"{doc_key}-N0000",
-                doc_key=doc_key,
-                ssot_file_name=ssot_file_name,
-                order_index=0,
-                node_level="Mở đầu",
-                chapter_title="Mở đầu",
-                article_number="Căn cứ",
-                title="Căn cứ ban hành · Lời mở đầu",
-                content_text=pre_txt,
-                clause_count=len(preamble_lines),
-                word_count=len(pre_txt.split()),
-            ),
-        )
+        if article_cnt == 0 and len(pre_txt) > 1800:
+            chunks: List[str] = []
+            buf: List[str] = []
+            buf_len = 0
+            for ln in preamble_lines:
+                if buf and buf_len + len(ln) > 1500:
+                    chunks.append("\n".join(buf))
+                    buf = [ln]
+                    buf_len = len(ln)
+                else:
+                    buf.append(ln)
+                    buf_len += len(ln) + 1
+            if buf:
+                chunks.append("\n".join(buf))
+            for idx_c, chunk_txt in enumerate(chunks):
+                clauses_out.append(
+                    CleanVbplClause(
+                        clause_key=f"{doc_key}-N{idx_c:04d}",
+                        doc_key=doc_key,
+                        ssot_file_name=ssot_file_name,
+                        order_index=idx_c,
+                        node_level="Mở đầu" if idx_c == 0 else "Mục",
+                        chapter_title="Mở đầu" if idx_c == 0 else f"Phần {idx_c + 1}",
+                        article_number="Căn cứ" if idx_c == 0 else f"Mục {idx_c + 1}",
+                        title="Căn cứ ban hành · Lời mở đầu" if idx_c == 0 else f"Nội dung phần {idx_c + 1}",
+                        content_text=chunk_txt,
+                        clause_count=len(chunk_txt.splitlines()),
+                        word_count=len(chunk_txt.split()),
+                    )
+                )
+        else:
+            clauses_out.insert(
+                0,
+                CleanVbplClause(
+                    clause_key=f"{doc_key}-N0000",
+                    doc_key=doc_key,
+                    ssot_file_name=ssot_file_name,
+                    order_index=0,
+                    node_level="Mở đầu",
+                    chapter_title="Mở đầu",
+                    article_number="Căn cứ",
+                    title="Căn cứ ban hành · Lời mở đầu",
+                    content_text=pre_txt,
+                    clause_count=len(preamble_lines),
+                    word_count=len(pre_txt.split()),
+                ),
+            )
 
     return clauses_out, max(1, chapter_cnt), article_cnt, clause_cnt
 
@@ -273,6 +304,9 @@ class VbplDataLakePipeline:
                     record_id=rec_id,
                     source_system=item.get("source_system") or source_system,
                     source_path=str(item.get("source_path") or item.get("full_path") or ""),
+                    sub_folder=str(item.get("sub_folder") or item.get("subFolder") or ""),
+                    vault_path=str(item.get("vault_path") or item.get("vaultPath") or ""),
+                    curated_path=str(item.get("curated_path") or item.get("curatedPath") or ""),
                     original_name=normalize_nfc(
                         item.get("original_name") or item.get("originalName") or ssot_name
                     ),
@@ -441,11 +475,66 @@ class VbplDataLakePipeline:
         run_id = f"ETL_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         bronze_recs = self._load_all_bronze_records()
 
-        # Deduplicate theo ssot_file_name (ưu tiên bản ghi mới nhất - Latest State)
+        _real_sha_re = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+        _empty_sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+        def _is_real_sha(val: str) -> bool:
+            v = (val or "").strip().lower()
+            return bool(_real_sha_re.match(v)) and v != _empty_sha
+
+        def _merge_records(existing: RawVbplRecord, incoming: RawVbplRecord) -> RawVbplRecord:
+            """Cập nhật metadata mới nhất nhưng bảo toàn toàn văn (raw_text/nodes) giàu dữ liệu hơn."""
+            old_len = len(existing.raw_text or "")
+            new_len = len(incoming.raw_text or "")
+            keep_old_text = old_len > new_len + 100 or (len(existing.nodes) > len(incoming.nodes) and new_len < 1000)
+
+            merged = incoming.model_copy(deep=True)
+            if keep_old_text:
+                merged.raw_text = existing.raw_text
+                merged.nodes = existing.nodes
+                merged.source_type = existing.source_type
+                merged.ocr_applied = existing.ocr_applied
+                merged.total_pages = existing.total_pages
+            if not merged.vault_path and existing.vault_path:
+                merged.vault_path = existing.vault_path
+            if not merged.curated_path and existing.curated_path:
+                merged.curated_path = existing.curated_path
+            if not merged.sub_folder and existing.sub_folder:
+                merged.sub_folder = existing.sub_folder
+            if not merged.source_path and existing.source_path:
+                merged.source_path = existing.source_path
+            if not _is_real_sha(merged.sha256) and _is_real_sha(existing.sha256):
+                merged.sha256 = existing.sha256
+            return merged
+
+        # Sắp xếp deterministic theo thời gian nạp tăng dần
+        ordered_recs = [
+            r for _, r in sorted(
+                enumerate(bronze_recs),
+                key=lambda pair: (pair[1].ingested_at or "", pair[0]),
+            )
+        ]
+
+        # Pha 1: Khử trùng ưu tiên theo SHA-256 nhị phân thật (tránh bóng ma khi đổi tên file)
+        sha_dedup_map: Dict[str, RawVbplRecord] = {}
+        for rec in ordered_recs:
+            if _is_real_sha(rec.sha256):
+                key = f"SHA:{rec.sha256.strip().lower()}"
+            else:
+                key = f"NAME:{rec.ssot_file_name.strip().lower() or rec.sha256.lower()}"
+            if key in sha_dedup_map:
+                sha_dedup_map[key] = _merge_records(sha_dedup_map[key], rec)
+            else:
+                sha_dedup_map[key] = rec
+
+        # Pha 2: Khử trùng thứ cấp theo ssot_file_name (bảo vệ UNIQUE(ssot_file_name) trong SQLite)
         dedup_map: Dict[str, RawVbplRecord] = {}
-        for rec in bronze_recs:
-            key = rec.ssot_file_name.strip().lower() or rec.sha256.lower()
-            dedup_map[key] = rec
+        for rec in sha_dedup_map.values():
+            name_key = rec.ssot_file_name.strip().lower() or rec.sha256.lower()
+            if name_key in dedup_map:
+                dedup_map[name_key] = _merge_records(dedup_map[name_key], rec)
+            else:
+                dedup_map[name_key] = rec
 
         # Kiểm tra khóa logic (doc_type, issuer_code, doc_number, issue_year) để chấm Uniqueness DQ
         logical_key_counts: Dict[Tuple[str, str, str, int], int] = {}
@@ -461,9 +550,15 @@ class VbplDataLakePipeline:
         clean_docs: List[Dict[str, Any]] = []
         clean_clauses: List[Dict[str, Any]] = []
         clean_relations: List[Dict[str, Any]] = []
+        doc_key_migrations: Dict[str, str] = {}
 
         for rec in dedup_map.values():
-            doc_key = f"DOC-{hashlib.sha1(rec.ssot_file_name.lower().encode('utf-8')).hexdigest()[:12].upper()}"
+            legacy_sha1_key = f"DOC-{hashlib.sha1(rec.ssot_file_name.lower().encode('utf-8')).hexdigest()[:12].upper()}"
+            if _is_real_sha(rec.sha256):
+                doc_key = f"DOC-{rec.sha256.strip()[:12].upper()}"
+                doc_key_migrations[legacy_sha1_key] = doc_key
+            else:
+                doc_key = legacy_sha1_key
             domain_code = normalize_domain_code(rec.primary_domain)
             effect_status = normalize_effect_status(rec.effect_status)
             naming_valid = validate_ssot_filename(rec.ssot_file_name)
@@ -543,6 +638,10 @@ class VbplDataLakePipeline:
                 doc_key=doc_key,
                 ssot_file_name=rec.ssot_file_name,
                 original_name=rec.original_name,
+                sub_folder=rec.sub_folder,
+                source_path=rec.source_path,
+                vault_path=rec.vault_path,
+                curated_path=rec.curated_path,
                 sha256=rec.sha256,
                 source_system=rec.source_system,
                 source_type=rec.source_type,
@@ -611,6 +710,7 @@ class VbplDataLakePipeline:
                 "avg_dq_score": round(avg_dq, 2),
                 "status": "SUCCESS",
             },
+            doc_key_migrations=doc_key_migrations,
         )
 
         return {

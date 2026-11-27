@@ -5,6 +5,7 @@ Prefix: /api/data-foundation
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -13,12 +14,26 @@ from pydantic import BaseModel, Field
 
 from .analyst_ba_bi import VbplAnalystBaBiEngine
 from .lake_pipeline import VbplDataLakePipeline
+from .vault_manager import execute_batch_operation, undo_operations
 
 
 class SyncRecordsRequest(BaseModel):
     records: List[Dict[str, Any]] = Field(default_factory=list)
     source_system: str = "WEB_APP"
     run_etl: bool = True
+
+
+class CommitBatchRequest(BaseModel):
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    operation_mode: str = "COPY_TO_SILVER"  # COPY_TO_SILVER | INPLACE_RENAME | METADATA_ONLY
+    actor_name: str = "Single User (CĐT)"
+    project_code: str = "KCN"
+    run_etl: bool = True
+
+
+class UndoRenameRequest(BaseModel):
+    batch_id: Optional[str] = None
+    op_id: Optional[str] = None
 
 
 class IngestFolderRequest(BaseModel):
@@ -89,6 +104,106 @@ def create_data_foundation_router(
     @router.post("/etl/run")
     def run_etl():
         return pipeline.run_medallion_etl()
+
+    @router.post("/commit-batch")
+    def commit_batch(req: CommitBatchRequest):
+        if not req.items:
+            raise HTTPException(status_code=400, detail="Danh sách items trống")
+        try:
+            op_res = execute_batch_operation(
+                warehouse=pipeline.warehouse,
+                lake_root=pipeline.root,
+                items=req.items,
+                operation_mode=req.operation_mode,
+                actor_name=req.actor_name,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+        enriched_items = op_res.get("enriched_items") or []
+        records_to_ingest: List[Dict[str, Any]] = []
+        for it in enriched_items:
+            rec = dict(it)
+            src_path = str(rec.get("source_path") or "").strip()
+            # Nếu file vật lý có trên đĩa nhưng Frontend chưa có full text/nodes -> tự đọc sâu tại backend
+            if (
+                src_path
+                and Path(src_path).is_file()
+                and extract_fn
+                and parse_structure_fn
+                and (not rec.get("raw_text") or len(str(rec.get("raw_text") or "")) < 600)
+            ):
+                try:
+                    extracted = extract_fn(src_path)
+                    raw_text = extracted.get("raw_text") or ""
+                    structured = parse_structure_fn(raw_text)
+                    rec["raw_text"] = raw_text
+                    rec["nodes"] = structured.get("legal_nodes") or rec.get("nodes") or []
+                    rec["source_type"] = extracted.get("source_type") or rec.get("source_type") or "PDF_NATIVE"
+                    rec["ocr_applied"] = bool(extracted.get("ocr_applied", False))
+                    rec["total_pages"] = int(extracted.get("total_pages") or 1)
+                except Exception:
+                    pass
+            records_to_ingest.append(rec)
+
+        ingest_res = pipeline.ingest_raw_records(records_to_ingest, source_system="STEP1_COMMIT")
+        etl_res = pipeline.run_medallion_etl() if req.run_etl else None
+        hydrated_docs = pipeline.warehouse.list_hydrated_documents(include_nodes=True, limit=500)
+        rename_ops = pipeline.warehouse.list_rename_operations(limit=100)
+
+        return {
+            "status": "SUCCESS",
+            "batch_id": op_res["batch_id"],
+            "operation_mode": op_res["operation_mode"],
+            "vault_saved_count": op_res["vault_saved_count"],
+            "file_ops_count": op_res["file_ops_count"],
+            "ingestion": ingest_res,
+            "etl": etl_res,
+            "rename_operations": rename_ops,
+            "hydrated_documents": hydrated_docs,
+        }
+
+    @router.get("/documents")
+    def list_hydrated_documents(
+        include_nodes: bool = Query(default=True),
+        limit: int = Query(default=500, ge=1, le=2000),
+    ):
+        docs = pipeline.warehouse.list_hydrated_documents(include_nodes=include_nodes, limit=limit)
+        return {
+            "status": "SUCCESS",
+            "total": len(docs),
+            "documents": docs,
+        }
+
+    @router.get("/rename-operations")
+    def list_rename_operations(limit: int = Query(default=100, ge=1, le=500)):
+        ops = pipeline.warehouse.list_rename_operations(limit=limit)
+        return {
+            "status": "SUCCESS",
+            "total": len(ops),
+            "operations": ops,
+        }
+
+    @router.post("/rename-operations/undo")
+    def undo_rename_operation(req: UndoRenameRequest):
+        try:
+            res = undo_operations(
+                warehouse=pipeline.warehouse,
+                lake_root=pipeline.root,
+                batch_id=req.batch_id,
+                op_id=req.op_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return res
 
     @router.get("/bi/overview")
     def get_bi_overview():
