@@ -51,9 +51,11 @@ Write-Host '[3/6] Kiem tra TypeScript (npx tsc --noEmit)...' -ForegroundColor Ye
 npx tsc --noEmit
 if ($LASTEXITCODE -ne 0) { throw 'tsc --noEmit phat hien loi!' }
 
-Write-Host '[4/6] Chay Production Build (npm run build)...' -ForegroundColor Yellow
+Write-Host '[4/6] Chay Production Build (npm run build) & Bundle Budget (< 500 KB)...' -ForegroundColor Yellow
 npm run build
 if ($LASTEXITCODE -ne 0) { throw 'npm run build that bai!' }
+npx tsx --test tests/bundle-budget.test.ts
+if ($LASTEXITCODE -ne 0) { throw 'bundle-budget.test.ts that bai!' }
 
 # 5. API & Frontend Smoke Tests
 Write-Host '[5/6] Chay Smoke Tests (tests/api-smoke.test.ts)...' -ForegroundColor Yellow

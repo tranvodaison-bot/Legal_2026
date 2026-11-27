@@ -432,6 +432,35 @@ mark.vbpl-hit {
   border-radius: 2px;
 }
 
+button.xref,
+.xref {
+  display: inline;
+  padding: 0 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--navy-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+button.xref:hover,
+.xref:hover {
+  color: var(--son);
+  background-color: var(--gold-xl);
+}
+
+body.toi button.xref:hover,
+body.toi .xref:hover {
+  color: #f3d678;
+  background-color: rgba(212, 168, 67, 0.18);
+}
+
 /* Scrollbar tinh gọn đồng bộ giao diện */
 ::-webkit-scrollbar {
   width: 6px;

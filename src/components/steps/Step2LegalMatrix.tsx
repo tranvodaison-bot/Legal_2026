@@ -86,13 +86,15 @@ import {
   splitTextByHighlightTargets,
 } from "../../utils/legalCompareHighlighter";
 import { AiLegalGapAnalysisCard } from "../AiLegalGapAnalysisCard";
-import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
-import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
-import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
 import { SecureDocumentViewerModal } from "../SecureDocumentViewerModal";
 import { SlideOverRefDrawer, SlideOverRefTarget } from "../SlideOverRefDrawer";
 import { getVbplBadgeClass, getVbplBadgeLabel } from "../modals/VbplLibraryModals";
 import { searchDataFoundationClauses } from "../../services/ssotBridgeService";
+import { buildDocRefIndex, parseLegalXrefs, resolveXrefTarget } from "../../utils/legalXrefParser";
+
+const LawGenealogyTreeDiagram = React.lazy(() =>
+  import("../LawGenealogyTreeDiagram").then(m => ({ default: m.LawGenealogyTreeDiagram }))
+);
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: "🛣️",
@@ -430,6 +432,21 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     );
   };
 
+  // Index tham chiếu O(1) & Năm hiệu lực 2027..2006
+  const docRefIndex = React.useMemo(() => buildDocRefIndex(legalDocs), [legalDocs]);
+
+  const yearFilterCounts = React.useMemo(() => {
+    const counts = new Map<number, number>();
+    for (let yr = 2027; yr >= 2006; yr--) counts.set(yr, 0);
+    for (const d of legalDocs) {
+      const y = Number(d.year);
+      if (Number.isFinite(y) && y >= 2006 && y <= 2027) {
+        counts.set(y, (counts.get(y) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).map(([year, count]) => ({ year, count }));
+  }, [legalDocs]);
+
   // Tô sáng từ khóa tìm kiếm trong đoạn văn bản
   const renderHighlightedSpan = (rawText: string, query: string) => {
     const q = query.trim();
@@ -449,7 +466,38 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     );
   };
 
-  // Định dạng nội dung điều khoản chuẩn sách luật: Số khoản/điểm màu Đỏ son (--son)
+  // Gắn dẫn chiếu pháp lý (.xref) mở SlideOverRefDrawer an toàn (chỉ bật khi phân giải trúng đích)
+  const renderTextWithXrefAndSearch = (rawText: string, query: string) => {
+    if (!currentLegalDoc) return renderHighlightedSpan(rawText, query);
+    const segments = parseLegalXrefs(rawText);
+    if (segments.length === 0) return renderHighlightedSpan(rawText, query);
+    return segments.map((seg, idx) => {
+      if (seg.kind !== 'xref') {
+        return <React.Fragment key={idx}>{renderHighlightedSpan(seg.text, query)}</React.Fragment>;
+      }
+      const resolved = resolveXrefTarget(seg, currentLegalDoc, docRefIndex);
+      if (!resolved) {
+        return <React.Fragment key={idx}>{renderHighlightedSpan(seg.text, query)}</React.Fragment>;
+      }
+      return (
+        <button
+          key={idx}
+          type="button"
+          className="xref"
+          title={`${resolved.reasonLabel} — Bấm để mở nhanh ở ngăn kéo đối chiếu`}
+          onClick={e => {
+            e.stopPropagation();
+            void ensureDocFullClauses(resolved.doc.id);
+            setSlideRefTarget(resolved);
+          }}
+        >
+          {renderHighlightedSpan(seg.text, query)}
+        </button>
+      );
+    });
+  };
+
+  // Định dạng nội dung điều khoản chuẩn sách luật: Số khoản/điểm màu Đỏ son (--son) + .xref
   const renderFormattedArticleBody = (content: string) => {
     const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
     return (
@@ -462,7 +510,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                 <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
                   {clauseMatch[1]}
                 </b>
-                {renderHighlightedSpan(clauseMatch[2], globalSearch)}
+                {renderTextWithXrefAndSearch(clauseMatch[2], globalSearch)}
               </p>
             );
           }
@@ -473,13 +521,13 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                 <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
                   {pointMatch[1]}
                 </b>
-                {renderHighlightedSpan(pointMatch[2], globalSearch)}
+                {renderTextWithXrefAndSearch(pointMatch[2], globalSearch)}
               </p>
             );
           }
           return (
             <p key={lIdx} className="leading-[1.78]" style={{ color: 'var(--chu)' }}>
-              {renderHighlightedSpan(line, globalSearch)}
+              {renderTextWithXrefAndSearch(line, globalSearch)}
             </p>
           );
         })}
@@ -1062,10 +1110,11 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                             disabled={legalCutoffMode === 'PROJECT_TRANSITION'}
                             onChange={e =>
                               setFilterValidityPeriod(
-                                e.target.value as 'ALL' | 'EFFECTIVE' | 'UPCOMING'
+                                e.target.value as 'ALL' | 'EFFECTIVE' | 'UPCOMING' | `YEAR_${number}`
                               )
                             }
-                            className="rounded border px-1.5 py-1 text-[11.5px] max-w-[98px] focus:outline-none disabled:opacity-60"
+                            aria-label="Lọc theo hiệu lực hoặc năm ban hành"
+                            className="rounded border px-1.5 py-1 text-[11.5px] max-w-[116px] focus:outline-none disabled:opacity-60"
                             style={{
                               backgroundColor: 'var(--panel)',
                               borderColor: 'var(--line-d)',
@@ -1075,6 +1124,13 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                             <option value="ALL">Mọi kỳ</option>
                             <option value="EFFECTIVE">Còn hiệu lực</option>
                             <option value="UPCOMING">Từ 01/07/2026</option>
+                            <optgroup label="Theo năm ban hành (2027 → 2006)">
+                              {yearFilterCounts.map(({ year, count }) => (
+                                <option key={year} value={`YEAR_${year}`}>
+                                  Năm {year} ({count} VB)
+                                </option>
+                              ))}
+                            </optgroup>
                           </select>
                         </div>
 
@@ -1188,6 +1244,32 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
 
                     {/* Danh sách Thẻ Văn bản Accordion chuẩn .vb-node của thuvien-vbpl-26 */}
                     <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                      {pane2SubTab === 'RECENT' && (
+                        <div className="vbpl-card px-2.5 py-2 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold" style={{ color: 'var(--chu-m)' }}>
+                            🕒 Đã xem gần đây: <b style={{ color: 'var(--navy-ink)' }}>{recentDocIds.length}</b> VB
+                          </span>
+                          {recentDocIds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRecentDocIds([]);
+                                showToast('Đã xóa lịch sử văn bản xem gần đây');
+                              }}
+                              className="px-2 py-0.5 rounded border text-[11px] font-bold hover:opacity-90 cursor-pointer transition"
+                              style={{
+                                backgroundColor: 'var(--giay)',
+                                borderColor: 'var(--line-d)',
+                                color: 'var(--son)',
+                              }}
+                              title="Xóa toàn bộ lịch sử xem văn bản gần đây"
+                            >
+                              🗑 Xóa lịch sử
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       {pane2SubTab === 'RESULTS' && globalSearch.trim().length >= 2 && (
                         <div className="vbpl-card p-2.5 space-y-2 border border-sky-500/35 bg-sky-500/5">
                           <div className="flex items-center justify-between gap-2">
@@ -1286,7 +1368,9 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       ) : filteredLegalDocs.length === 0 ? (
                         <div className="vbpl-card p-5 text-center text-xs space-y-2.5">
                           <p className="font-bold" style={{ color: 'var(--chu)' }}>
-                            Không tìm thấy văn bản khớp bộ lọc hiện tại.
+                            {pane2SubTab === 'RECENT' && recentDocIds.length === 0
+                              ? '🕒 Chưa có lịch sử văn bản xem gần đây.'
+                              : 'Không tìm thấy văn bản khớp bộ lọc hiện tại.'}
                           </p>
                           <button
                             type="button"
@@ -3833,23 +3917,31 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                   </div>
 
                                   {/* SƠ ĐỒ CÂY PHẢ HỆ TRỰC QUAN (INTERACTIVE D3 GENEALOGY TREE) */}
-                                  <LawGenealogyTreeDiagram
-                                    pillar={activePillar}
-                                    activeDocId={selectedDocId}
-                                    activeProjectArchetype={activeProjectArchetype}
-                                    darkTheme={false}
-                                    filterMode={legalCutoffMode}
-                                    onChangeFilterMode={setLegalCutoffMode}
-                                    projectMilestones={activeProjectMilestones}
-                                    onSelectDoc={(docId, mode) => {
-                                      handleSelectDoc(docId, false);
-                                      setRightReaderMode(mode);
-                                    }}
-                                    onSelectGate={gateCode => {
-                                      setSelectedGateCode(gateCode as any);
-                                      setActiveTab('STEP3_PLAN');
-                                    }}
-                                  />
+                                  <React.Suspense
+                                    fallback={
+                                      <div className="p-6 text-xs text-center" style={{ color: 'var(--chu-m)' }}>
+                                        Đang tải sơ đồ phả hệ pháp lý D3...
+                                      </div>
+                                    }
+                                  >
+                                    <LawGenealogyTreeDiagram
+                                      pillar={activePillar}
+                                      activeDocId={selectedDocId}
+                                      activeProjectArchetype={activeProjectArchetype}
+                                      darkTheme={false}
+                                      filterMode={legalCutoffMode}
+                                      onChangeFilterMode={setLegalCutoffMode}
+                                      projectMilestones={activeProjectMilestones}
+                                      onSelectDoc={(docId, mode) => {
+                                        handleSelectDoc(docId, false);
+                                        setRightReaderMode(mode);
+                                      }}
+                                      onSelectGate={gateCode => {
+                                        setSelectedGateCode(gateCode as any);
+                                        setActiveTab('STEP3_PLAN');
+                                      }}
+                                    />
+                                  </React.Suspense>
 
                                   {/* SƠ ĐỒ TIẾN HÓA THỜI GIAN & THAY THẾ VĂN BẢN (EVOLUTION TIMELINE) */}
                                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-300 space-y-3">
@@ -4326,24 +4418,32 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       </div>
 
                       {/* SƠ ĐỒ CÂY PHẢ HỆ TRỰC QUAN (INTERACTIVE D3 GENEALOGY TREE) */}
-                      <LawGenealogyTreeDiagram
-                        pillar={activePillar}
-                        activeDocId={selectedDocId}
-                        activeProjectArchetype={activeProjectArchetype}
-                        darkTheme={true}
-                        filterMode={legalCutoffMode}
-                        onChangeFilterMode={setLegalCutoffMode}
-                        projectMilestones={activeProjectMilestones}
-                        onSelectDoc={(docId, mode) => {
-                          handleSelectDoc(docId, false);
-                          setVbplSubMode('READER_3PANE');
-                          setRightReaderMode(mode);
-                        }}
-                        onSelectGate={gateCode => {
-                          setSelectedGateCode(gateCode as any);
-                          setActiveTab('STEP3_PLAN');
-                        }}
-                      />
+                      <React.Suspense
+                        fallback={
+                          <div className="p-6 text-xs text-center" style={{ color: 'var(--chu-m)' }}>
+                            Đang tải sơ đồ phả hệ pháp lý D3...
+                          </div>
+                        }
+                      >
+                        <LawGenealogyTreeDiagram
+                          pillar={activePillar}
+                          activeDocId={selectedDocId}
+                          activeProjectArchetype={activeProjectArchetype}
+                          darkTheme={true}
+                          filterMode={legalCutoffMode}
+                          onChangeFilterMode={setLegalCutoffMode}
+                          projectMilestones={activeProjectMilestones}
+                          onSelectDoc={(docId, mode) => {
+                            handleSelectDoc(docId, false);
+                            setVbplSubMode('READER_3PANE');
+                            setRightReaderMode(mode);
+                          }}
+                          onSelectGate={gateCode => {
+                            setSelectedGateCode(gateCode as any);
+                            setActiveTab('STEP3_PLAN');
+                          }}
+                        />
+                      </React.Suspense>
 
                       {/* Sơ đồ Tiến hóa & Thay thế Văn bản */}
                       <div className="p-4 rounded-2xl bg-[var(--panel)] border border-[var(--line)] space-y-3">

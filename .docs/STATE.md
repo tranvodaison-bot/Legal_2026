@@ -29,7 +29,7 @@
   - Proxy Node thuần `/api/documents/preview-docx`, `/list-forms`, `/search-fts`, `/clauses` (`mammoth` + Word COM cache `.doc` + `word-extractor` fallback, `node:sqlite`) & `SecureDocumentViewerModal.tsx` (xem/in A4 cho `.docx`, `.doc`, 29 biểu mẫu NĐ 14/2026, QĐ 1040).
   - Nạp toàn văn `141` tệp bổ sung → **`192` tài liệu · `4.355` điều khoản SQLite FTS5 · `612` quan hệ · `DQ 93.63`** (`0` `.json` rác) nối thẳng vào `Step2` & `Step6`.
   - Nối 2 chiều Bước 1 ↔ SQLite: Auto-Hydrate sau F5, Khung Quét Thư Mục Ổ Cứng (`:8008`) & chọn chế độ lưu (`COPY_TO_SILVER` vs `INPLACE_RENAME`) (`tsc 0`, `19/19` smoke tests PASS, `5/5` Python tests PASS).
-- **Wave 4 (P2 — Tra cứu sâu & Code-Splitting `< 500 KB`):**
-  - Tự động gắn `.xref` bấm được mở `SlideOverRefDrawer` (chống XSS, O(1) index).
-  - Bộ lọc năm hiệu lực `2027..2006` & nút `🗑 Xóa lịch sử` tab `Gần đây`.
-  - `React.lazy()` + Vite 8 Rolldown `codeSplitting.groups` tách main chunk từ `~1.49 MB` xuống `< 500 KB` + `tests/bundle-budget.test.ts`.
+- **Wave 4 (P2 — Đã hoàn tất 2026-11-27):**
+  - Tự động gắn dẫn chiếu `.xref` bấm mở `SlideOverRefDrawer` (`src/utils/legalXrefParser.ts`, index O(1), không dead link, chống XSS).
+  - Bộ lọc năm hiệu lực `2027..2006` (kèm đếm số VB/năm) & nút `🗑 Xóa lịch sử` + giữ thứ tự xem ở tab `Gần đây`.
+  - `React.lazy()` + `ChunkErrorBoundary` + Vite 8.3.8 Rolldown `codeSplitting.groups` giảm main chunk `index-*.js` từ `~1.54 MB` xuống **`333.21 kB`** (mọi chunk `< 500 KB`, `0` cảnh báo bundle), khóa cổng `tests/bundle-budget.test.ts` trong `bootstrap.ps1` (`20/20` smoke tests PASS, `5/5` Python tests PASS).

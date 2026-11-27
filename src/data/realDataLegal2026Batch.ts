@@ -258,8 +258,6 @@ export function createRealDataLegalBatchItems(
   });
 }
 
-export const REAL_DATA_LEGAL_2026_BATCH: AnalyzedFileItem[] = createRealDataLegalBatchItems();
-
 export function getRealDataLegalBatch(
   project: ProjectArchetypeCode = 'KCN',
   group: QlvbNamingGroupCode = 'SSOT_9PART',

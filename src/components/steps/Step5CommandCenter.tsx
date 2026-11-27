@@ -87,7 +87,6 @@ import {
 } from "../../utils/legalCompareHighlighter";
 import { AiLegalGapAnalysisCard } from "../AiLegalGapAnalysisCard";
 import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
-import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
 import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {

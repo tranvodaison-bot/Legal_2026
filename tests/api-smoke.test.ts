@@ -45,6 +45,11 @@ import {
   DATA_LEGAL_2026_CORE_OVERRIDES,
   DATA_LEGAL_2026_NEW_DOCS,
 } from '../src/data/dataLegal2026Catalog.js';
+import {
+  buildDocRefIndex,
+  parseLegalXrefs,
+  resolveXrefTarget,
+} from '../src/utils/legalXrefParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1247,4 +1252,38 @@ test('GET /api/documents/search-fts and /api/documents/clauses validate inputs',
     path: '/api/documents/clauses',
   });
   assert.equal(resMissingDocKey.status, 400);
+});
+
+test('legalXrefParser extracts citations, resolves valid targets via O(1) index, and prevents dead links', () => {
+  const index = buildDocRefIndex(INITIAL_LEGAL_DOCS);
+  const currentDoc = INITIAL_LEGAL_DOCS.find(d => d.docNumber === '135/2025/QH15') || INITIAL_LEGAL_DOCS[0];
+  assert.ok(currentDoc);
+
+  const sample =
+    'Căn cứ Luật Xây dựng, Điều 1 của Luật này, Nghị định số 206/2026/NĐ-CP và văn bản giả định 9999/2099/NĐ-CP.';
+  const segs = parseLegalXrefs(sample);
+  const xrefs = segs.filter(s => s.kind === 'xref');
+  assert.ok(xrefs.length >= 3, `Expected >= 3 xref segments, got ${xrefs.length}`);
+
+  const resolvedNd206 = xrefs
+    .filter(x => x.docNumHint === '206/2026/NĐ-CP')
+    .map(x => resolveXrefTarget(x, currentDoc, index))
+    .find(Boolean);
+  assert.ok(resolvedNd206, 'Should resolve 206/2026/NĐ-CP in index');
+  assert.equal(resolvedNd206!.doc.docNumber, '206/2026/NĐ-CP');
+
+  const resolvedDead = xrefs
+    .filter(x => x.docNumHint === '9999/2099/NĐ-CP')
+    .map(x => resolveXrefTarget(x, currentDoc, index))
+    .find(Boolean);
+  assert.equal(resolvedDead, undefined, 'Nonexistent doc number must resolve to null (no dead links)');
+
+  const resolvedSelfArt = xrefs
+    .filter(x => x.isSelfDocRef && x.articleHint === '1')
+    .map(x => resolveXrefTarget(x, currentDoc, index))
+    .find(Boolean);
+  if (currentDoc.nodes.some(n => /^Điều\s+1\b/i.test(n.code.trim()))) {
+    assert.ok(resolvedSelfArt, 'Should resolve internal Điều 1 inside current document');
+    assert.equal(resolvedSelfArt!.doc.id, currentDoc.id);
+  }
 });

@@ -11,18 +11,20 @@
 ## 2. Kiến trúc Ứng dụng Web (React 19 + TypeScript + Vite 8 + Vercel API)
 
 - **Design System (`src/index.css`):** Hệ token **Giấy Pháp Lý & Ấn Chương** (`:root` và Dark Mode `body.toi` gắn với `@custom-variant dark`), Topbar 1 hàng 50px (`TopRoleSwitcherHeader.tsx`), `SlideOverRefDrawer.tsx` (ngăn kéo đối chiếu `430px`) và `VbplLibraryModals.tsx` (Thống kê 184 VB & Hướng dẫn).
+- **Code-Splitting & Budget (`vite.config.ts` & `tests/bundle-budget.test.ts`):** Vite 8.3.8 Rolldown `codeSplitting.groups` (`vendor-react`, `vendor-d3`, `vendor-icons`, `data-*`) + `React.lazy()` cho Steps 1/3/4/5/6 & `LawGenealogyTreeDiagram` + `ChunkErrorBoundary.tsx`; giữ main chunk `index-*.js` `< 500 KB` (`333.21 kB`).
 - **6 Phân hệ Giao diện (`src/components/steps/`):**
-  1. `Step1CdeIngestion.tsx` — Nhập dữ liệu CDE, chuẩn hóa tên VBPL `[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]`, Smart Tags gợi ý (`✓`/`×`/sửa/+ Thêm Tag), dữ liệu mặc định 160 mục từ `rawRealDataLegal2026.json` (`realDataLegal2026Batch.ts`).
-  2. `Step2LegalMatrix.tsx` — Tra cứu VBPL 3 cột (184 văn bản sau hợp nhất `buildExtraDataLegal2026Docs()`), cây lĩnh vực `├ └`, mục lục Chương/Điều/Khoản, ghi chú cá nhân, đối soát chéo, phả hệ (`LawGenealogyTreeDiagram.tsx`) & xem PDF nội tuyến (`SecurePdfViewerModal.tsx`).
+  1. `Step1CdeIngestion.tsx` — Nhập dữ liệu CDE, quét thư mục ổ cứng (`:8008`), lưu 2 chế độ ACID (`COPY_TO_SILVER` vs `INPLACE_RENAME` Vault), chuẩn hóa tên VBPL `[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]`, Smart Tags gợi ý (`✓`/`×`/sửa/+ Thêm Tag), dữ liệu nạp lazy 160 mục từ `rawRealDataLegal2026.json` (`realDataLegal2026Batch.ts`).
+  2. `Step2LegalMatrix.tsx` — Tra cứu VBPL 3 cột (184+ văn bản + tìm toàn văn FTS5 `/api/documents/search-fts`), cây lĩnh vực `├ └`, bộ lọc năm `2027..2006`, xóa lịch sử `Gần đây`, mục lục Chương/Điều/Khoản, dẫn chiếu `.xref` bấm mở `SlideOverRefDrawer`, ghi chú cá nhân, đối soát chéo, phả hệ (`LawGenealogyTreeDiagram.tsx`) & xem/in PDF/Word/29 Biểu mẫu NĐ 14/2026 nội tuyến (`SecureDocumentViewerModal.tsx`).
   3. `Step3StageGate.tsx` — Lộ trình 17 cổng Stage-Gate (`G0–G16`) & RACI theo 6 loại hình dự án (`KCN`, `CCN`, `FTZ`, `HTKT`, `DAN_DUNG`, `PPP_BT`).
   4. `Step4RaciHr.tsx` — Quy trình QA/QC, biểu mẫu auto-fill & phân quyền 4 bên (`CDT`, `PMU`, `TVGS`, `CONTRACTOR`) kèm `DigitalSignoffModal.tsx`.
   5. `Step5CommandCenter.tsx` — Kiểm soát VO, tiến độ thời gian (Chrono Audit), Portfolio Dashboard (`Step5PortfolioDashboard.tsx`), biểu đồ luồng D3 (`ApprovalFlowD3Diagram.tsx`) & 5 AI Agents pháp lý.
-  6. `Step6DataFoundationBi.tsx` — Giao diện trực quan 6 tầng Data Foundation & VBPL BI (nối Live `:8008` hoặc Client Fallback Mirror).
+  6. `Step6DataFoundationBi.tsx` — Giao diện trực quan 6 tầng Data Foundation & VBPL BI (nối Live `:8008` + SQLite FTS5 `/api/documents/search-fts` + Client Fallback Mirror).
 - **Serverless / Node HTTP API (`api/` & `server.ts`):**
   - `/api/health`, `/api/verify-role`, `/api/audit-logs`, `/api/gemini/analyze`, `/api/gemini/analyze-legal`, `/api/gemini/compare-clauses`.
-  - `/api/documents/stream-pdf` (`api/documents/stream-pdf.ts`): Zero-Trust PDF stream proxy đọc nội tuyến (chặn path traversal, ẩn đường dẫn vật lý `G:\`, trả `application/pdf`).
+  - `/api/documents/stream-pdf`, `/preview-docx`, `/list-forms`, `/search-fts`, `/clauses` (`api/_lib/documentProxy.ts` + `api/documents/*.ts`): Zero-Trust Proxy đọc PDF/DOCX/DOC (`mammoth` + Word COM cache + `word-extractor`) & 29 biểu mẫu NĐ 14/2026 nội tuyến (chặn path traversal, khử XSS `<script>`, ẩn đường dẫn vật lý `G:\`), truy vấn FTS5 trên `192` VB · `4.355` điều khoản qua `node:sqlite`.
 - **Core Parsers (`src/utils/`):**
   - `legalParser.ts`: chuẩn hóa tên VBPL, `stripRedundantSummaryPrefix`, `cleanLegalPageNoise`, `parseLegalDocumentStructure` (NĐ 30/2020), `smartAnalyzeFile3D`, `buildAutoSuggestedTags`.
+  - `legalXrefParser.ts`: phân giải dẫn chiếu `.xref` đơn lượt không dead link (`buildDocRefIndex`, `parseLegalXrefs`, `resolveXrefTarget`).
   - `vbplDataFoundationEngine.ts`: mirror client-side cho DQ Profiler, 6 KPI BA, Gate Coverage & Relation Radar.
   - `src/data/dataLegal2026Catalog.ts` (7 core overrides + 44 new docs = 51) + `src/data/realDataLegal2026Batch.ts` (160 mục quét từ `Data_Legal_2026`).
 

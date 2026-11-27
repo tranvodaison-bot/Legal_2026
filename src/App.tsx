@@ -14,7 +14,6 @@ import {
   LAW_ROADMAPS,
   INITIAL_QAQC_CONTROLS,
 } from './data/lexPmoData';
-import { createRealDataLegalBatchItems } from './data/realDataLegal2026Batch';
 import {
   AiLegalGapAnalysis,
   AnalyzedFileItem,
@@ -96,13 +95,25 @@ import {
 } from './utils/legalCompareHighlighter';
 import { DigitalSignoffModal } from './components/layout/DigitalSignoffModal';
 import { TopRoleSwitcherHeader } from './components/layout/TopRoleSwitcherHeader';
+import { ChunkErrorBoundary } from './components/ChunkErrorBoundary';
 import { VbplGuideModal, VbplStatsModal } from './components/modals/VbplLibraryModals';
-import { Step1CdeIngestion } from './components/steps/Step1CdeIngestion';
 import { Step2LegalMatrix } from './components/steps/Step2LegalMatrix';
-import { Step3StageGate } from './components/steps/Step3StageGate';
-import { Step4RaciHr } from './components/steps/Step4RaciHr';
-import { Step5CommandCenter } from './components/steps/Step5CommandCenter';
-import { Step6DataFoundationBi } from './components/steps/Step6DataFoundationBi';
+
+const Step1CdeIngestion = React.lazy(() =>
+  import('./components/steps/Step1CdeIngestion').then(m => ({ default: m.Step1CdeIngestion }))
+);
+const Step3StageGate = React.lazy(() =>
+  import('./components/steps/Step3StageGate').then(m => ({ default: m.Step3StageGate }))
+);
+const Step4RaciHr = React.lazy(() =>
+  import('./components/steps/Step4RaciHr').then(m => ({ default: m.Step4RaciHr }))
+);
+const Step5CommandCenter = React.lazy(() =>
+  import('./components/steps/Step5CommandCenter').then(m => ({ default: m.Step5CommandCenter }))
+);
+const Step6DataFoundationBi = React.lazy(() =>
+  import('./components/steps/Step6DataFoundationBi').then(m => ({ default: m.Step6DataFoundationBi }))
+);
 import {
   analyzeLegalWithHybridAi,
   commitBatchToDataFoundation,
@@ -691,9 +702,27 @@ export function useLexPmoOrchestrator() {
   const [lastPersistenceSource, setLastPersistenceSource] = useState<'SQLITE_VAULT' | 'BROWSER_RAM' | null>(null);
   const hydratedClauseCacheRef = useRef<Set<string>>(new Set());
 
-  const [droppedFilesQueue, setDroppedFilesQueue] = useState<AnalyzedFileItem[]>(() =>
-    createRealDataLegalBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO')
-  );
+  const [droppedFilesQueue, setDroppedFilesQueue] = useState<AnalyzedFileItem[]>([]);
+  const hasHydratedRealBatchRef = useRef(false);
+
+  useEffect(() => {
+    if (activeTab !== 'STEP1_INGEST' || hasHydratedRealBatchRef.current) return;
+    hasHydratedRealBatchRef.current = true;
+    let cancelled = false;
+    import('./data/realDataLegal2026Batch')
+      .then(mod => {
+        if (cancelled) return;
+        setDroppedFilesQueue(prev =>
+          prev.length > 0
+            ? prev
+            : mod.createRealDataLegalBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO')
+        );
+      })
+      .catch(err => console.warn('Lazy load realDataLegal2026Batch failed:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
   const [renameLogs, setRenameLogs] = useState<RenameLogEntry[]>([
     {
       logId: 'LOG-2026-0001',
@@ -1905,7 +1934,9 @@ export function useLexPmoOrchestrator() {
   const [pane2SubTab, setPane2SubTab] = useState<'DOCS' | 'RESULTS' | 'BOOKMARKS' | 'RECENT'>('DOCS');
   const [exactMatchAccent, setExactMatchAccent] = useState(false);
   const [filterDocType, setFilterDocType] = useState('ALL');
-  const [filterValidityPeriod, setFilterValidityPeriod] = useState<'ALL' | 'EFFECTIVE' | 'UPCOMING'>('ALL');
+  const [filterValidityPeriod, setFilterValidityPeriod] = useState<
+    'ALL' | 'EFFECTIVE' | 'UPCOMING' | `YEAR_${number}`
+  >('ALL');
   const [selectedDocId, setSelectedDocId] = useState('DOC-135');
   const [expandedInlineDocId, setExpandedInlineDocId] = useState<string | null>('DOC-135');
   const [bookmarkedDocIds, setBookmarkedDocIds] = useState<string[]>(['DOC-135', 'DOC-207', 'DOC-01', 'DOC-02']);
@@ -2807,7 +2838,7 @@ export function useLexPmoOrchestrator() {
   }, [legalDocs]);
 
   const filteredLegalDocs = useMemo(() => {
-    return legalDocs.filter(doc => {
+    const matched = legalDocs.filter(doc => {
       if (pane2SubTab === 'BOOKMARKS' && !bookmarkedDocIds.includes(doc.id)) return false;
       if (pane2SubTab === 'RECENT' && !recentDocIds.includes(doc.id)) return false;
 
@@ -2875,6 +2906,10 @@ export function useLexPmoOrchestrator() {
           doc.validityPeriod !== 'UPCOMING'
         )
           return false;
+        if (filterValidityPeriod.startsWith('YEAR_')) {
+          const targetYear = filterValidityPeriod.slice(5);
+          if (String(doc.year) !== targetYear) return false;
+        }
       }
 
       if (globalSearch.trim()) {
@@ -2891,6 +2926,10 @@ export function useLexPmoOrchestrator() {
       }
       return true;
     });
+    if (pane2SubTab === 'RECENT') {
+      matched.sort((a, b) => recentDocIds.indexOf(a.id) - recentDocIds.indexOf(b.id));
+    }
+    return matched;
   }, [
     legalDocs,
     pane2SubTab,
@@ -4717,7 +4756,7 @@ export default function App() {
         onOpenStatsModal={() => setIsStatsModalOpen(true)}
         onExportLibraryCsv={handleExportLibraryCsv}
         totalDocsCount={legalDocs.length}
-        batchCount={droppedFilesQueue.length}
+        batchCount={droppedFilesQueue.length || 160}
         showToast={showToast}
       />
 
@@ -4735,14 +4774,24 @@ export default function App() {
         className="flex-1 flex flex-col overflow-hidden"
         style={{ backgroundColor: 'var(--giay)', color: 'var(--chu)' }}
       >
-        {activeTab === 'STEP1_INGEST' && <Step1CdeIngestion ctx={stepContext} />}
-        {activeTab === 'STEP2_VBPL' && <Step2LegalMatrix ctx={stepContext} />}
-        {activeTab === 'STEP3_PLAN' && <Step3StageGate ctx={stepContext} />}
-        {activeTab === 'STEP4_EXECUTE' && <Step4RaciHr ctx={stepContext} />}
-        {(activeTab === 'STEP5_AUDIT' || activeTab === 'STEP6_AI') && (
-          <Step5CommandCenter ctx={stepContext} />
-        )}
-        {activeTab === 'STEP6_DATA_BI' && <Step6DataFoundationBi ctx={stepContext} />}
+        <ChunkErrorBoundary>
+          <React.Suspense
+            fallback={
+              <div className="flex-1 flex items-center justify-center p-8 text-xs font-semibold" style={{ color: 'var(--chu-m)' }}>
+                ⏳ Đang tải phân hệ chuyên môn...
+              </div>
+            }
+          >
+            {activeTab === 'STEP1_INGEST' && <Step1CdeIngestion ctx={stepContext} />}
+            {activeTab === 'STEP2_VBPL' && <Step2LegalMatrix ctx={stepContext} />}
+            {activeTab === 'STEP3_PLAN' && <Step3StageGate ctx={stepContext} />}
+            {activeTab === 'STEP4_EXECUTE' && <Step4RaciHr ctx={stepContext} />}
+            {(activeTab === 'STEP5_AUDIT' || activeTab === 'STEP6_AI') && (
+              <Step5CommandCenter ctx={stepContext} />
+            )}
+            {activeTab === 'STEP6_DATA_BI' && <Step6DataFoundationBi ctx={stepContext} />}
+          </React.Suspense>
+        </ChunkErrorBoundary>
       </main>
 
       {/* MODAL THỐNG KÊ THƯ VIỆN & HƯỚNG DẪN TRA CỨU */}
@@ -4751,7 +4800,7 @@ export default function App() {
         onClose={() => setIsStatsModalOpen(false)}
         legalDocs={legalDocs}
         personalNotesCount={Object.keys(articlePersonalNotes).length}
-        realBatchCount={droppedFilesQueue.length}
+        realBatchCount={droppedFilesQueue.length || 160}
         onSelectIndustry={indId => {
           setActiveTab('STEP2_VBPL');
           setVbplSubMode('READER_3PANE');
