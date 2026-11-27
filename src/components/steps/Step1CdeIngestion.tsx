@@ -340,7 +340,6 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     isDragging,
     setIsDragging,
     isAnalyzingFile,
-    setIsAnalyzingFile,
     deepScanReadMode,
     setDeepScanReadMode,
     batchNamingStandard,

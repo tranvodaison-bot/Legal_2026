@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { sankey as d3Sankey, sankeyJustify, sankeyLinkHorizontal, SankeyNode, SankeyLink } from 'd3-sankey';
+import { sankey as d3Sankey, sankeyJustify, sankeyLinkHorizontal, SankeyNode } from 'd3-sankey';
 import {
   ApprovalWorkflowItem,
   D3ApprovalDiagramMode,
@@ -26,7 +26,6 @@ interface ApprovalFlowD3DiagramProps {
 }
 
 type SankeyGraphNode = SankeyNode<D3ApprovalNodeDatum, D3ApprovalLinkDatum>;
-type SankeyGraphLink = SankeyLink<D3ApprovalNodeDatum, D3ApprovalLinkDatum>;
 
 export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
   approvalWorkflows,

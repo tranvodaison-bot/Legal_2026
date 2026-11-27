@@ -1,4 +1,3 @@
-import io
 import os
 import re
 import json
@@ -81,12 +80,22 @@ app = FastAPI(
     version="3.1.0"
 )
 
+_DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_extra_origins = [
+    o.strip() for o in os.getenv("LEX_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_DEFAULT_ALLOWED_ORIGINS + _extra_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -208,27 +217,28 @@ def extract_text_hybrid_pipeline(pdf_path: str, extract_full_tables: bool = Fals
     Pipeline trích xuất văn bản thông minh 4 tầng:
     Text gốc -> OpenCV khử dấu đỏ + VietOCR -> Docling (nếu cần bảng biểu) -> Gemini Vision Fallback.
     """
-    doc = fitz.open(pdf_path)
-    if len(doc) == 0:
-        return {"text": "", "engine_used": "EMPTY", "confidence": 0.0, "ai_metadata": {}}
+    raw_png_bytes = b""
+    with fitz.open(pdf_path) as doc:
+        if len(doc) == 0:
+            return {"text": "", "engine_used": "EMPTY", "confidence": 0.0, "ai_metadata": {}}
 
-    first_page = doc[0]
-    native_text = first_page.get_text("text").strip()
+        first_page = doc[0]
+        native_text = first_page.get_text("text").strip()
 
-    # Tầng 0: PDF có sẵn text chuẩn
-    if len(native_text) >= 60:
-        full_text = "\n".join([p.get_text("text") for p in doc[:3]])
-        return {
-            "text": full_text,
-            "engine_used": "PYMUPDF_NATIVE",
-            "confidence": 1.0,
-            "ai_metadata": {}
-        }
+        # Tầng 0: PDF có sẵn text chuẩn
+        if len(native_text) >= 60:
+            full_text = "\n".join([p.get_text("text") for p in doc[:3]])
+            return {
+                "text": full_text,
+                "engine_used": "PYMUPDF_NATIVE",
+                "confidence": 1.0,
+                "ai_metadata": {}
+            }
 
-    # Tầng 1 + 2: PDF Scan dạng ảnh -> Khử dấu đỏ + VietOCR vùng đầu trang (55% trên trang 1)
-    clip_rect = fitz.Rect(0, 0, first_page.rect.width, first_page.rect.height * 0.55)
-    pix = first_page.get_pixmap(dpi=300, clip=clip_rect)
-    raw_png_bytes = pix.tobytes("png")
+        # Tầng 1 + 2: PDF Scan dạng ảnh -> Khử dấu đỏ + VietOCR vùng đầu trang (55% trên trang 1)
+        clip_rect = fitz.Rect(0, 0, first_page.rect.width, first_page.rect.height * 0.55)
+        pix = first_page.get_pixmap(dpi=300, clip=clip_rect)
+        raw_png_bytes = pix.tobytes("png")
 
     ocr_lines_text = []
     avg_confidence = 0.0

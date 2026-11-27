@@ -693,7 +693,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                 <text
                   textAnchor="middle"
                   dy="30"
-                  className="fill-amber-300 text-[11px] font-mono font-bold"
+                  className="fill-amber-700 dark:fill-amber-300 text-[11px] font-mono font-bold"
                 >
                   {activeHoveredSlice
                     ? `${activeHoveredSlice.count}/${pieCounts.totalGates} cổng`
@@ -792,16 +792,16 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs min-w-[780px]">
+            <table className="w-full text-left border-collapse text-[11px]">
               <thead>
                 <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[10px] uppercase">
-                  <th className="p-3">Dự án · Thẩm quyền</th>
-                  <th className="p-3">Tổng MĐT · Đã giải ngân</th>
-                  <th className="p-3">Blocked Capex</th>
-                  <th className="p-3">Bảo lãnh THHĐ / Tạm ứng</th>
-                  <th className="p-3 w-[145px]">Stage-Gate</th>
-                  <th className="p-3 text-center">Audit-Readiness</th>
-                  <th className="p-3 text-right">Thao tác</th>
+                  <th className="px-2 py-2">Dự án · Thẩm quyền</th>
+                  <th className="px-2 py-2">Tổng MĐT · Giải ngân</th>
+                  <th className="px-2 py-2">Blocked Capex</th>
+                  <th className="px-2 py-2">Bảo lãnh THHĐ / TƯ</th>
+                  <th className="px-2 py-2 w-[96px]">Stage-Gate</th>
+                  <th className="px-2 py-2 text-center">Audit</th>
+                  <th className="px-2 py-2 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--line)]">
@@ -829,41 +829,41 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                           : 'hover:bg-[var(--giay-d)]'
                       }`}
                     >
-                      <td className="p-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-base">{projectIcons[proj.code]}</span>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-sm">{projectIcons[proj.code]}</span>
                           <span className="font-mono font-extrabold text-[var(--chu)]">
                             {proj.code}
                           </span>
                           {isActiveProject && (
-                            <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 font-mono text-[9px] font-extrabold">
-                              ĐANG CHỌN
+                            <span className="px-1 py-0.2 rounded bg-amber-500 text-slate-950 font-mono text-[9px] font-extrabold">
+                              CHỌN
                             </span>
                           )}
                         </div>
-                        <div className="text-[var(--chu)] font-medium leading-snug mt-0.5 line-clamp-1 max-w-[180px]">
+                        <div className="text-[var(--chu)] font-medium leading-snug mt-0.5 line-clamp-1 max-w-[135px]">
                           {proj.name}
                         </div>
-                        <div className="text-[10px] font-mono text-[var(--chu-m)] truncate max-w-[180px]">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] truncate max-w-[135px]">
                           {proj.authority}
                         </div>
                       </td>
 
-                      <td className="p-3 font-mono tabular-nums whitespace-nowrap">
+                      <td className="px-2 py-2 font-mono tabular-nums">
                         <div className="font-bold text-[var(--chu)]">
                           TMĐT: {formatTyVnd(proj.totalInvestmentVnd)}
                         </div>
-                        <div className="text-[11px] text-emerald-800 dark:text-emerald-400">
-                          Đã giải ngân: {formatTyVnd(proj.disbursedValueVnd)} ({disbursementPct}%)
+                        <div className="text-[10.5px] text-emerald-800 dark:text-emerald-400">
+                          Đã GN: {formatTyVnd(proj.disbursedValueVnd)} ({disbursementPct}%)
                         </div>
                         <div className="text-[10px] text-[var(--chu-m)]">
-                          Nghiệm thu: {formatTyVnd(proj.acceptedValueVnd)}
+                          NT: {formatTyVnd(proj.acceptedValueVnd)}
                         </div>
                       </td>
 
-                      <td className="p-3 font-mono tabular-nums whitespace-nowrap">
+                      <td className="px-2 py-2 font-mono tabular-nums">
                         <div
-                          className={`font-extrabold text-xs ${
+                          className={`font-extrabold text-[11px] ${
                             proj.effectiveBlockedCapexVnd > 100_000_000_000
                               ? 'text-rose-800 dark:text-rose-400'
                               : proj.effectiveBlockedCapexVnd > 0
@@ -875,12 +875,12 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         </div>
                         {proj.bottleneckGate && (
                           <div className="text-[10px] text-rose-800 dark:text-rose-300 mt-0.5">
-                            Nghẽn tại {proj.bottleneckGate.gate}
+                            Nghẽn {proj.bottleneckGate.gate}
                           </div>
                         )}
                       </td>
 
-                      <td className="p-3 font-mono text-[10px] whitespace-nowrap">
+                      <td className="px-2 py-2 font-mono text-[10px]">
                         <div
                           className={
                             proj.perfDaysLeft < 0
@@ -892,8 +892,8 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         >
                           THHĐ: {proj.performanceBondExpiry} (
                           {proj.perfDaysLeft < 0
-                            ? `Hết hạn ${Math.abs(proj.perfDaysLeft)}n`
-                            : `còn ${proj.perfDaysLeft}n`}
+                            ? `Hết ${Math.abs(proj.perfDaysLeft)}n`
+                            : `${proj.perfDaysLeft}n`}
                           )
                         </div>
                         <div
@@ -905,16 +905,16 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               : 'text-[var(--chu-m)]'
                           }
                         >
-                          Tạm ứng: {proj.advanceBondExpiry} (
+                          TƯ: {proj.advanceBondExpiry} (
                           {proj.advDaysLeft < 0
-                            ? `Hết hạn ${Math.abs(proj.advDaysLeft)}n`
-                            : `còn ${proj.advDaysLeft}n`}
+                            ? `Hết ${Math.abs(proj.advDaysLeft)}n`
+                            : `${proj.advDaysLeft}n`}
                           )
                         </div>
                       </td>
 
-                      <td className="p-3">
-                        <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-between font-mono text-[10.5px] mb-1 tabular-nums">
                           <span className="font-bold text-emerald-800 dark:text-emerald-400">{proj.strictPct}%</span>
                           <span className="text-[var(--chu-m)]">
                             {proj.approved}/{proj.totalGates}
@@ -936,9 +936,9 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         </div>
                       </td>
 
-                      <td className="p-3 text-center whitespace-nowrap">
+                      <td className="px-2 py-2 text-center whitespace-nowrap">
                         <div
-                          className={`inline-flex flex-col items-center px-2.5 py-1 rounded-lg border font-mono ${
+                          className={`inline-flex flex-col items-center px-1.5 py-1 rounded-lg border font-mono ${
                             proj.auditReadinessScore >= 80
                               ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300'
                               : proj.auditReadinessScore >= 60
@@ -946,20 +946,20 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               : 'bg-rose-500/15 border-rose-500/50 text-rose-800 dark:text-rose-300'
                           }`}
                         >
-                          <span className="text-sm font-extrabold tabular-nums">
+                          <span className="text-xs font-extrabold tabular-nums">
                             {proj.auditReadinessScore}%
                           </span>
-                          <span className="text-[9px] uppercase">
+                          <span className="text-[8.5px] uppercase">
                             {proj.auditReadinessScore >= 80
                               ? 'Sẵn sàng'
                               : proj.auditReadinessScore >= 60
-                              ? 'Cần bổ sung'
-                              : 'Rủi ro cao'}
+                              ? 'Bổ sung'
+                              : 'Rủi ro'}
                           </span>
                         </div>
                       </td>
 
-                      <td className="p-3 text-right whitespace-nowrap">
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={e => {
@@ -969,7 +969,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               proj.bottleneckGate?.gate || 'G12'
                             );
                           }}
-                          className="px-2.5 py-1 rounded bg-[var(--giay-d)] hover:bg-amber-500 text-[var(--chu)] hover:text-slate-950 font-bold text-[11px] border border-[var(--line-d)] hover:border-amber-400 transition"
+                          className="px-2 py-1 rounded bg-[var(--giay-d)] hover:bg-amber-500 text-[var(--chu)] hover:text-slate-950 font-bold text-[10.5px] border border-[var(--line-d)] hover:border-amber-400 transition whitespace-nowrap"
                         >
                           Mở Gate →
                         </button>

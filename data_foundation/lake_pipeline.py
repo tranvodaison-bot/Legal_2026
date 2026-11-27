@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +21,6 @@ from .contracts import (
     CleanVbplClause,
     CleanVbplDocument,
     RawVbplRecord,
-    VbplRelationRecord,
     compute_text_sha256,
     extract_legal_relations,
     normalize_domain_code,

@@ -3,7 +3,6 @@ import {
   TAXONOMY_3D,
   LEGAL_CATEGORY_TREE,
   INITIAL_LEGAL_DOCS,
-  CROSS_EXAM_TOPICS,
   INITIAL_GATES,
   QAQC_PROCESSES,
   INITIAL_EMPLOYEES,
@@ -28,7 +27,6 @@ import {
   GateCrossLockEvaluation,
   GateCrossLockReason,
   GateWorkflowStatus,
-  LawRoadmapPillar,
   LawRoadmapTierType,
   LegalCutoffFilterMode,
   LegalDiffCategory,
@@ -43,7 +41,6 @@ import {
   QaQcGateControlItem,
   QlvbNamingGroupCode,
   RaciTaskItem,
-  RbacRoleCode,
   RenameLogEntry,
   StageGateItem,
   StageGatePhaseProgress,
@@ -60,19 +57,15 @@ import {
 } from './utils/legalCutoffEngine';
 import {
   CDE_ISO_19650_META,
-  CDE_ISO_19650_PIPELINE,
   computeFullSha256Hex,
-  FOUR_PARTY_ROLES,
   getRaciActionPermissions,
 } from './utils/rbacRaciHelpers';
 import {
   buildAutoSuggestedTags,
   buildFileNameByRule,
   buildStandardFolderPath,
-  cleanDocNumber,
   computeSha256FullHex,
   computeSha256Short,
-  createSampleBatchItems,
   detectQlvbGroup,
   extractOcrZonesFromText,
   extractTextFromFileEnhanced,
@@ -190,62 +183,7 @@ type MainStepTab =
   | 'STEP6_AI'
   | 'STEP6_DATA_BI';
 
-const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
-  HTKT: '🛣️',
-  DAN_DUNG: '🏢',
-  KCN: '🏭',
-  CCN: '⚙️',
-  FTZ: '🚢',
-  PPP_BT: '🤝',
-};
-
 type ProjectPhaseFilter = 'ALL' | 'CHUAN_BI' | 'THUC_HIEN' | 'KET_THUC';
-
-const PROJECT_PHASE_META: {
-  id: Exclude<ProjectPhaseFilter, 'ALL'>;
-  label: string;
-  shortLabel: string;
-  icon: string;
-  gates: string[];
-  gateRangeLabel: string;
-  desc: string;
-  activeClass: string;
-  badgeClass: string;
-}[] = [
-  {
-    id: 'CHUAN_BI',
-    label: 'Chuẩn bị',
-    shortLabel: 'Chuẩn bị',
-    icon: '📋',
-    gates: ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6'],
-    gateRangeLabel: 'G0–G6',
-    desc: 'Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS',
-    activeClass: 'bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs',
-    badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-  },
-  {
-    id: 'THUC_HIEN',
-    label: 'Thực hiện',
-    shortLabel: 'Thực hiện',
-    icon: '🏗️',
-    gates: ['G7', 'G8', 'G9', 'G10', 'G11', 'G12', 'G13'],
-    gateRangeLabel: 'G7–G13',
-    desc: 'TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT',
-    activeClass: 'bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs',
-    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-  },
-  {
-    id: 'KET_THUC',
-    label: 'Kết thúc',
-    shortLabel: 'Kết thúc',
-    icon: '🏁',
-    gates: ['G14', 'G15'],
-    gateRangeLabel: 'G14–G15',
-    desc: 'Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành',
-    activeClass: 'bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs',
-    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-  },
-];
 
 function matchesDocProjectPhase(doc: LegalDocument, phase: ProjectPhaseFilter): boolean {
   if (phase === 'ALL') return true;
@@ -268,14 +206,6 @@ function matchesDocProjectPhase(doc: LegalDocument, phase: ProjectPhaseFilter): 
       doc.secondaryDomains.includes('TQT')
     );
   }
-  return true;
-}
-
-function matchesDossierProjectPhase(gateRef: string, phase: ProjectPhaseFilter): boolean {
-  if (phase === 'ALL') return true;
-  if (phase === 'CHUAN_BI') return ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6'].includes(gateRef);
-  if (phase === 'THUC_HIEN') return ['G7', 'G8', 'G9', 'G10', 'G11', 'G12', 'G13'].includes(gateRef);
-  if (phase === 'KET_THUC') return ['G14', 'G15'].includes(gateRef);
   return true;
 }
 
@@ -4596,7 +4526,6 @@ export default function App() {
     articlePersonalNotes,
     pane2SubTab,
     setPane2SubTab,
-    rightReaderMode,
     setRightReaderMode,
     readerFontSize,
     setReaderFontSize,

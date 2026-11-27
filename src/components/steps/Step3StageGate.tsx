@@ -1,90 +1,12 @@
 import React from "react";
 import {
   TAXONOMY_3D,
-  LEGAL_CATEGORY_TREE,
-  INITIAL_LEGAL_DOCS,
-  CROSS_EXAM_TOPICS,
-  INITIAL_GATES,
-  QAQC_PROCESSES,
-  INITIAL_EMPLOYEES,
-  INITIAL_APPROVAL_WORKFLOWS,
-  INITIAL_RACI_TASKS,
-  INITIAL_ASSETS,
-  INITIAL_AUDIT_LOGS,
-  LAW_ROADMAPS,
-  INITIAL_QAQC_CONTROLS,
 } from "../../data/lexPmoData";
 import {
-  AiLegalGapAnalysis,
-  AnalyzedFileItem,
-  ApprovalWorkflowItem,
   ArticlePersonalNoteItem,
-  AuditLogEntry,
-  CdeIsoStatus,
-  EmployeeUser,
-  FavoriteComparePair,
-  FolderNamingPresetCode,
-  FunctionalDomainCode,
-  GateCrossLockEvaluation,
-  GateCrossLockReason,
   GateWorkflowStatus,
-  LawRoadmapPillar,
-  LawRoadmapTierType,
-  LegalCutoffFilterMode,
-  LegalDiffCategory,
-  LegalDocument,
-  NamingFormState,
-  PendingDigitalSignoff,
   ProjectArchetypeCode,
-  ProjectArchetypeItem,
-  ProjectAssetItem,
-  ProjectLegalMilestones,
-  QaQcGateControlItem,
-  QlvbNamingGroupCode,
-  RaciTaskItem,
-  RbacRoleCode,
-  RenameLogEntry,
-  StageGateItem,
-  StageGatePhaseProgress,
-  StageGateProgressSummary,
-  VbplBreadcrumbPath,
-  VbplNavigationLevel,
 } from "../../types/lexPmoTypes";
-import {
-  classifyProjectCutoffRegime,
-  DEFAULT_PROJECT_MILESTONES_MAP,
-  evaluateLegalDocumentCutoff,
-  PRESET_LEGACY_2023_2024,
-  PRESET_NEW_2026,
-} from "../../utils/legalCutoffEngine";
-import {
-  CDE_ISO_19650_META,
-  CDE_ISO_19650_PIPELINE,
-  computeFullSha256Hex,
-  FOUR_PARTY_ROLES,
-  getRaciActionPermissions,
-} from "../../utils/rbacRaciHelpers";
-import {
-  buildFileNameByRule,
-  buildStandardFolderPath,
-  cleanDocNumber,
-  computeSha256Short,
-  createSampleBatchItems,
-  detectQlvbGroup,
-  extractOcrZonesFromText,
-  extractTextFromFileEnhanced,
-  formatFileSize,
-  parseVietnameseLegalText,
-  removeVietnameseTones,
-  smartAnalyzeFile3D,
-  toPascalCaseVN,
-  validateBatchFileName,
-} from "../../utils/legalParser";
-import {
-  DIFF_CATEGORY_META,
-  extractLocalSemanticCues,
-  splitTextByHighlightTargets,
-} from "../../utils/legalCompareHighlighter";
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: "🛣️",
@@ -95,86 +17,6 @@ const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   PPP_BT: "🤝",
 };
 
-type ProjectPhaseFilter = "ALL" | "CHUAN_BI" | "THUC_HIEN" | "KET_THUC";
-
-const PROJECT_PHASE_META: {
-  id: Exclude<ProjectPhaseFilter, "ALL">;
-  label: string;
-  shortLabel: string;
-  icon: string;
-  gates: string[];
-  gateRangeLabel: string;
-  desc: string;
-  activeClass: string;
-  badgeClass: string;
-}[] = [
-  {
-    id: "CHUAN_BI",
-    label: "Chuẩn bị",
-    shortLabel: "Chuẩn bị",
-    icon: "📋",
-    gates: ["G0", "G1", "G2", "G3", "G4", "G5", "G6"],
-    gateRangeLabel: "G0–G6",
-    desc: "Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS",
-    activeClass: "bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs",
-    badgeClass: "bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-500/40",
-  },
-  {
-    id: "THUC_HIEN",
-    label: "Thực hiện",
-    shortLabel: "Thực hiện",
-    icon: "🏗️",
-    gates: ["G7", "G8", "G9", "G10", "G11", "G12", "G13"],
-    gateRangeLabel: "G7–G13",
-    desc: "TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT",
-    activeClass: "bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs",
-    badgeClass: "bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40",
-  },
-  {
-    id: "KET_THUC",
-    label: "Kết thúc",
-    shortLabel: "Kết thúc",
-    icon: "🏁",
-    gates: ["G14", "G15"],
-    gateRangeLabel: "G14–G15",
-    desc: "Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành",
-    activeClass: "bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs",
-    badgeClass: "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40",
-  },
-];
-
-function matchesDocProjectPhase(doc: LegalDocument, phase: ProjectPhaseFilter): boolean {
-  if (phase === "ALL") return true;
-  if (phase === "CHUAN_BI") {
-    return (
-      doc.linkedGates.some(g => ["G0", "G1", "G2", "G3", "G4", "G5", "G6"].includes(g)) ||
-      ["DTU", "QHDD"].includes(doc.primaryDomain)
-    );
-  }
-  if (phase === "THUC_HIEN") {
-    return (
-      doc.linkedGates.some(g => ["G7", "G8", "G9", "G10", "G11", "G12", "G13"].includes(g)) ||
-      ["DTH", "QLHD", "QLCP", "QLCL", "VLXD", "TCVN", "QCVN", "ATLD"].includes(doc.primaryDomain)
-    );
-  }
-  if (phase === "KET_THUC") {
-    return (
-      doc.linkedGates.some(g => ["G14", "G15"].includes(g)) ||
-      doc.primaryDomain === "TQT" ||
-      doc.secondaryDomains.includes("TQT")
-    );
-  }
-  return true;
-}
-
-function matchesDossierProjectPhase(gateRef: string, phase: ProjectPhaseFilter): boolean {
-  if (phase === "ALL") return true;
-  if (phase === "CHUAN_BI") return ["G0", "G1", "G2", "G3", "G4", "G5", "G6"].includes(gateRef);
-  if (phase === "THUC_HIEN") return ["G7", "G8", "G9", "G10", "G11", "G12", "G13"].includes(gateRef);
-  if (phase === "KET_THUC") return ["G14", "G15"].includes(gateRef);
-  return true;
-}
-
 import type { StepContextType } from "../../App";
 
 export interface Step3StageGateProps {
@@ -184,172 +26,39 @@ export interface Step3StageGateProps {
 export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
   const {
     activeTab, setActiveTab,
-    isSidebarCollapsed, setIsSidebarCollapsed,
-    isStep2SidebarExpanded, setIsStep2SidebarExpanded,
-    sidebarWidthPx, setSidebarWidthPx,
-    isCol1SubDomainMenuOpen, setIsCol1SubDomainMenuOpen,
-    col1ViewMode, setCol1ViewMode,
-    expandedStandaloneSubDomains, setExpandedStandaloneSubDomains,
-    expandedStandaloneProjects, setExpandedStandaloneProjects,
-    projectCardSubTab, setProjectCardSubTab,
-    vbplProjectPhaseFilter, setVbplProjectPhaseFilter,
-    projectDocGroupMode, setProjectDocGroupMode,
-    expandedProjectGates, setExpandedProjectGates,
-    vbplGateFilter, setVbplGateFilter,
-    globalSearch, setGlobalSearch,
-    activeDragSplitter, setActiveDragSplitter,
-    workspaceMainRef,
-    step1LeftPct, setStep1LeftPct,
-    vbplCol1Pct, setVbplCol1Pct,
-    vbplCol2Pct, setVbplCol2Pct,
-    isVbplCol1Collapsed, setIsVbplCol1Collapsed,
-    isVbplCol2Collapsed, setIsVbplCol2Collapsed,
     step3Col1Pct, setStep3Col1Pct,
     step3Col2Pct, setStep3Col2Pct,
-    step4Col1Pct, setStep4Col1Pct,
-    step4Col2Pct, setStep4Col2Pct,
-    startResizeSplitter, renderVerticalSplitter,
+    renderVerticalSplitter,
     activeProjectArchetype, setActiveProjectArchetype,
-    activeProjectName, setActiveProjectName,
-    employees, setEmployees,
-    currentActorId, setCurrentActorId,
     currentActor, raciPerms,
-    pendingDigitalSignoff, setPendingDigitalSignoff,
-    gateTvgsVerifiedMap, setGateTvgsVerifiedMap,
-    projectProfiles, setProjectProfiles,
-    legalDocs, setLegalDocs,
-    gates, setGates,
-    approvalWorkflows, setApprovalWorkflows,
-    raciTasks, setRaciTasks,
-    projectAssets, setProjectAssets,
-    qaqcControlRecords, setQaqcControlRecords,
-    voAppendixApproved, setVoAppendixApproved,
-    voState, setVoState,
-    chronoDates, setChronoDates,
-    auditLogs, setAuditLogs,
-    toastMsg, setToastMsg,
-    showToast, recordAuditLog,
-    currentArchetypeMeta, chronoAuditStatus,
-    formatVndBillions, calcDaysUntilReference,
-    isDragging, setIsDragging,
-    isAnalyzingFile, setIsAnalyzingFile,
-    deepScanReadMode, setDeepScanReadMode,
-    batchNamingStandard, setBatchNamingStandard,
-    folderNamingPreset, setFolderNamingPreset,
-    batchFilterKind, setBatchFilterKind,
-    batchFilterCde, setBatchFilterCde,
-    batchFindText, setBatchFindText,
-    batchReplaceText, setBatchReplaceText,
-    batchSuffixInput, setBatchSuffixInput,
-    activeBatchItemId, setActiveBatchItemId,
-    step1RightSubTab, setStep1RightSubTab,
-    readerKeywordSearch, setReaderKeywordSearch,
-    droppedFilesQueue, setDroppedFilesQueue,
-    renameLogs, setRenameLogs,
-    activeRawFile, setActiveRawFile,
-    fileInputRef, folderInputRef,
-    namingForm, setNamingForm,
-    generatedFileName, currentOcrZones, parsedPreviewNodes,
-    validatedBatchQueue, duplicateHashItems, filteredBatchQueue,
-    toggleProjectAxis, toggleSecondaryDomain, toggleLinkedGate,
-    handleProcessFiles, handleChangeCdeStatus, handleDuplicateSha256Action,
-    handleRecomputeBatchNames, handleBatchFindReplaceAndFormat,
-    handleCommitBatchRename, handleUndoRenameLog,
-    handleExportBatchRenameArtifact, handleDownloadRenamedFile,
-    vbplSubMode, setVbplSubMode,
-    categorySearch, setCategorySearch,
-    filterTreeByActiveProject, setFilterTreeByActiveProject,
-    expandedCatGroups, setExpandedCatGroups,
-    expandedIndustryDocCatalog, setExpandedIndustryDocCatalog,
-    expandedSubDomains, setExpandedSubDomains,
-    expandedProjectGroups, setExpandedProjectGroups,
-    vbplIndustryGroupFilter, setVbplIndustryGroupFilter,
-    vbplSubSectorFilter, setVbplSubSectorFilter,
-    vbplDomainFilter, setVbplDomainFilter,
-    vbplProjectFilter, setVbplProjectFilter,
-    pane2SubTab, setPane2SubTab,
-    exactMatchAccent, setExactMatchAccent,
-    filterDocType, setFilterDocType,
-    filterValidityPeriod, setFilterValidityPeriod,
-    selectedDocId, setSelectedDocId,
-    expandedInlineDocId, setExpandedInlineDocId,
-    bookmarkedDocIds, setBookmarkedDocIds,
-    recentDocIds, setRecentDocIds,
-    activeNodeId, setActiveNodeId,
-    rightReaderMode, setRightReaderMode,
-    readerFontSize, setReaderFontSize,
-    selectedCrossExamId, setSelectedCrossExamId,
-    selectedRoadmapPillarId, setSelectedRoadmapPillarId,
-    roadmapTierFilter, setRoadmapTierFilter,
-    isCol2CompactMode, setIsCol2CompactMode,
-    techStandardQuickFilter, setTechStandardQuickFilter,
-    compareLeftDocId, setCompareLeftDocId,
-    compareLeftNodeId, setCompareLeftNodeId,
-    compareRightDocId, setCompareRightDocId,
-    compareRightNodeId, setCompareRightNodeId,
-    highlightTextDiff, setHighlightTextDiff,
-    semanticHighlightEnabled, setSemanticHighlightEnabled,
-    compareCategoryFilter, setCompareCategoryFilter,
-    aiCompareCache, setAiCompareCache,
-    lastCompletedAiPairKey, setLastCompletedAiPairKey,
-    isAiCompareLoading, setIsAiCompareLoading,
-    aiCompareError, setAiCompareError,
-    favoriteComparePairs, setFavoriteComparePairs,
-    showFavoritesDrawer, setShowFavoritesDrawer,
-    editingFavNoteId, setEditingFavNoteId,
-    favNoteDraft, setFavNoteDraft,
-    handleToggleFavoriteComparePair, handleSaveFavoritePairNote,
-    projectLegalDatesMap, setProjectLegalDatesMap,
-    legalCutoffMode, setLegalCutoffMode,
-    activeProjectMilestones, activeProjectCutoffRegime,
-    applyProjectMilestonePreset, updateProjectMilestoneField,
-    articlePersonalNotes, setArticlePersonalNotes,
-    editingNoteKey, setEditingNoteKey,
-    noteDraftText, setNoteDraftText,
-    noteDraftSharedToGate, setNoteDraftSharedToGate,
-    noteDraftTargetGates, setNoteDraftTargetGates,
-    noteDraftProjectScope, setNoteDraftProjectScope,
-    filterOnlyNotedNodes, setFilterOnlyNotedNodes,
-    getArticleNoteKey, openArticleNoteEditor, toggleDraftTargetGate,
-    saveArticlePersonalNote, toggleShareNoteToGate, deleteArticlePersonalNote,
-    resolveRoadmapPillarIdForDoc, openLawRoadmapForDoc,
-    getSelectableArticleNodes, handleChangeCompareDoc,
-    sendArticleToCompare, swapCompareSides,
-    normalizeCompareWord, renderWordDiffChunk, renderDiffHighlightedText,
-    handleRunAiLegalCompare, activeIndustryGroup, activeSubSector,
-    handleSaveToSSOT, toggleBookmarkDoc, handleSelectDoc, handleSelectDocFromColumn1,
-    isDocQcvn, isDocTcvn, qcvnTcvnCounts,
-    filteredLegalDocs, currentLegalDoc, vbplBreadcrumbPath,
-    handleBreadcrumbToRoot, handleBreadcrumbToIndustry,
-    handleBreadcrumbToSubSector, handleBreadcrumbToDocument,
-    handleBreadcrumbStepBack, jumpToArticleNode,
+    gateTvgsVerifiedMap,
+    raciTasks,
+    projectAssets,
+    showToast,
+    currentArchetypeMeta,
+    formatVndBillions,
+    setVbplSubMode,
+    setSelectedDocId,
+    setActiveNodeId,
+    setRightReaderMode,
+    articlePersonalNotes,
     selectedGateCode, setSelectedGateCode,
     checkedAuditItems, setCheckedAuditItems,
-    projectGateStatusMap, setProjectGateStatusMap,
-    evaluateGateCrossLock, projectScopedGates,
+    projectScopedGates,
     currentGate, currentStep, currentGateCrossLock, stageGateProgressSummary,
     gateRiskAiReports, setGateRiskAiReports,
-    analyzingGateStepKey, setAnalyzingGateStepKey,
+    analyzingGateStepKey,
     handleAnalyzeStepRiskByAI,
-    selectedProcessId, setSelectedProcessId,
-    selectedFlowStepIdx, setSelectedFlowStepIdx,
-    showFormPreviewModal, setShowFormPreviewModal,
-    customDiaryEntries, setCustomDiaryEntries,
-    currentProcess, currentFlowStep,
-    step5SubMode, setStep5SubMode,
-    enterpriseModuleTab, setEnterpriseModuleTab,
-    selectedD3UnitFilter, setSelectedD3UnitFilter,
-    filteredApprovalWorkflows,
+    setSelectedProcessId,
+    setSelectedFlowStepIdx,
+    setStep5SubMode,
     handleUpdateGateStatus, handleTvgsVerifyGate,
-    handleSubmitGateIpcPayment, handleToggleQaQcControl,
-    handleRenewProjectBonds, handleApproveWorkflow,
-    handleCreateVoOrRfiRequest, handleAdvanceTaskStatus, handleCalibrateAsset,
-    activeAiAgent, setActiveAiAgent,
-    aiPromptInput, setAiPromptInput,
-    aiOutputText, setAiOutputText,
-    aiEngineSource, setAiEngineSource,
-    isAiRunning, setIsAiRunning,
-    AI_AGENTS_LIST, runMultiAgentAnalysis,
+    handleSubmitGateIpcPayment,
+    handleRenewProjectBonds,
+    setActiveAiAgent,
+    setAiPromptInput,
+    setAiOutputText,
+    setAiEngineSource,
   } = ctx;
 
   return (
