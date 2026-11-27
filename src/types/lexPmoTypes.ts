@@ -78,7 +78,7 @@ export interface LegalCategoryGroup {
 
 export interface LegalNode {
   id: string;
-  level: 'Mở đầu' | 'Căn cứ' | 'Chương' | 'Mục' | 'Điều';
+  level: 'Mở đầu' | 'Căn cứ' | 'Chương' | 'Mục' | 'Điều' | 'Kết thúc';
   code: string;
   title: string;
   clauseCount: number;

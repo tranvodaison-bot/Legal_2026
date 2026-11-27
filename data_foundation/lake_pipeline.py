@@ -32,6 +32,7 @@ from .contracts import (
     utc_now_iso,
     validate_ssot_filename,
 )
+from .nd30_formatter import normalize_nd30_ocr_text, split_nd30_closing_block
 from .warehouse_sqlite import VbplWarehouseSQLite
 
 
@@ -61,8 +62,8 @@ def _parse_clauses_from_raw_text(
     ssot_file_name: str,
     raw_text: str,
 ) -> Tuple[List[CleanVbplClause], int, int, int]:
-    """Phân rã chuẩn NĐ 30/2020 khi bản ghi chỉ có raw_text (bảo toàn 100% toàn văn)."""
-    lines = _clean_page_noise(raw_text).splitlines()
+    """Phân rã chuẩn NĐ 30/2020 khi bản ghi chỉ có raw_text (bảo toàn 100% toàn văn & tách Kết thúc)."""
+    lines = normalize_nd30_ocr_text(_clean_page_noise(raw_text)).splitlines()
     if not lines:
         return [], 1, 0, 0
 
@@ -75,6 +76,7 @@ def _parse_clauses_from_raw_text(
     chapter_cnt = 0
     article_cnt = 0
     clause_cnt = 0
+    in_body = False
 
     def flush_article() -> None:
         nonlocal current_article_num, current_article_title, current_blocks
@@ -109,10 +111,13 @@ def _parse_clauses_from_raw_text(
         m_ch = _RE_CHUONG.match(line)
         if m_ch:
             flush_article()
+            in_body = True
             chapter_cnt += 1
             chap_code = m_ch.group(1).strip()
-            chap_sub = m_ch.group(2).strip()
-            if not chap_sub and idx_line + 1 < total_lines:
+            chap_sub_parts = [m_ch.group(2).strip()] if m_ch.group(2).strip() else []
+            # Gom tối đa 2 dòng tiêu đề Chương nằm ngay bên dưới (chuẩn NĐ 30 trình bày 2 dòng)
+            lookahead = 0
+            while lookahead < 2 and idx_line + 1 < total_lines:
                 nxt = lines[idx_line + 1].strip()
                 if (
                     nxt
@@ -121,9 +126,15 @@ def _parse_clauses_from_raw_text(
                     and not _RE_MUC.match(nxt)
                     and not _RE_DIEU.match(nxt)
                     and not _RE_KHOAN.match(nxt)
+                    and not _RE_DIEM.match(nxt)
+                    and (not chap_sub_parts or nxt.isupper())
                 ):
-                    chap_sub = nxt
+                    chap_sub_parts.append(nxt)
                     idx_line += 1
+                    lookahead += 1
+                else:
+                    break
+            chap_sub = " ".join(chap_sub_parts).strip()
             current_chapter = f"{chap_code}: {chap_sub}".strip(": ")
             order_idx = len(clauses_out) + 1
             clauses_out.append(
@@ -147,9 +158,11 @@ def _parse_clauses_from_raw_text(
         m_muc = _RE_MUC.match(line)
         if m_muc:
             flush_article()
+            in_body = True
             muc_code = m_muc.group(1).strip()
-            muc_sub = (m_muc.group(2) or "").strip()
-            if not muc_sub and idx_line + 1 < total_lines:
+            muc_sub_parts = [(m_muc.group(2) or "").strip()] if (m_muc.group(2) or "").strip() else []
+            lookahead = 0
+            while lookahead < 2 and idx_line + 1 < total_lines:
                 nxt = lines[idx_line + 1].strip()
                 if (
                     nxt
@@ -158,9 +171,15 @@ def _parse_clauses_from_raw_text(
                     and not _RE_MUC.match(nxt)
                     and not _RE_DIEU.match(nxt)
                     and not _RE_KHOAN.match(nxt)
+                    and not _RE_DIEM.match(nxt)
+                    and (not muc_sub_parts or nxt.isupper())
                 ):
-                    muc_sub = nxt
+                    muc_sub_parts.append(nxt)
                     idx_line += 1
+                    lookahead += 1
+                else:
+                    break
+            muc_sub = " ".join(muc_sub_parts).strip()
             order_idx = len(clauses_out) + 1
             clauses_out.append(
                 CleanVbplClause(
@@ -183,6 +202,7 @@ def _parse_clauses_from_raw_text(
         m_d = _RE_DIEU.match(line)
         if m_d:
             flush_article()
+            in_body = True
             article_cnt += 1
             current_article_num = m_d.group(1).strip()
             current_article_title = (m_d.group(2) or "").strip()
@@ -190,7 +210,14 @@ def _parse_clauses_from_raw_text(
             continue
 
         if not current_article_num:
-            preamble_lines.append(line)
+            if not in_body:
+                preamble_lines.append(line)
+            elif clauses_out and clauses_out[-1].node_level in ("Chương", "Mục") and len(line) <= 180:
+                # Gắn dòng tiêu đề rơi lẻ giữa Chương/Mục với Điều đầu tiên vào chính Chương/Mục đó
+                clauses_out[-1].title = f"{clauses_out[-1].title} {line}".strip()
+                if clauses_out[-1].node_level == "Chương":
+                    current_chapter = f"{clauses_out[-1].article_number}: {clauses_out[-1].title}".strip(": ")
+                    clauses_out[-1].chapter_title = current_chapter
         else:
             m_k = _RE_KHOAN.match(line)
             m_p = _RE_DIEM.match(line)
@@ -208,6 +235,30 @@ def _parse_clauses_from_raw_text(
         idx_line += 1
 
     flush_article()
+
+    # Tách khối Kết thúc (Ký ban hành + Nơi nhận chuẩn NĐ 30/2020) khỏi Điều cuối cùng
+    for back_idx in range(len(clauses_out) - 1, -1, -1):
+        if clauses_out[back_idx].node_level == "Điều":
+            body_clean, closing_block = split_nd30_closing_block(clauses_out[back_idx].content_text)
+            if closing_block:
+                clauses_out[back_idx].content_text = body_clean
+                clauses_out[back_idx].word_count = len(body_clean.split())
+                clauses_out.append(
+                    CleanVbplClause(
+                        clause_key=f"{doc_key}-END",
+                        doc_key=doc_key,
+                        ssot_file_name=ssot_file_name,
+                        order_index=len(clauses_out) + 1,
+                        node_level="Kết thúc",
+                        chapter_title="Thể thức kết thúc (Nghị định 30/2020/NĐ-CP)",
+                        article_number="Ký ban hành",
+                        title="Nơi nhận & Thẩm quyền ký ban hành",
+                        content_text=closing_block,
+                        clause_count=len(closing_block.splitlines()),
+                        word_count=len(closing_block.split()),
+                    )
+                )
+            break
 
     if preamble_lines:
         pre_txt = "\n".join(preamble_lines)
@@ -528,7 +579,7 @@ class VbplDataLakePipeline:
             new_len = len(incoming.raw_text or "")
             is_full_rebuild = (
                 incoming.source_system == "FULL_VERBATIM_REBUILD"
-                and new_len >= max(200, old_len)
+                and new_len >= max(200, int(old_len * 0.85))
             )
             keep_old_text = (not is_full_rebuild) and (
                 old_len > new_len + 100 or (len(existing.nodes) > len(incoming.nodes) and new_len < 1000)

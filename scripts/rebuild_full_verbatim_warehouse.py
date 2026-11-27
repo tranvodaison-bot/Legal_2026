@@ -33,6 +33,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from data_foundation.analyst_ba_bi import VbplAnalystBaBiEngine
 from data_foundation.lake_pipeline import VbplDataLakePipeline, _clean_page_noise
+from data_foundation.nd30_formatter import normalize_nd30_ocr_text, strip_red_stamp_pil
 from scripts.ingest_data_legal_2026 import DEFAULT_SOURCE_DIR
 
 _TESS_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -55,8 +56,8 @@ def _load_sidecar_module():
 
 def _ocr_png_bytes(png_bytes: bytes) -> str:
     try:
-        im = Image.open(io.BytesIO(png_bytes))
-        return pytesseract.image_to_string(im, lang="vie", config="--psm 6") or ""
+        clean_pil = strip_red_stamp_pil(png_bytes)
+        return pytesseract.image_to_string(clean_pil, lang="vie", config="--psm 6") or ""
     except Exception:
         return ""
 
@@ -100,24 +101,26 @@ def _extract_verbatim_pdf(
 
             if not is_scan:
                 chunks = [_clean_page_noise(doc[i].get_text("text")) for i in range(total_pages)]
-                raw_text = "\n".join(c for c in chunks if c)
+                raw_text = normalize_nd30_ocr_text("\n".join(c for c in chunks if c))
                 return raw_text, "PDF_NATIVE", False, total_pages
 
             cache_file = ocr_cache_dir / f"{sha[:16]}.txt"
             if cache_file.is_file():
                 cached_txt = cache_file.read_text(encoding="utf-8").strip()
                 if cached_txt:
-                    return cached_txt, "PDF_OCR", True, total_pages
+                    return normalize_nd30_ocr_text(cached_txt), "PDF_OCR", True, total_pages
 
             page_imgs: List[bytes] = []
             for i in range(total_pages):
-                pix = doc[i].get_pixmap(dpi=200, colorspace=fitz.csGRAY)
+                pix = doc[i].get_pixmap(dpi=200, colorspace=fitz.csRGB)
                 page_imgs.append(pix.tobytes("png"))
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, ocr_workers)) as ex:
             ocr_chunks = list(ex.map(_ocr_png_bytes, page_imgs))
 
-        raw_text = "\n".join(_clean_page_noise(c) for c in ocr_chunks if c and c.strip())
+        raw_text = normalize_nd30_ocr_text(
+            "\n".join(_clean_page_noise(c) for c in ocr_chunks if c and c.strip())
+        )
         if raw_text.strip():
             cache_file.write_text(raw_text, encoding="utf-8")
         return raw_text, "PDF_OCR", True, total_pages

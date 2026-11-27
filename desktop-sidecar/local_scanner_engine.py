@@ -406,14 +406,14 @@ class LegalDocumentParser:
         raise ValueError(f"Định dạng file .{ext} chưa được hỗ trợ. Vui lòng dùng .pdf hoặc .docx")
 
     def _ocr_scan_page(self, page: Any, page_num: int) -> str:
-        """Render trang PDF thành ảnh 250 DPI và chạy OCR tiếng Việt (Tesseract -> VietOCR -> Gemini Vision)."""
+        """Render trang PDF thành ảnh 250 DPI, khử con dấu đỏ và chạy OCR tiếng Việt chuẩn NĐ 30/2020."""
         pix = page.get_pixmap(dpi=250)
         png_bytes = pix.tobytes("png")
+        clean_pil = preprocess_remove_red_stamp(png_bytes)
 
         if PYTESSERACT_AVAILABLE:
             try:
-                img = Image.open(io.BytesIO(png_bytes))
-                txt = pytesseract.image_to_string(img, lang="vie")
+                txt = pytesseract.image_to_string(clean_pil, lang="vie", config="--psm 6")
                 if txt and txt.strip():
                     return txt
             except Exception as e:
@@ -421,7 +421,6 @@ class LegalDocumentParser:
 
         if vn_ocr_predictor is not None:
             try:
-                clean_pil = preprocess_remove_red_stamp(png_bytes)
                 line_imgs = segment_text_lines_from_pil(clean_pil)
                 ocr_lines = []
                 for l_img in line_imgs:

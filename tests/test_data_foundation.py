@@ -443,6 +443,45 @@ class TestVbplDataFoundation6Layers(unittest.TestCase):
             self.assertEqual(len(pipeline.warehouse.search_clauses_fts("NĐ-CP")), 1)
             self.assertEqual(len(pipeline.warehouse.search_clauses_fts("135/2025/QH15")), 1)
 
+    def test_nd30_ocr_normalizer_chapter_and_closing_block(self):
+        from data_foundation.lake_pipeline import _parse_clauses_from_raw_text
+        from data_foundation.nd30_formatter import normalize_nd30_ocr_text, split_nd30_closing_block
+
+        sample = """CHÍNH PHỦ
+Số: 206/2026/NĐ-CP
+NGHỊ ĐỊNH
+Quy định chi tiết về quản lý chỉ.phí đầu tư xây dựng
+Căn cứ Luật Xây dựng số 135/2025/QHI15;
+Chương I
+QUY ĐỊNH CHUNG
+Điêu 1. Phạm vi điều chỉnh
+.___1. Nghị định này quy định chi tiết quản lý chi phí. 2. Áp dụng với dự án đầu tư công.
+Điều 2. Hiệu lực thi hành
+Nghị định này có hiệu lực thi hành từ ngày 01 tháng 7 năm 2026. Nơi nhận: - Ban Bí thư; - Thủ tướng; - Lưu: VT, CN (2). KT. THỦ TƯỚNG
+"""
+        cleaned = normalize_nd30_ocr_text(sample)
+        self.assertIn("chi phí", cleaned)
+        self.assertIn("135/2025/QH15", cleaned)
+        self.assertIn("Điều 1.", cleaned)
+
+        nodes, chap_cnt, art_cnt, _ = _parse_clauses_from_raw_text("DOC-TEST", "test.pdf", cleaned)
+        self.assertEqual(chap_cnt, 1)
+        self.assertEqual(art_cnt, 2)
+        intro = nodes[0]
+        self.assertEqual(intro.node_level, "Mở đầu")
+        self.assertNotIn("QUY ĐỊNH CHUNG", intro.content_text)
+
+        closing = nodes[-1]
+        self.assertEqual(closing.node_level, "Kết thúc")
+        self.assertIn("Nơi nhận:", closing.content_text)
+
+        last_art = [n for n in nodes if n.node_level == "Điều"][-1]
+        self.assertNotIn("Nơi nhận:", last_art.content_text)
+        body_clean, end_block = split_nd30_closing_block(last_art.content_text + "\nNơi nhận:\n- Lưu: VT.")
+        self.assertIn("01 tháng 7 năm 2026", body_clean)
+        self.assertIn("Nơi nhận:", end_block)
+
+
 
 if __name__ == "__main__":
     unittest.main()

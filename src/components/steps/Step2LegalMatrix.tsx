@@ -91,6 +91,7 @@ import { SlideOverRefDrawer, SlideOverRefTarget } from "../SlideOverRefDrawer";
 import { getVbplBadgeClass, getVbplBadgeLabel } from "../modals/VbplLibraryModals";
 import { searchDataFoundationClauses } from "../../services/ssotBridgeService";
 import { buildDocRefIndex, parseLegalXrefs, resolveXrefTarget } from "../../utils/legalXrefParser";
+import { parseNd30Header, parseNd30Footer, buildNd30A4PrintHtml } from "../../utils/nd30Formatter";
 
 const LawGenealogyTreeDiagram = React.lazy(() =>
   import("../LawGenealogyTreeDiagram").then(m => ({ default: m.LawGenealogyTreeDiagram }))
@@ -379,7 +380,28 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
   const [slideRefTarget, setSlideRefTarget] = React.useState<SlideOverRefTarget | null>(null);
   const [isPmoFilterOpen, setIsPmoFilterOpen] = React.useState(false);
   const [isFunctionalDomainsExpanded, setIsFunctionalDomainsExpanded] = React.useState(true);
+  const [isNd30Layout, setIsNd30Layout] = React.useState(true);
   const [mobilePane, setMobilePane] = React.useState<'c1' | 'c2' | 'c3'>('c3');
+
+  const handlePrintNd30A4 = (doc: LegalDocument) => {
+    const html = buildNd30A4PrintHtml(doc);
+    const w = window.open('', '_blank', 'width=920,height=760');
+    if (!w) {
+      showToast('Trình duyệt đã chặn cửa sổ bật lên — vui lòng cho phép popup để in A4 NĐ 30/2020.');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    window.setTimeout(() => {
+      try {
+        w.print();
+      } catch {
+        // ignore print dialog close
+      }
+    }, 300);
+  };
 
   // FTS5 Full-Text Search (SQLite WAL qua /api/documents/search-fts) cho tab "🔍 Kết quả"
   const [ftsHits, setFtsHits] = React.useState<Array<Record<string, unknown>>>([]);
@@ -498,16 +520,20 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     });
   };
 
-  // Định dạng nội dung điều khoản chuẩn sách luật: Số khoản/điểm màu Đỏ son (--son) + .xref
+  // Định dạng nội dung điều khoản chuẩn NĐ 30/2020 (Times New Roman · Canh đều 2 bên · Thụt đầu dòng 1.27cm · Số khoản Đỏ son)
   const renderFormattedArticleBody = (content: string) => {
     const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
     return (
-      <div className="space-y-2 vbpl-article-prose">
+      <div className={`space-y-2 vbpl-article-prose ${isNd30Layout ? 'nd30-sheet' : ''}`}>
         {lines.map((line, lIdx) => {
           const clauseMatch = line.match(/^(\d+\.\s+)(.*)$/);
           if (clauseMatch) {
             return (
-              <p key={lIdx} className="leading-[1.78]" style={{ color: 'var(--chu)' }}>
+              <p
+                key={lIdx}
+                className={isNd30Layout ? 'nd30-article-p' : 'leading-[1.78]'}
+                style={isNd30Layout ? undefined : { color: 'var(--chu)' }}
+              >
                 <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
                   {clauseMatch[1]}
                 </b>
@@ -518,7 +544,11 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
           const pointMatch = line.match(/^([a-zđ]\)\s+|-\s+)(.*)$/i);
           if (pointMatch) {
             return (
-              <p key={lIdx} className="pl-5 leading-[1.78]" style={{ color: 'var(--chu)' }}>
+              <p
+                key={lIdx}
+                className={isNd30Layout ? 'nd30-point-p' : 'pl-5 leading-[1.78]'}
+                style={isNd30Layout ? undefined : { color: 'var(--chu)' }}
+              >
                 <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
                   {pointMatch[1]}
                 </b>
@@ -527,7 +557,11 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
             );
           }
           return (
-            <p key={lIdx} className="leading-[1.78]" style={{ color: 'var(--chu)' }}>
+            <p
+              key={lIdx}
+              className={isNd30Layout ? 'nd30-article-p' : 'leading-[1.78]'}
+              style={isNd30Layout ? undefined : { color: 'var(--chu)' }}
+            >
               {renderTextWithXrefAndSearch(line, globalSearch)}
             </p>
           );
@@ -2144,16 +2178,16 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                             </div>
                           ) : rightReaderMode === 'FULL_CONTENT' ? (
                             /* ======================================================
-                               CHẾ ĐỘ 2: ĐỌC TOÀN VĂN ĐIỀU KHOẢN CHUẨN SÁCH LUẬT
-                               (Số khoản Đỏ son · Hộp Ghi chú riêng viền vàng nét đứt)
+                               CHẾ ĐỘ 2: ĐỌC TOÀN VĂN CHUẨN THỂ THỨC NGHỊ ĐỊNH 30/2020/NĐ-CP
+                               (Quốc hiệu 2 cột · Canh đều · Thụt đầu dòng · Ký ban hành & Nơi nhận)
                                ====================================================== */
                             <div
-                              className="max-w-[860px] mx-auto space-y-6"
+                              className={`max-w-[880px] mx-auto space-y-6 ${isNd30Layout ? 'nd30-sheet' : ''}`}
                               style={{ fontSize: `${readerFontSize}px` }}
                             >
-                              {/* Hộp tóm tắt & Nguồn gốc văn bản ở đầu trang đọc */}
+                              {/* Hộp tóm tắt & Nguồn gốc + Điều khiển Thể thức NĐ 30/2020 */}
                               <div
-                                className="p-4 rounded-lg border space-y-2"
+                                className="p-4 rounded-lg border space-y-2.5"
                                 style={{
                                   backgroundColor: 'var(--giay-soft)',
                                   borderColor: 'var(--gold)',
@@ -2171,14 +2205,42 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                       · Hiệu lực: <b>{currentLegalDoc.effectiveDate}</b>
                                     </span>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setRightReaderMode('TOC_INDEX')}
-                                    className="text-xs font-bold underline cursor-pointer"
-                                    style={{ color: 'var(--son)' }}
-                                  >
-                                    ← Quay về Mục lục
-                                  </button>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsNd30Layout(prev => !prev)}
+                                      title="Bật/tắt trình bày theo thể thức Nghị định 30/2020/NĐ-CP"
+                                      className="px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer transition"
+                                      style={{
+                                        backgroundColor: isNd30Layout ? 'var(--navy)' : 'var(--panel)',
+                                        borderColor: isNd30Layout ? 'var(--navy)' : 'var(--line-d)',
+                                        color: isNd30Layout ? '#ffffff' : 'var(--chu)',
+                                      }}
+                                    >
+                                      📜 Thể thức NĐ 30/2020
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePrintNd30A4(currentLegalDoc)}
+                                      title="Mở bản in chuẩn khổ A4 theo Phụ lục I Nghị định 30/2020/NĐ-CP"
+                                      className="px-2.5 py-1 rounded text-[11px] font-bold border cursor-pointer transition hover:opacity-90"
+                                      style={{
+                                        backgroundColor: 'var(--panel)',
+                                        borderColor: 'var(--line-d)',
+                                        color: 'var(--navy-ink)',
+                                      }}
+                                    >
+                                      🖨️ In A4 NĐ 30
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setRightReaderMode('TOC_INDEX')}
+                                      className="text-xs font-bold underline cursor-pointer ml-1"
+                                      style={{ color: 'var(--son)' }}
+                                    >
+                                      ← Quay về Mục lục
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="font-bold text-base" style={{ color: 'var(--chu)' }}>
                                   {currentLegalDoc.title}
@@ -2196,7 +2258,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 ) : currentLegalDoc.fullTextSource === 'VERBATIM_SQLITE' && currentLegalDoc.fullTextMeta ? (
                                   <div className="mt-2 px-3 py-1.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-xs font-semibold text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
                                     <span>
-                                      ✓ Toàn văn đầy đủ nguyên bản ({currentLegalDoc.fullTextMeta.totalPages} trang ·{' '}
+                                      ✓ Toàn văn đầy đủ nguyên bản chuẩn NĐ 30/2020 ({currentLegalDoc.fullTextMeta.totalPages} trang ·{' '}
                                       {currentLegalDoc.articleCount || currentLegalDoc.nodes.length} Điều/Mục ·{' '}
                                       {currentLegalDoc.fullTextMeta.totalChars.toLocaleString('vi-VN')} ký tự ·{' '}
                                       {currentLegalDoc.fullTextMeta.sourceType})
@@ -2209,12 +2271,88 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 ) : null}
                               </div>
 
-                              {/* Chuỗi các Điều khoản nối tiếp chuẩn step_25_shot_1.png */}
-                              <div className="space-y-7">
+                              {/* KHỐI QUỐC HIỆU – TIÊU NGỮ – TÊN LOẠI – CĂN CỨ BAN HÀNH CHUẨN NĐ 30/2020 */}
+                              {isNd30Layout && (() => {
+                                const introNode = currentLegalDoc.nodes.find(
+                                  n => n.level === 'Mở đầu' || n.level === 'Căn cứ'
+                                );
+                                const hdr = parseNd30Header(currentLegalDoc, introNode);
+                                return (
+                                  <section
+                                    aria-label="Phần mở đầu chuẩn Nghị định 30/2020/NĐ-CP"
+                                    className="p-5 md:p-7 rounded-lg border space-y-4"
+                                    style={{
+                                      backgroundColor: 'var(--panel)',
+                                      borderColor: 'var(--line)',
+                                    }}
+                                  >
+                                    <div className="nd30-header-grid">
+                                      <div>
+                                        <div className="text-[13px] md:text-[14px] font-bold uppercase tracking-wide" style={{ color: 'var(--navy-ink)' }}>
+                                          {hdr.issuerUpper}
+                                        </div>
+                                        <div className="nd30-rule-short" />
+                                        <div className="text-[13px] mt-1.5 font-semibold" style={{ color: 'var(--chu)' }}>
+                                          {hdr.docNumberLine}
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="text-[13px] md:text-[14px] font-bold uppercase tracking-wide" style={{ color: 'var(--navy-ink)' }}>
+                                          {hdr.nationUpper}
+                                        </div>
+                                        <div className="text-[13.5px] md:text-[15px] font-bold mt-0.5" style={{ color: 'var(--chu)' }}>
+                                          {hdr.motto}
+                                        </div>
+                                        <div className="nd30-motto-rule" />
+                                        <div className="text-[12.5px] italic" style={{ color: 'var(--chu-m)' }}>
+                                          {hdr.placeDateLine}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-center space-y-1 pt-2">
+                                      <div className="text-base md:text-lg font-extrabold uppercase tracking-wider" style={{ color: 'var(--navy-ink)' }}>
+                                        {hdr.docTypeUpper}
+                                      </div>
+                                      <div className="text-[14.5px] md:text-[15.5px] font-bold max-w-[680px] mx-auto leading-snug" style={{ color: 'var(--chu)' }}>
+                                        {hdr.docTitle}
+                                      </div>
+                                      <div className="nd30-title-rule" />
+                                    </div>
+
+                                    {(hdr.legalBases.length > 0 || hdr.enactingLine) && (
+                                      <div className="space-y-1.5 pt-1">
+                                        {hdr.legalBases.map((basis, bIdx) => (
+                                          <p key={bIdx} className="nd30-basis">
+                                            {renderTextWithXrefAndSearch(basis, globalSearch)}
+                                          </p>
+                                        ))}
+                                        {hdr.enactingLine && (
+                                          <p className="nd30-enacting pt-1">{hdr.enactingLine}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </section>
+                                );
+                              })()}
+
+                              {/* Chuỗi các Chương / Mục / Điều / Kết thúc nối tiếp */}
+                              <div className="space-y-6">
                                 {currentLegalDoc.nodes
                                   .filter(node => {
+                                    if (
+                                      isNd30Layout &&
+                                      (node.level === 'Mở đầu' || node.level === 'Căn cứ')
+                                    ) {
+                                      return false;
+                                    }
                                     if (!filterOnlyNotedNodes) return true;
-                                    if (node.level === 'Chương' || node.level === 'Mục') return false;
+                                    if (
+                                      node.level === 'Chương' ||
+                                      node.level === 'Mục' ||
+                                      node.level === 'Kết thúc'
+                                    )
+                                      return false;
                                     return Boolean(
                                       articlePersonalNotes[
                                         getArticleNoteKey(currentLegalDoc.id, node.id)
@@ -2223,7 +2361,18 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                   })
                                   .map(node => {
                                     if (node.level === 'Chương') {
-                                      return (
+                                      return isNd30Layout ? (
+                                        <div
+                                          key={node.id}
+                                          id={`reader-node-${node.id}`}
+                                          className="nd30-chapter text-sm md:text-[15px] mt-7"
+                                        >
+                                          <div>{node.code.replace(/\.+$/, '')}</div>
+                                          {node.title && node.title !== node.code && (
+                                            <div className="mt-0.5">{node.title}</div>
+                                          )}
+                                        </div>
+                                      ) : (
                                         <div
                                           key={node.id}
                                           id={`reader-node-${node.id}`}
@@ -2239,12 +2388,65 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         <div
                                           key={node.id}
                                           id={`reader-node-${node.id}`}
-                                          className="italic font-bold text-sm pt-2"
+                                          className={
+                                            isNd30Layout
+                                              ? 'nd30-section text-sm'
+                                              : 'italic font-bold text-sm pt-2'
+                                          }
                                           style={{ color: 'var(--son)' }}
                                         >
-                                          {node.code.replace(/\.+$/, '')}. {node.title}
+                                          {node.code.replace(/\.+$/, '')}
+                                          {node.title ? `. ${node.title}` : ''}
                                         </div>
                                       );
+                                    }
+
+                                    if (node.level === 'Kết thúc') {
+                                      const ftr = parseNd30Footer(node, currentLegalDoc.issuer);
+                                      if (isNd30Layout && ftr) {
+                                        return (
+                                          <footer
+                                            key={node.id}
+                                            id={`reader-node-${node.id}`}
+                                            aria-label="Phần kết thúc chuẩn Nghị định 30/2020/NĐ-CP"
+                                            className="p-5 rounded-lg border space-y-3"
+                                            style={{
+                                              backgroundColor: 'var(--panel)',
+                                              borderColor: 'var(--line)',
+                                            }}
+                                          >
+                                            {ftr.adoptionNote && (
+                                              <p className="nd30-basis">{ftr.adoptionNote}</p>
+                                            )}
+                                            <div className="nd30-footer-grid">
+                                              <div className="text-xs leading-relaxed space-y-0.5" style={{ color: 'var(--chu-m)' }}>
+                                                <div className="font-bold italic text-[13px]" style={{ color: 'var(--chu)' }}>
+                                                  Nơi nhận:
+                                                </div>
+                                                {ftr.recipients.map((rec, rIdx) => (
+                                                  <div key={rIdx}>- {rec}</div>
+                                                ))}
+                                              </div>
+                                              <div className="text-center space-y-2">
+                                                {ftr.signerAuthorityLines.map((authLn, aIdx) => (
+                                                  <div
+                                                    key={aIdx}
+                                                    className="text-[13px] font-bold uppercase tracking-wide"
+                                                    style={{ color: 'var(--navy-ink)' }}
+                                                  >
+                                                    {authLn}
+                                                  </div>
+                                                ))}
+                                                {ftr.signerName && (
+                                                  <div className="pt-8 text-sm font-bold" style={{ color: 'var(--chu)' }}>
+                                                    {ftr.signerName}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </footer>
+                                        );
+                                      }
                                     }
 
                                     const noteKey = getArticleNoteKey(currentLegalDoc.id, node.id);
@@ -2268,10 +2470,16 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         {/* Tiêu đề Điều màu Xanh Navy + Cụm nút đối chiếu nhanh */}
                                         <div className="flex flex-wrap items-baseline justify-between gap-2 group">
                                           <h3
-                                            className="text-[16.5px] font-bold leading-snug"
+                                            className={
+                                              isNd30Layout
+                                                ? 'nd30-article-heading text-[16px] md:text-[17px]'
+                                                : 'text-[16.5px] font-bold leading-snug'
+                                            }
                                             style={{ color: 'var(--navy-ink)' }}
                                           >
-                                            {node.code.replace(/\.+$/, '')}. {renderHighlightedSpan(node.title, globalSearch)}
+                                            {node.code.replace(/\.+$/, '')}
+                                            {node.title ? `. ` : ''}
+                                            {node.title ? renderHighlightedSpan(node.title, globalSearch) : null}
                                           </h3>
 
                                           <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition text-[11px]">

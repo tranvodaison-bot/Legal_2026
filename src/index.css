@@ -461,6 +461,122 @@ body.toi .xref:hover {
   background-color: rgba(212, 168, 67, 0.18);
 }
 
+/* ============================================================================
+   THỂ THỨC TOÀN VĂN CHUẨN NGHỊ ĐỊNH 30/2020/NĐ-CP (PHỤ LỤC I)
+   ============================================================================ */
+.nd30-sheet {
+  font-family: 'Times New Roman', 'Noto Serif', Georgia, serif;
+  color: var(--chu);
+}
+
+.nd30-header-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+  gap: 16px;
+  align-items: start;
+  text-align: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nd30-rule-short {
+  width: 96px;
+  height: 1px;
+  background-color: var(--chu);
+  opacity: 0.7;
+  margin: 4px auto 0;
+}
+
+.nd30-motto-rule {
+  width: 170px;
+  height: 1px;
+  background-color: var(--chu);
+  opacity: 0.8;
+  margin: 4px auto 6px;
+}
+
+.nd30-title-rule {
+  width: 160px;
+  height: 1px;
+  background-color: var(--gold);
+  margin: 8px auto 14px;
+}
+
+.nd30-basis {
+  text-align: justify;
+  text-indent: 1.27cm;
+  font-style: italic;
+  line-height: 1.65;
+  color: var(--chu-m);
+}
+
+.nd30-enacting {
+  text-align: justify;
+  text-indent: 1.27cm;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.65;
+  color: var(--chu);
+}
+
+.nd30-chapter {
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(27, 58, 92, 0.09) 0%, rgba(212, 168, 67, 0.14) 50%, rgba(27, 58, 92, 0.09) 100%);
+  border-top: 1.5px solid var(--gold);
+  border-bottom: 1px solid var(--line);
+  color: var(--navy-ink);
+}
+
+body.toi .nd30-chapter {
+  background: linear-gradient(90deg, rgba(32, 61, 94, 0.45) 0%, rgba(212, 168, 67, 0.16) 50%, rgba(32, 61, 94, 0.45) 100%);
+  color: #f3e6c2;
+}
+
+.nd30-section {
+  text-align: center;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--son);
+  padding-top: 6px;
+}
+
+.nd30-article-heading {
+  text-indent: 1.27cm;
+  font-weight: 700;
+  line-height: 1.65;
+  color: var(--navy-ink);
+}
+
+.nd30-article-p {
+  text-align: justify;
+  text-indent: 1.27cm;
+  line-height: 1.72;
+  color: var(--chu);
+}
+
+.nd30-point-p {
+  text-align: justify;
+  padding-left: 1.8cm;
+  line-height: 1.72;
+  color: var(--chu);
+}
+
+.nd30-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 52%) minmax(0, 48%);
+  gap: 18px;
+  align-items: start;
+  padding-top: 16px;
+  margin-top: 18px;
+  border-top: 1.5px solid var(--line-d);
+}
+
 /* Scrollbar tinh gọn đồng bộ giao diện */
 ::-webkit-scrollbar {
   width: 6px;

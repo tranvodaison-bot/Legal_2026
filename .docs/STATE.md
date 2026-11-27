@@ -33,6 +33,7 @@
   - Tự động gắn dẫn chiếu `.xref` bấm mở `SlideOverRefDrawer` (`src/utils/legalXrefParser.ts`, index O(1), không dead link, chống XSS).
   - Bộ lọc năm hiệu lực `2027..2006` (kèm đếm số VB/năm) & nút `🗑 Xóa lịch sử` + giữ thứ tự xem ở tab `Gần đây`.
   - `React.lazy()` + `ChunkErrorBoundary` + Vite 8.3.8 Rolldown `codeSplitting.groups` giảm main chunk `index-*.js` từ `~1.54 MB` xuống **`336.59 kB`** (mọi chunk `< 500 KB`, `0` cảnh báo bundle), khóa cổng `tests/bundle-budget.test.ts` trong `bootstrap.ps1` (`20/20` smoke tests PASS, `5/5` Python tests PASS).
-- **Nâng cấp Review Live App (`TX-14`, 2026-11-27):**
+- **Nâng cấp Review Live App (`TX-14` & `TX-15`, 2026-11-27):**
   - Thêm nút **Thu gọn ▲ / Drill Down ▾** cho mục `🏷️ Chức năng chuyên môn` Cột 1 (`Step2LegalMatrix.tsx`).
-  - Tái dựng kho SQLite FTS5 toàn văn **100% nguyên bản không cắt mẫu** (`rebuild_full_verbatim_warehouse.py`, OCR 12 luồng + cache `06_ocr_text_cache/`): `192` VB · **`6.945` điều khoản** · `729` quan hệ; nâng cấp `/api/documents/clauses` & `ensureDocFullClauses` tự động nạp trọn vẹn Điều/Khoản thật (`135/2025` đủ `95` Điều, `206/2026` đủ `38` Điều, `207/2026` đủ `54` Điều, `217/2026` đủ `89` Điều).
+  - Tái dựng kho SQLite FTS5 toàn văn **100% nguyên bản không cắt mẫu** (`rebuild_full_verbatim_warehouse.py`, OCR 12 luồng + khử dấu đỏ + cache): `192` VB · **`6.460` điều khoản/cấu trúc** · `727` quan hệ; `/api/documents/clauses` & `ensureDocFullClauses` nạp trọn vẹn (`135/2025` đủ `95` Điều, `206/2026` đủ `38` Điều, `207/2026` đủ `54` Điều, `217/2026` đủ `89` Điều).
+  - Áp dụng **Thể thức chuẩn Nghị định 30/2020/NĐ-CP** từ khâu OCR (`nd30_formatter.py`, tách `Kết thúc`/`Nơi nhận`, khử rò rỉ Chương vào `[Mở đầu]`) tới giao diện `📄 Toàn văn` & In A4 (`nd30Formatter.ts`, Quốc hiệu – Tiêu ngữ 2 cột, `Times New Roman`, canh đều, thụt đầu dòng `1.27cm`, `Nơi nhận` & `Thẩm quyền ký` 2 cột).

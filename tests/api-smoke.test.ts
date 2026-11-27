@@ -50,6 +50,11 @@ import {
   parseLegalXrefs,
   resolveXrefTarget,
 } from '../src/utils/legalXrefParser.js';
+import {
+  buildNd30A4PrintHtml,
+  parseNd30Footer,
+  parseNd30Header,
+} from '../src/utils/nd30Formatter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1312,4 +1317,74 @@ test('legalXrefParser extracts citations, resolves valid targets via O(1) index,
     assert.ok(resolvedSelfArt, 'Should resolve internal Điều 1 inside current document');
     assert.equal(resolvedSelfArt!.doc.id, currentDoc.id);
   }
+});
+
+test('nd30Formatter parses ND 30/2020 header, footer and generates XSS-safe A4 print HTML', () => {
+  const sampleDoc = {
+    ...INITIAL_LEGAL_DOCS[0],
+    docNumber: '206/2026/NĐ-CP',
+    docType: 'ND',
+    issuer: 'CP',
+    title: 'Quy định chi tiết về quản lý chi phí đầu tư xây dựng',
+    issueDate: '15/06/2026',
+    nodes: [
+      {
+        id: 'N0',
+        level: 'Mở đầu' as const,
+        code: 'Căn cứ',
+        title: 'Căn cứ ban hành · Lời mở đầu',
+        clauseCount: 4,
+        content: [
+          'CHÍNH PHỦ',
+          'Số: 206/2026/NĐ-CP',
+          'Hà Nội, ngày 15 tháng 6 năm 2026',
+          'NGHỊ ĐỊNH',
+          'Quy định chi tiết về quản lý chi phí đầu tư xây dựng',
+          'Căn cứ Luật Xây dựng số 135/2025/QH15;',
+          'Chính phủ ban hành Nghị định quy định chi tiết về quản lý chi phí đầu tư xây dựng <script>alert(1)</script>.',
+        ].join('\n'),
+      },
+      {
+        id: 'C1',
+        level: 'Chương' as const,
+        code: 'Chương I',
+        title: 'QUY ĐỊNH CHUNG',
+        clauseCount: 0,
+        content: '',
+      },
+      {
+        id: 'D1',
+        level: 'Điều' as const,
+        code: 'Điều 1',
+        title: 'Phạm vi điều chỉnh',
+        clauseCount: 1,
+        content: '1. Nghị định này quy định chi tiết quản lý chi phí.',
+      },
+      {
+        id: 'END',
+        level: 'Kết thúc' as const,
+        code: 'Ký ban hành',
+        title: 'Nơi nhận & Thẩm quyền ký ban hành',
+        clauseCount: 3,
+        content: 'Nơi nhận:\n- Ban Bí thư Trung ương Đảng;\n- Lưu: VT, CN (2).\nTM. CHÍNH PHỦ\nPhạm Gia Túc',
+      },
+    ],
+  };
+
+  const hdr = parseNd30Header(sampleDoc, sampleDoc.nodes[0]);
+  assert.equal(hdr.issuerUpper, 'CHÍNH PHỦ');
+  assert.equal(hdr.nationUpper, 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM');
+  assert.equal(hdr.motto, 'Độc lập - Tự do - Hạnh phúc');
+  assert.equal(hdr.docTypeUpper, 'NGHỊ ĐỊNH');
+  assert.equal(hdr.legalBases.length, 1);
+
+  const ftr = parseNd30Footer(sampleDoc.nodes[3], sampleDoc.issuer);
+  assert.ok(ftr);
+  assert.equal(ftr!.recipients.length, 2);
+  assert.equal(ftr!.signerName, 'Phạm Gia Túc');
+
+  const html = buildNd30A4PrintHtml(sampleDoc);
+  assert.ok(html.includes('@page { size: A4; margin: 20mm 15mm 20mm 30mm; }'));
+  assert.ok(html.includes('Times New Roman'));
+  assert.ok(!html.includes('<script>alert(1)</script>'));
 });
