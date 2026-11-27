@@ -338,7 +338,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     handleBreadcrumbToRoot, handleBreadcrumbToIndustry,
     handleBreadcrumbToSubSector, handleBreadcrumbToDocument,
     handleBreadcrumbStepBack, jumpToArticleNode,
-    ensureDocFullClauses,
+    ensureDocFullClauses, loadingFullDocId,
     selectedGateCode, setSelectedGateCode,
     checkedAuditItems, setCheckedAuditItems,
     projectGateStatusMap, setProjectGateStatusMap,
@@ -378,6 +378,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
   }>({ fileName: '' });
   const [slideRefTarget, setSlideRefTarget] = React.useState<SlideOverRefTarget | null>(null);
   const [isPmoFilterOpen, setIsPmoFilterOpen] = React.useState(false);
+  const [isFunctionalDomainsExpanded, setIsFunctionalDomainsExpanded] = React.useState(true);
   const [mobilePane, setMobilePane] = React.useState<'c1' | 'c2' | 'c3'>('c3');
 
   // FTS5 Full-Text Search (SQLite WAL qua /api/documents/search-fts) cho tab "🔍 Kết quả"
@@ -786,67 +787,98 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                           })}
 
                           {/* Nhóm Lĩnh vực Chức năng chuyên sâu (QLCP, QLCL, QLHD, DTH, TQT...) */}
-                          <div className="pt-2 mt-2 border-t border-white/10 space-y-0.5">
-                            <div className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-wider text-[#e8c66a] flex items-center justify-between">
-                              <span>🏷️ Chức năng chuyên môn</span>
-                              {vbplDomainFilter !== 'ALL' && (
-                                <button
-                                  type="button"
-                                  onClick={() => setVbplDomainFilter('ALL')}
-                                  className="text-[10px] underline text-slate-300 cursor-pointer"
-                                >
-                                  Bỏ lọc
-                                </button>
-                              )}
-                            </div>
-                            <div className="vbpl-tree-children space-y-0.5">
-                              {TAXONOMY_3D.functionalDomains
-                                .filter(fd => {
-                                  const q = categorySearch.trim().toLowerCase();
-                                  if (!q) return true;
-                                  return (
-                                    fd.code.toLowerCase().includes(q) ||
-                                    fd.name.toLowerCase().includes(q)
-                                  );
-                                })
-                                .map(fd => {
-                                  const domCount = legalDocs.filter(
-                                    d =>
-                                      d.primaryDomain === fd.code ||
-                                      d.secondaryDomains.includes(fd.code)
-                                  ).length;
-                                  const isDomActive = vbplDomainFilter === fd.code;
-                                  return (
-                                    <button
-                                      key={fd.code}
-                                      type="button"
-                                      onClick={() => {
-                                        setVbplIndustryGroupFilter('ALL');
-                                        setVbplSubSectorFilter('ALL');
-                                        setVbplDomainFilter(isDomActive ? 'ALL' : fd.code);
-                                        setPane2SubTab('DOCS');
-                                        setMobilePane('c2');
-                                      }}
-                                      className={`vbpl-tree-item ${isDomActive ? 'active' : ''}`}
-                                      title={fd.name}
-                                    >
-                                      <span className="truncate">
-                                        <b>{fd.code}</b> · {fd.name}
-                                      </span>
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 ${
-                                          isDomActive
-                                            ? 'bg-[#3a2c05]/18 text-[#3a2c05] font-extrabold'
-                                            : 'bg-white/10 text-slate-300'
-                                        }`}
+                          {(() => {
+                            const showFunctionalDomains =
+                              isFunctionalDomainsExpanded || categorySearch.trim().length > 0;
+                            const filteredDomains = TAXONOMY_3D.functionalDomains.filter(fd => {
+                              const q = categorySearch.trim().toLowerCase();
+                              if (!q) return true;
+                              return (
+                                fd.code.toLowerCase().includes(q) ||
+                                fd.name.toLowerCase().includes(q)
+                              );
+                            });
+                            return (
+                              <div className="pt-2 mt-2 border-t border-white/10 space-y-0.5">
+                                <div className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-wider text-[#e8c66a] flex items-center justify-between gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsFunctionalDomainsExpanded(prev => !prev)}
+                                    className="flex items-center gap-1 min-w-0 text-left cursor-pointer hover:text-white transition"
+                                    aria-expanded={showFunctionalDomains}
+                                    title="Bấm để mở rộng / thu gọn 13 chức năng chuyên môn"
+                                  >
+                                    <span className="shrink-0 text-[10px]">
+                                      {showFunctionalDomains ? '▾' : '▸'}
+                                    </span>
+                                    <span className="truncate">
+                                      🏷️ Chức năng chuyên môn ({TAXONOMY_3D.functionalDomains.length})
+                                    </span>
+                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {vbplDomainFilter !== 'ALL' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setVbplDomainFilter('ALL')}
+                                        className="text-[10px] underline text-slate-300 hover:text-white cursor-pointer"
                                       >
-                                        {domCount}
-                                      </span>
+                                        Bỏ lọc
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsFunctionalDomainsExpanded(prev => !prev)}
+                                      aria-expanded={showFunctionalDomains}
+                                      title="Thu gọn hoặc mở rộng danh sách 13 chức năng chuyên môn"
+                                      className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[9.5px] font-bold tracking-normal normal-case text-[#e8c66a] hover:text-white border border-white/15 cursor-pointer transition whitespace-nowrap"
+                                    >
+                                      {showFunctionalDomains ? 'Thu gọn ▲' : 'Drill Down ▾'}
                                     </button>
-                                  );
-                                })}
-                            </div>
-                          </div>
+                                  </div>
+                                </div>
+                                {showFunctionalDomains && (
+                                  <div className="vbpl-tree-children space-y-0.5">
+                                    {filteredDomains.map(fd => {
+                                      const domCount = legalDocs.filter(
+                                        d =>
+                                          d.primaryDomain === fd.code ||
+                                          d.secondaryDomains.includes(fd.code)
+                                      ).length;
+                                      const isDomActive = vbplDomainFilter === fd.code;
+                                      return (
+                                        <button
+                                          key={fd.code}
+                                          type="button"
+                                          onClick={() => {
+                                            setVbplIndustryGroupFilter('ALL');
+                                            setVbplSubSectorFilter('ALL');
+                                            setVbplDomainFilter(isDomActive ? 'ALL' : fd.code);
+                                            setPane2SubTab('DOCS');
+                                            setMobilePane('c2');
+                                          }}
+                                          className={`vbpl-tree-item ${isDomActive ? 'active' : ''}`}
+                                          title={fd.name}
+                                        >
+                                          <span className="truncate">
+                                            <b>{fd.code}</b> · {fd.name}
+                                          </span>
+                                          <span
+                                            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 ${
+                                              isDomActive
+                                                ? 'bg-[#3a2c05]/18 text-[#3a2c05] font-extrabold'
+                                                : 'bg-white/10 text-slate-300'
+                                            }`}
+                                          >
+                                            {domCount}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </>
                       ) : (
                         /* Chế độ Cây Dự án -> Stage-Gate G0-G15 gọn chuẩn */
@@ -1610,13 +1642,17 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                           <button
                             type="button"
-                            onClick={() =>
-                              setRightReaderMode(prev =>
-                                prev === 'TOC_INDEX' ? 'FULL_CONTENT' : 'TOC_INDEX'
-                              )
-                            }
+                            onClick={() => {
+                              setRightReaderMode(prev => {
+                                const next = prev === 'TOC_INDEX' ? 'FULL_CONTENT' : 'TOC_INDEX';
+                                if (next === 'FULL_CONTENT' && currentLegalDoc) {
+                                  void ensureDocFullClauses(currentLegalDoc.id);
+                                }
+                                return next;
+                              });
+                            }}
                             title="Chuyển nhanh giữa Mục lục và Nội dung toàn văn (Phím M)"
-                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border"
+                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border whitespace-nowrap shrink-0"
                             style={{
                               backgroundColor:
                                 rightReaderMode === 'TOC_INDEX' ? 'var(--son)' : 'var(--panel)',
@@ -1631,8 +1667,14 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
 
                           <button
                             type="button"
-                            onClick={() => setRightReaderMode('FULL_CONTENT')}
-                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border"
+                            onClick={() => {
+                              setRightReaderMode('FULL_CONTENT');
+                              if (currentLegalDoc) {
+                                void ensureDocFullClauses(currentLegalDoc.id);
+                              }
+                            }}
+                            title="Đọc toàn bộ nội dung, điều khoản nguyên bản đầy đủ của văn bản"
+                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border whitespace-nowrap shrink-0"
                             style={{
                               backgroundColor:
                                 rightReaderMode === 'FULL_CONTENT' ? 'var(--navy)' : 'var(--panel)',
@@ -2146,6 +2188,25 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                     {currentLegalDoc.lineage}
                                   </div>
                                 )}
+                                {loadingFullDocId === currentLegalDoc.id ? (
+                                  <div className="mt-2 px-3 py-1.5 rounded bg-sky-500/15 border border-sky-500/35 text-xs font-semibold text-sky-900 dark:text-sky-200 flex items-center gap-2">
+                                    <span>⏳</span>
+                                    <span>Đang nạp toàn văn nguyên bản đầy đủ từ kho SQLite...</span>
+                                  </div>
+                                ) : currentLegalDoc.fullTextSource === 'VERBATIM_SQLITE' && currentLegalDoc.fullTextMeta ? (
+                                  <div className="mt-2 px-3 py-1.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-xs font-semibold text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                                    <span>
+                                      ✓ Toàn văn đầy đủ nguyên bản ({currentLegalDoc.fullTextMeta.totalPages} trang ·{' '}
+                                      {currentLegalDoc.articleCount || currentLegalDoc.nodes.length} Điều/Mục ·{' '}
+                                      {currentLegalDoc.fullTextMeta.totalChars.toLocaleString('vi-VN')} ký tự ·{' '}
+                                      {currentLegalDoc.fullTextMeta.sourceType})
+                                    </span>
+                                  </div>
+                                ) : currentLegalDoc.fullTextSource === 'SUMMARY_ONLY' ? (
+                                  <div className="mt-2 px-3 py-1.5 rounded bg-amber-500/15 border border-amber-500/40 text-xs font-medium text-amber-950 dark:text-amber-200">
+                                    ⚠️ Văn bản tham chiếu lịch sử chưa có tệp gốc trong kho Data_Legal_2026 — đang hiển thị khung tóm lược ({currentLegalDoc.nodes.length} mục). Nạp tệp PDF/Word gốc tại Bước 1 để đọc đủ 100% toàn văn.
+                                  </div>
+                                ) : null}
                               </div>
 
                               {/* Chuỗi các Điều khoản nối tiếp chuẩn step_25_shot_1.png */}

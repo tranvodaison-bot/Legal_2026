@@ -37,7 +37,7 @@ from .warehouse_sqlite import VbplWarehouseSQLite
 
 _RE_CHUONG = re.compile(r"^(Chương\s+[IVXLCDM\d]+)\s*[:.\-]?\s*(.*)$", re.IGNORECASE)
 _RE_MUC = re.compile(r"^(Mục\s+\d+)\s*[:.\-]?\s*(.*)$", re.IGNORECASE)
-_RE_DIEU = re.compile(r"^(Điều\s+\d+[a-zA-Z]?)\s*[:.]\s*(.*)$", re.IGNORECASE)
+_RE_DIEU = re.compile(r"^(Điều\s+\d+[a-zA-Z]?)\s*(?:[:.\-]\s*(.*)|$)", re.IGNORECASE)
 _RE_KHOAN = re.compile(r"^(\d+)\.\s+(.*)$")
 _RE_DIEM = re.compile(r"^([a-zđ])\)\s+(.*)$", re.IGNORECASE)
 
@@ -61,7 +61,7 @@ def _parse_clauses_from_raw_text(
     ssot_file_name: str,
     raw_text: str,
 ) -> Tuple[List[CleanVbplClause], int, int, int]:
-    """Phân rã chuẩn NĐ 30/2020 khi bản ghi chỉ có raw_text (chưa có nodes)."""
+    """Phân rã chuẩn NĐ 30/2020 khi bản ghi chỉ có raw_text (bảo toàn 100% toàn văn)."""
     lines = _clean_page_noise(raw_text).splitlines()
     if not lines:
         return [], 1, 0, 0
@@ -102,13 +102,28 @@ def _parse_clauses_from_raw_text(
         current_article_title = ""
         current_blocks = []
 
-    for line in lines:
+    idx_line = 0
+    total_lines = len(lines)
+    while idx_line < total_lines:
+        line = lines[idx_line]
         m_ch = _RE_CHUONG.match(line)
         if m_ch:
             flush_article()
             chapter_cnt += 1
             chap_code = m_ch.group(1).strip()
             chap_sub = m_ch.group(2).strip()
+            if not chap_sub and idx_line + 1 < total_lines:
+                nxt = lines[idx_line + 1].strip()
+                if (
+                    nxt
+                    and len(nxt) <= 140
+                    and not _RE_CHUONG.match(nxt)
+                    and not _RE_MUC.match(nxt)
+                    and not _RE_DIEU.match(nxt)
+                    and not _RE_KHOAN.match(nxt)
+                ):
+                    chap_sub = nxt
+                    idx_line += 1
             current_chapter = f"{chap_code}: {chap_sub}".strip(": ")
             order_idx = len(clauses_out) + 1
             clauses_out.append(
@@ -126,11 +141,26 @@ def _parse_clauses_from_raw_text(
                     word_count=0,
                 )
             )
+            idx_line += 1
             continue
 
         m_muc = _RE_MUC.match(line)
         if m_muc:
             flush_article()
+            muc_code = m_muc.group(1).strip()
+            muc_sub = (m_muc.group(2) or "").strip()
+            if not muc_sub and idx_line + 1 < total_lines:
+                nxt = lines[idx_line + 1].strip()
+                if (
+                    nxt
+                    and len(nxt) <= 140
+                    and not _RE_CHUONG.match(nxt)
+                    and not _RE_MUC.match(nxt)
+                    and not _RE_DIEU.match(nxt)
+                    and not _RE_KHOAN.match(nxt)
+                ):
+                    muc_sub = nxt
+                    idx_line += 1
             order_idx = len(clauses_out) + 1
             clauses_out.append(
                 CleanVbplClause(
@@ -140,13 +170,14 @@ def _parse_clauses_from_raw_text(
                     order_index=order_idx,
                     node_level="Mục",
                     chapter_title=current_chapter,
-                    article_number=m_muc.group(1).strip(),
-                    title=(m_muc.group(2) or "").strip(),
+                    article_number=muc_code,
+                    title=muc_sub,
                     content_text="",
                     clause_count=0,
                     word_count=0,
                 )
             )
+            idx_line += 1
             continue
 
         m_d = _RE_DIEU.match(line)
@@ -155,6 +186,7 @@ def _parse_clauses_from_raw_text(
             article_cnt += 1
             current_article_num = m_d.group(1).strip()
             current_article_title = (m_d.group(2) or "").strip()
+            idx_line += 1
             continue
 
         if not current_article_num:
@@ -173,17 +205,18 @@ def _parse_clauses_from_raw_text(
                 current_blocks[-1] = (t, idx_s, f"{prev_txt} {line}")
             else:
                 current_blocks.append(("paragraph", "0", line))
+        idx_line += 1
 
     flush_article()
 
     if preamble_lines:
         pre_txt = "\n".join(preamble_lines)
-        if article_cnt == 0 and len(pre_txt) > 1800:
+        if article_cnt == 0 and len(pre_txt) > 3500:
             chunks: List[str] = []
             buf: List[str] = []
             buf_len = 0
             for ln in preamble_lines:
-                if buf and buf_len + len(ln) > 1500:
+                if buf and buf_len + len(ln) > 3500:
                     chunks.append("\n".join(buf))
                     buf = [ln]
                     buf_len = len(ln)
@@ -202,7 +235,7 @@ def _parse_clauses_from_raw_text(
                         order_index=idx_c,
                         node_level="Mở đầu" if idx_c == 0 else "Mục",
                         chapter_title="Mở đầu" if idx_c == 0 else f"Phần {idx_c + 1}",
-                        article_number="Căn cứ" if idx_c == 0 else f"Mục {idx_c + 1}",
+                        article_number="Căn cứ" if idx_c == 0 else f"Phần {idx_c + 1}",
                         title="Căn cứ ban hành · Lời mở đầu" if idx_c == 0 else f"Nội dung phần {idx_c + 1}",
                         content_text=chunk_txt,
                         clause_count=len(chunk_txt.splitlines()),
@@ -493,7 +526,13 @@ class VbplDataLakePipeline:
             """Cập nhật metadata mới nhất nhưng bảo toàn toàn văn (raw_text/nodes) giàu dữ liệu hơn."""
             old_len = len(existing.raw_text or "")
             new_len = len(incoming.raw_text or "")
-            keep_old_text = old_len > new_len + 100 or (len(existing.nodes) > len(incoming.nodes) and new_len < 1000)
+            is_full_rebuild = (
+                incoming.source_system == "FULL_VERBATIM_REBUILD"
+                and new_len >= max(200, old_len)
+            )
+            keep_old_text = (not is_full_rebuild) and (
+                old_len > new_len + 100 or (len(existing.nodes) > len(incoming.nodes) and new_len < 1000)
+            )
 
             merged = incoming.model_copy(deep=True)
             if keep_old_text:

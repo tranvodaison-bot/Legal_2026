@@ -81,18 +81,15 @@ def _extract_pdf_text(pdf_path: pathlib.Path, full_ocr: bool = False) -> Tuple[s
             is_scan = (sample_chars / max(1, sample_pages)) < 150
 
             if not is_scan:
-                if total_pages <= 120:
-                    indices = list(range(total_pages))
-                else:
-                    indices = list(range(60)) + list(range(total_pages - 10, total_pages))
+                # Đọc 100% tất cả các trang PDF Native (không cắt xén)
+                indices = list(range(total_pages))
                 chunks = [_clean_page_noise(doc[i].get_text("text")) for i in indices]
                 raw_text = "\n".join(c for c in chunks if c)
                 return raw_text, "PDF_NATIVE", False, total_pages
 
-            if full_ocr or total_pages <= 10:
-                indices = list(range(total_pages))
-            else:
-                indices = sorted(set(list(range(min(6, total_pages))) + list(range(max(0, total_pages - 3), total_pages))))
+            indices = list(range(total_pages)) if full_ocr else sorted(
+                set(list(range(min(6, total_pages))) + list(range(max(0, total_pages - 3), total_pages)))
+            )
             chunks = [_clean_page_noise(_ocr_pdf_page(doc[i])) for i in indices]
             raw_text = "\n".join(c for c in chunks if c)
             return raw_text, "PDF_OCR", True, total_pages

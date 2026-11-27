@@ -141,6 +141,13 @@ export interface LegalDocument {
   tags?: string[];
   lineage: string;
   nodes: LegalNode[];
+  fullTextSource?: 'VERBATIM_SQLITE' | 'SUMMARY_ONLY';
+  fullTextMeta?: {
+    sourceType: string;
+    totalPages: number;
+    totalChars: number;
+    originalName?: string;
+  };
 }
 
 export interface CrossExamColumn {

@@ -709,20 +709,46 @@ export async function fetchFolderFormsList(
   };
 }
 
+export interface VerbatimClausesMeta {
+  sourceType: string;
+  totalPages: number;
+  articleCount?: number;
+  clauseCount?: number;
+  totalChars: number;
+  originalName?: string;
+  isVerbatimComplete?: boolean;
+}
+
 export async function fetchFullDocumentClauses(
-  fileOrDocKey: string
-): Promise<{ found: boolean; clauses: LegalNode[] }> {
+  lookup:
+    | string
+    | { docKey?: string; ssotFileName?: string; rawFileName?: string; docNumber?: string }
+): Promise<{ found: boolean; clauses: LegalNode[]; meta?: VerbatimClausesMeta }> {
   try {
+    const qs = new URLSearchParams();
+    if (typeof lookup === 'string') {
+      qs.set('file', lookup);
+    } else {
+      if (lookup.docKey) qs.set('docKey', lookup.docKey);
+      if (lookup.ssotFileName) qs.set('file', lookup.ssotFileName);
+      if (lookup.rawFileName) qs.set('rawFile', lookup.rawFileName);
+      if (lookup.docNumber && lookup.docNumber !== '01') qs.set('docNumber', lookup.docNumber);
+    }
     const res = await fetchWithTimeout(
-      `/api/documents/clauses?file=${encodeURIComponent(fileOrDocKey)}`,
+      `/api/documents/clauses?${qs.toString()}`,
       { method: 'GET' },
-      3000
+      5000
     );
     if (!res.ok) return { found: false, clauses: [] };
-    const data = (await res.json()) as { found?: boolean; clauses?: LegalNode[] };
+    const data = (await res.json()) as {
+      found?: boolean;
+      clauses?: LegalNode[];
+      meta?: VerbatimClausesMeta;
+    };
     return {
       found: Boolean(data.found && Array.isArray(data.clauses) && data.clauses.length > 0),
       clauses: Array.isArray(data.clauses) ? data.clauses : [],
+      meta: data.meta,
     };
   } catch {
     return { found: false, clauses: [] };

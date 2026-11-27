@@ -700,6 +700,7 @@ export function useLexPmoOrchestrator() {
   const [hybridHealth, setHybridHealth] = useState<HybridServiceHealth | null>(null);
   const [batchOperationMode, setBatchOperationMode] = useState<'COPY_TO_SILVER' | 'INPLACE_RENAME'>('COPY_TO_SILVER');
   const [lastPersistenceSource, setLastPersistenceSource] = useState<'SQLITE_VAULT' | 'BROWSER_RAM' | null>(null);
+  const [loadingFullDocId, setLoadingFullDocId] = useState<string | null>(null);
   const hydratedClauseCacheRef = useRef<Set<string>>(new Set());
 
   const [droppedFilesQueue, setDroppedFilesQueue] = useState<AnalyzedFileItem[]>([]);
@@ -1519,30 +1520,60 @@ export function useLexPmoOrchestrator() {
     if (hydratedClauseCacheRef.current.has(docId)) return;
     const targetDoc = legalDocs.find(d => d.id === docId);
     if (!targetDoc) return;
-    if (targetDoc.nodes.length > 2) {
-      hydratedClauseCacheRef.current.add(docId);
-      return;
-    }
-    const lookupKey = targetDoc.ssotFileName || targetDoc.rawFileName || targetDoc.id;
     hydratedClauseCacheRef.current.add(docId);
-    const res = await fetchFullDocumentClauses(lookupKey);
-    if (res.found && res.clauses.length > targetDoc.nodes.length) {
-      setLegalDocs(prev =>
-        prev.map(d =>
-          d.id === docId
-            ? {
-                ...d,
-                nodes: res.clauses,
-                chapterCount: Math.max(1, res.clauses.filter(n => n.level === 'Chương').length),
-                articleCount: Math.max(1, res.clauses.filter(n => n.level === 'Điều').length || res.clauses.length),
-                clauseTotalCount: Math.max(
-                  1,
-                  res.clauses.reduce((s, n) => s + (n.clauseCount || 1), 0)
-                ),
-              }
-            : d
-        )
-      );
+    setLoadingFullDocId(docId);
+    try {
+      const res = await fetchFullDocumentClauses({
+        docKey: targetDoc.id,
+        ssotFileName: targetDoc.ssotFileName,
+        rawFileName: targetDoc.rawFileName,
+        docNumber: targetDoc.docNumber,
+      });
+      if (res.found && res.clauses.length > 0) {
+        const existingChars = targetDoc.nodes.reduce((sum, n) => sum + (n.content?.length || 0), 0);
+        const fetchedChars = res.clauses.reduce((sum, n) => sum + (n.content?.length || 0), 0);
+        setLegalDocs(prev =>
+          prev.map(d => {
+            if (d.id !== docId) return d;
+            const shouldUpgradeNodes =
+              fetchedChars > existingChars || res.clauses.length > d.nodes.length;
+            const nextNodes = shouldUpgradeNodes ? res.clauses : d.nodes;
+            return {
+              ...d,
+              nodes: nextNodes,
+              chapterCount: Math.max(1, nextNodes.filter(n => n.level === 'Chương').length),
+              articleCount: Math.max(
+                1,
+                res.meta?.articleCount ||
+                  nextNodes.filter(n => n.level === 'Điều').length ||
+                  nextNodes.length
+              ),
+              clauseTotalCount: Math.max(
+                1,
+                res.meta?.clauseCount ||
+                  nextNodes.reduce((s, n) => s + (n.clauseCount || 1), 0)
+              ),
+              fullTextSource: 'VERBATIM_SQLITE',
+              fullTextMeta: res.meta
+                ? {
+                    sourceType: res.meta.sourceType,
+                    totalPages: res.meta.totalPages,
+                    totalChars: res.meta.totalChars,
+                    originalName: res.meta.originalName,
+                  }
+                : undefined,
+            };
+          })
+        );
+      } else {
+        setLegalDocs(prev =>
+          prev.map(d =>
+            d.id === docId && !d.fullTextSource ? { ...d, fullTextSource: 'SUMMARY_ONLY' } : d
+          )
+        );
+      }
+    } finally {
+      setLoadingFullDocId(curr => (curr === docId ? null : curr));
     }
   };
 
@@ -1946,6 +1977,12 @@ export function useLexPmoOrchestrator() {
     'TOC_INDEX' | 'FULL_CONTENT' | 'LAW_ROADMAP' | 'COMPARE_MODE'
   >('TOC_INDEX');
   const [readerFontSize, setReaderFontSize] = useState(14);
+
+  useEffect(() => {
+    if (selectedDocId) {
+      void ensureDocFullClauses(selectedDocId);
+    }
+  }, [selectedDocId, rightReaderMode]);
   const [selectedCrossExamId, setSelectedCrossExamId] = useState('CX-01');
   const [selectedRoadmapPillarId, setSelectedRoadmapPillarId] = useState<string>('ROADMAP-LUAT-XD');
   const [roadmapTierFilter, setRoadmapTierFilter] = useState<'ALL' | LawRoadmapTierType>('ALL');
@@ -4412,6 +4449,7 @@ export function useLexPmoOrchestrator() {
     lastPersistenceSource,
     handleScanLocalFolderToQueue,
     ensureDocFullClauses,
+    loadingFullDocId,
     activeRawFile, setActiveRawFile,
     fileInputRef, folderInputRef,
     namingForm, setNamingForm,

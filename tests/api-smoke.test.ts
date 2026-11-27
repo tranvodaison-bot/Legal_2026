@@ -1252,6 +1252,32 @@ test('GET /api/documents/search-fts and /api/documents/clauses validate inputs',
     path: '/api/documents/clauses',
   });
   assert.equal(resMissingDocKey.status, 400);
+
+  // If local SQLite warehouse is populated, verify multi-key lookup & full verbatim clauses
+  const resLuatXdByNum = await invokeOverHttp(clausesHandler as any, {
+    method: 'GET',
+    path: '/api/documents/clauses?docNumber=135%2F2025%2FQH15',
+  });
+  if ((resLuatXdByNum.json as Record<string, unknown>).found === true) {
+    const body = resLuatXdByNum.json as {
+      ok: boolean;
+      found: boolean;
+      clauses: Array<{ code: string; content: string }>;
+      meta?: { totalChars: number; isVerbatimComplete?: boolean };
+    };
+    assert.equal(body.ok, true);
+    assert.ok(body.clauses.length > 50, `Expected >50 full verbatim clauses for 135/2025/QH15, got ${body.clauses.length}`);
+    assert.equal(body.meta?.isVerbatimComplete, true);
+    assert.ok((body.meta?.totalChars || 0) > 50000);
+  }
+
+  const resLuatXdBySsot = await invokeOverHttp(clausesHandler as any, {
+    method: 'GET',
+    path: '/api/documents/clauses?file=135-2025_LUAT-QH15_HDXD_LuatXayDung.pdf',
+  });
+  if ((resLuatXdBySsot.json as Record<string, unknown>).found === true) {
+    assert.ok(((resLuatXdBySsot.json as { clauses: unknown[] }).clauses || []).length > 50);
+  }
 });
 
 test('legalXrefParser extracts citations, resolves valid targets via O(1) index, and prevents dead links', () => {

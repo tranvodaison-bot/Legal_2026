@@ -22,9 +22,12 @@ export default async function documentClausesHandler(
   }
 
   const params = getSearchParams(req);
-  const key = (params.get('docKey') || params.get('file') || '').trim();
-  if (!key) {
-    sendJson(res, 400, { ok: false, error: 'Thiếu tham số file hoặc docKey' });
+  const docKey = (params.get('docKey') || '').trim();
+  const ssotFile = (params.get('file') || '').trim();
+  const rawFile = (params.get('rawFile') || '').trim();
+  const docNumber = (params.get('docNumber') || '').trim();
+  if (!docKey && !ssotFile && !rawFile && !docNumber) {
+    sendJson(res, 400, { ok: false, error: 'Thiếu tham số file, rawFile, docNumber hoặc docKey' });
     return;
   }
 
@@ -41,14 +44,39 @@ export default async function documentClausesHandler(
     };
     db = new sqliteMod.DatabaseSync(dbPath, { readOnly: true });
 
-    const doc = db
-      .prepare(
-        `SELECT doc_key, ssot_file_name, original_name, doc_number, title
-         FROM fact_vbpl_documents
-         WHERE doc_key = ? OR ssot_file_name = ? OR original_name = ?
-         LIMIT 1`
-      )
-      .get(key, key, key);
+    const candidates: Array<{ col: string; val: string; weight: number }> = [];
+    if (docKey) candidates.push({ col: 'doc_key', val: docKey, weight: 1 });
+    if (ssotFile) {
+      candidates.push({ col: 'ssot_file_name', val: ssotFile, weight: 2 });
+      candidates.push({ col: 'original_name', val: ssotFile, weight: 3 });
+      candidates.push({ col: 'doc_key', val: ssotFile, weight: 4 });
+    }
+    if (rawFile) {
+      candidates.push({ col: 'original_name', val: rawFile, weight: 2 });
+      candidates.push({ col: 'ssot_file_name', val: rawFile, weight: 3 });
+    }
+    if (docNumber && docNumber !== '01') {
+      candidates.push({ col: 'doc_number', val: docNumber, weight: 5 });
+    }
+
+    let doc: Record<string, unknown> | undefined;
+    const seen = new Set<string>();
+    candidates.sort((a, b) => a.weight - b.weight);
+    for (const c of candidates) {
+      const cacheK = `${c.col}:${c.val.toLowerCase()}`;
+      if (seen.has(cacheK)) continue;
+      seen.add(cacheK);
+      doc = db
+        .prepare(
+          `SELECT doc_key, ssot_file_name, original_name, doc_number, title,
+                  source_type, total_pages, article_count, clause_count
+           FROM fact_vbpl_documents
+           WHERE LOWER(${c.col}) = LOWER(?)
+           LIMIT 1`
+        )
+        .get(c.val);
+      if (doc) break;
+    }
 
     if (!doc) {
       sendJson(res, 200, { ok: true, found: false, source: 'sqlite-fts5', clauses: [] });
@@ -65,13 +93,24 @@ export default async function documentClausesHandler(
       )
       .all(String(doc.doc_key));
 
+    const totalChars = clauses.reduce((sum, cl) => sum + String(cl.content || '').length, 0);
+
     sendJson(res, 200, {
       ok: true,
-      found: true,
+      found: clauses.length > 0,
       source: 'sqlite-fts5',
       doc,
       total: clauses.length,
       clauses,
+      meta: {
+        sourceType: String(doc.source_type || 'SQLITE'),
+        totalPages: Number(doc.total_pages || 1),
+        articleCount: Number(doc.article_count || 0),
+        clauseCount: Number(doc.clause_count || 0),
+        totalChars,
+        originalName: String(doc.original_name || ''),
+        isVerbatimComplete: clauses.length > 0 && totalChars >= 200,
+      },
     });
   } catch (err) {
     console.warn('Lỗi đọc điều khoản từ SQLite:', err);

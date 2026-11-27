@@ -495,20 +495,14 @@ def _extract_one_pdf(pdf_path: pathlib.Path, full_ocr_scans: bool = False) -> Di
         is_scan = avg_chars < 150
 
         if not is_scan:
-            # Với văn bản quy phạm/mẫu hợp đồng <= 80 trang: đọc toàn bộ 100%;
-            # với bảng định mức hàng trăm trang (TT 38 PL1-PL7, TT 37 PL4): đọc 15 trang đầu + 3 trang cuối
-            if total_pages <= 80:
-                pages_to_read = list(range(total_pages))
-            else:
-                pages_to_read = sorted(set(list(range(15)) + [total_pages - 3, total_pages - 2, total_pages - 1]))
+            # Đọc toàn bộ 100% số trang PDF Native (không cắt mẫu)
+            pages_to_read = list(range(total_pages))
             raw_text = "\n".join(normalize_nfc(doc[i].get_text("text")) for i in pages_to_read)
             source_type = "PDF_NATIVE"
         else:
-            if full_ocr_scans:
-                pages_to_ocr = list(range(total_pages))
-            else:
-                # OCR 2 trang đầu (tiêu đề, căn cứ, Chương I) + 2 trang cuối (điều khoản thi hành / thay thế)
-                pages_to_ocr = sorted(set([0, min(1, total_pages - 1), max(0, total_pages - 2), total_pages - 1]))
+            pages_to_ocr = list(range(total_pages)) if full_ocr_scans else sorted(
+                set([0, min(1, total_pages - 1), max(0, total_pages - 2), total_pages - 1])
+            )
             ocr_parts = [_ocr_single_page(doc, i, dpi=200) for i in pages_to_ocr]
             raw_text = "\n".join(p for p in ocr_parts if p)
             source_type = "PDF_OCR"
