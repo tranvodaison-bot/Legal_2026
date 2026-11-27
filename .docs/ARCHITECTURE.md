@@ -5,28 +5,32 @@
 - **Code & AI Memory SSOT:** `https://github.com/tranvodaison-bot/Legal_2026.git` (nhánh `main` → Vercel Auto-Deploy).
 - **Local Build & Dev Workshop (Máy chính):** `E:\4. AI_PROJECT\2_Project\5_LEGAL_2026` (máy khác chỉ cần `git clone` và chạy `scripts/bootstrap.ps1`).
 - **Local Runtime Data Lake (Ngoài Git — Phương án B):** `%LEX_DATA_LAKE_ROOT%` (mặc định `<repo_root>\.local_data\vbpl\`, khóa trong `.gitignore`, tự động chạy trên mọi máy/mọi ổ đĩa).
+- **Kho Dữ liệu Pháp lý (Chỉ đọc):** `G:\My Drive\02_KNOWLEDGE_LIBRARY\01_Quan_tri_Doanh_nghiep\Phap_che\Data_Legal_2026`.
 - **Cloud Backup & Specs (Google Drive `G:\`):** Chỉ lưu tài liệu đặc tả và gói backup nén `.zip` tạo bởi `scripts/backup_data_lake.ps1`.
 
 ## 2. Kiến trúc Ứng dụng Web (React 19 + TypeScript + Vite 8 + Vercel API)
 
+- **Design System (`src/index.css`):** Hệ token **Giấy Pháp Lý & Ấn Chương** (`:root` và Dark Mode `body.toi` gắn với `@custom-variant dark`), Topbar 1 hàng 50px (`TopRoleSwitcherHeader.tsx`), `SlideOverRefDrawer.tsx` (ngăn kéo đối chiếu `430px`) và `VbplLibraryModals.tsx` (Thống kê 184 VB & Hướng dẫn).
 - **6 Phân hệ Giao diện (`src/components/steps/`):**
-  1. `Step1CdeIngestion.tsx` — Nhập dữ liệu CDE, chuẩn hóa tên VBPL `[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]`, Smart Tags gợi ý (`✓`/`×`/sửa/+ Thêm Tag).
-  2. `Step2LegalMatrix.tsx` — Tra cứu VBPL 3 cột, mục lục Chương/Điều/Khoản, ghi chú cá nhân, đối soát chéo & so sánh song song *(khóa bảo toàn 100%)*.
+  1. `Step1CdeIngestion.tsx` — Nhập dữ liệu CDE, chuẩn hóa tên VBPL `[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]`, Smart Tags gợi ý (`✓`/`×`/sửa/+ Thêm Tag), dữ liệu mặc định 160 mục từ `rawRealDataLegal2026.json` (`realDataLegal2026Batch.ts`).
+  2. `Step2LegalMatrix.tsx` — Tra cứu VBPL 3 cột (184 văn bản sau hợp nhất `buildExtraDataLegal2026Docs()`), cây lĩnh vực `├ └`, mục lục Chương/Điều/Khoản, ghi chú cá nhân, đối soát chéo, phả hệ (`LawGenealogyTreeDiagram.tsx`) & xem PDF nội tuyến (`SecurePdfViewerModal.tsx`).
   3. `Step3StageGate.tsx` — Lộ trình 17 cổng Stage-Gate (`G0–G16`) & RACI theo 6 loại hình dự án (`KCN`, `CCN`, `FTZ`, `HTKT`, `DAN_DUNG`, `PPP_BT`).
-  4. `Step4RaciHr.tsx` — Quy trình QA/QC, biểu mẫu auto-fill & phân quyền 4 bên (`CDT`, `PMU`, `TVGS`, `CONTRACTOR`).
-  5. `Step5CommandCenter.tsx` — Kiểm soát VO, tiến độ thời gian (Chrono Audit), quản trị 4 phân hệ & 5 AI Agents pháp lý.
+  4. `Step4RaciHr.tsx` — Quy trình QA/QC, biểu mẫu auto-fill & phân quyền 4 bên (`CDT`, `PMU`, `TVGS`, `CONTRACTOR`) kèm `DigitalSignoffModal.tsx`.
+  5. `Step5CommandCenter.tsx` — Kiểm soát VO, tiến độ thời gian (Chrono Audit), Portfolio Dashboard (`Step5PortfolioDashboard.tsx`), biểu đồ luồng D3 (`ApprovalFlowD3Diagram.tsx`) & 5 AI Agents pháp lý.
   6. `Step6DataFoundationBi.tsx` — Giao diện trực quan 6 tầng Data Foundation & VBPL BI (nối Live `:8008` hoặc Client Fallback Mirror).
-- **Serverless / Express API (`api/` & `server.ts`):**
+- **Serverless / Node HTTP API (`api/` & `server.ts`):**
   - `/api/health`, `/api/verify-role`, `/api/audit-logs`, `/api/gemini/analyze`, `/api/gemini/analyze-legal`, `/api/gemini/compare-clauses`.
+  - `/api/documents/stream-pdf` (`api/documents/stream-pdf.ts`): Zero-Trust PDF stream proxy đọc nội tuyến (chặn path traversal, ẩn đường dẫn vật lý `G:\`, trả `application/pdf`).
 - **Core Parsers (`src/utils/`):**
   - `legalParser.ts`: chuẩn hóa tên VBPL, `stripRedundantSummaryPrefix`, `cleanLegalPageNoise`, `parseLegalDocumentStructure` (NĐ 30/2020), `smartAnalyzeFile3D`, `buildAutoSuggestedTags`.
   - `vbplDataFoundationEngine.ts`: mirror client-side cho DQ Profiler, 6 KPI BA, Gate Coverage & Relation Radar.
+  - `src/data/dataLegal2026Catalog.ts` (7 core overrides + 44 new docs = 51) + `src/data/realDataLegal2026Batch.ts` (160 mục quét từ `Data_Legal_2026`).
 
 ## 3. Kiến trúc Local Sidecar (`:8008`) & Nền tảng VBPL Data Foundation (6 Tầng — Single-User)
 
 - **Entrypoint Sidecar:** `desktop-sidecar/local_scanner_engine.py` (FastAPI cổng `127.0.0.1:8008`).
   - `LegalDocumentParser`: đọc `.docx` (`python-docx` + fallback OOXML `zipfile`), đọc `.pdf` (`fitz`/PyMuPDF), đo mật độ chữ 3 trang đầu (`avg_chars < 150` → OCR 250 DPI qua Tesseract `vie` / VietOCR / Gemini Vision), lọc số trang rác chuẩn Unicode NFC và phân rã cấu trúc NĐ 30/2020.
-  - Endpoints: `/api/local/health`, `/api/scan-file`, `/api/local/scan-file`, `/api/local/scan-folder`, `/api/local/batch-rename`, `/api/local/undo-last-rename` và router `/api/data-foundation/*`.
+  - Endpoints: `/api/local/health`, `/api/scan-file`, `/api/local/scan-file`, `/api/local/scan-folder`, `/api/local/batch-rename`, `/api/local/undo-last-rename`, `/api/local/stream-pdf` và router `/api/data-foundation/*`.
 - **6 Tầng Data Foundation (`data_foundation/`):**
   1. **DATA (`contracts.py`):** Pydantic v2 contracts (`RawVbplRecord`, `CleanVbplDocument`, `CleanVbplClause`, `VbplRelationRecord`), bộ trích xuất quan hệ `REPLACES`/`REPEALS`/`AMENDS`/`GUIDES`/`REFERENCES` và bộ chấm điểm DQ 4 trụ cột (`0–100`).
   2. **DATA LAKE (`lake_pipeline.py`):** Medallion 3 vùng trên SSD: `01_bronze/` (JSONL + SHA-256 manifest) → `02_silver/` (`vbpl_documents.parquet`, `vbpl_clauses.parquet`, `vbpl_relations.parquet`) → `03_gold/` (`mart_vbpl_portfolio.parquet`, `mart_vbpl_coverage_matrix.parquet`, `mart_vbpl_amendment_radar.parquet`).

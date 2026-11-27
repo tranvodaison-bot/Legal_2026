@@ -267,7 +267,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
         count: pieCounts.approved,
         color: '#10b981',
         bgClass: 'bg-emerald-500/15',
-        textClass: 'text-emerald-400',
+        textClass: 'text-emerald-800 dark:text-emerald-400',
         borderClass: 'border-emerald-500/40',
       },
       {
@@ -277,7 +277,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
         count: pieCounts.inReview,
         color: '#0ea5e9',
         bgClass: 'bg-sky-500/15',
-        textClass: 'text-sky-400',
+        textClass: 'text-sky-800 dark:text-sky-400',
         borderClass: 'border-sky-500/40',
       },
       {
@@ -287,7 +287,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
         count: pieCounts.blocked,
         color: '#f43f5e',
         bgClass: 'bg-rose-500/15',
-        textClass: 'text-rose-400',
+        textClass: 'text-rose-800 dark:text-rose-400',
         borderClass: 'border-rose-500/40',
       },
       {
@@ -296,9 +296,9 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
         shortLabel: 'Chưa mở / Bản thảo',
         count: pieCounts.draft,
         color: '#64748b',
-        bgClass: 'bg-slate-700/30',
-        textClass: 'text-slate-300',
-        borderClass: 'border-slate-600',
+        bgClass: 'bg-[var(--giay-d)]',
+        textClass: 'text-[var(--chu-m)]',
+        borderClass: 'border-[var(--line-d)]',
       },
     ];
     return raw.map(item => ({
@@ -506,19 +506,19 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
     : null;
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-950">
+    <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-[var(--giay)]">
       {/* Executive Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#0f223d] to-slate-900 border border-sky-500/35 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+      <div className="bg-[var(--panel)] border border-sky-500/35 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-mono text-[11px] font-extrabold">
               🏛️ TRUNG TÂM CHỈ HUY BAN GIÁM ĐỐC · 3-WAY GATE LOCKING
             </span>
-            <span className="text-xs font-mono text-emerald-400">
+            <span className="text-xs font-mono text-emerald-800 dark:text-emerald-400">
               Khóa chéo 3 Trục: Pháp lý – QA/QC – Dòng tiền Thanh toán (IPC)
             </span>
           </div>
-          <h2 className="text-base md:text-lg font-extrabold text-white">
+          <h2 className="text-base md:text-lg font-extrabold text-[var(--chu)]">
             Tổng hợp Danh mục Dự án, Giải ngân Bị treo (Blocked Capex) & Điểm sẵn sàng Kiểm toán
           </h2>
         </div>
@@ -528,7 +528,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
             <button
               type="button"
               onClick={onOpenChronoAudit}
-              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/60 text-rose-200 text-xs font-bold flex items-center gap-1.5 transition animate-pulse"
+              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/60 text-rose-900 dark:text-rose-200 text-xs font-bold flex items-center gap-1.5 transition animate-pulse"
             >
               <span>⚠</span>
               <span>{chronoErrorsCount} lỗi thời gian RF-05 (Mở 5A xử lý →)</span>
@@ -546,71 +546,71 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
 
       {/* 4 KPI Cards — Executive Command Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-slate-900 border border-rose-500/50 space-y-1 shadow-sm">
-          <div className="text-[11px] font-mono text-rose-400 uppercase font-bold">
+        <div className="p-4 rounded-xl bg-[var(--panel)] border border-rose-500/50 space-y-1 shadow-sm">
+          <div className="text-[11px] font-mono text-rose-800 dark:text-rose-400 uppercase font-bold">
             1. Tổng giá trị giải ngân bị treo (Blocked Capex)
           </div>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl font-extrabold text-rose-400 tabular-nums">
+            <span className="text-2xl font-extrabold text-rose-800 dark:text-rose-400 tabular-nums">
               {formatTyVnd(portfolioTotals.blockedCapexVnd)} VNĐ
             </span>
-            <span className="text-xs font-mono text-amber-300">
+            <span className="text-xs font-mono text-amber-800 dark:text-amber-300">
               {portfolioTotals.blocked} Cổng Hard-Stop
             </span>
           </div>
-          <div className="text-[11px] text-slate-400">
-            Trên tổng MĐT <b className="text-slate-200">{formatTyVnd(portfolioTotals.totalInvestmentVnd)}</b> · Đã giải ngân{' '}
-            <b className="text-emerald-400">{formatTyVnd(portfolioTotals.disbursedValueVnd)}</b>
+          <div className="text-[11px] text-[var(--chu-m)]">
+            Trên tổng MĐT <b className="text-[var(--chu)]">{formatTyVnd(portfolioTotals.totalInvestmentVnd)}</b> · Đã giải ngân{' '}
+            <b className="text-emerald-800 dark:text-emerald-400">{formatTyVnd(portfolioTotals.disbursedValueVnd)}</b>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-1 shadow-sm">
-          <div className="text-[11px] font-mono text-emerald-400 uppercase font-bold">
+        <div className="p-4 rounded-xl bg-[var(--panel)] border border-emerald-500/40 space-y-1 shadow-sm">
+          <div className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400 uppercase font-bold">
             2. Điểm sẵn sàng Kiểm toán (Audit-Readiness)
           </div>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl font-extrabold text-emerald-400 tabular-nums">
+            <span className="text-2xl font-extrabold text-emerald-800 dark:text-emerald-400 tabular-nums">
               {avgAuditReadinessPct}%
             </span>
-            <span className="text-xs font-mono text-sky-300 tabular-nums">
+            <span className="text-xs font-mono text-sky-800 dark:text-sky-300 tabular-nums">
               Stage-Gate: {portfolioStrictPct}% ({portfolioTotals.approved}/{portfolioTotals.totalGates})
             </span>
           </div>
-          <div className="text-[11px] text-slate-400">
-            Đang điều hành <b className="text-amber-300">{projectSummaries.length} dự án</b> ·{' '}
+          <div className="text-[11px] text-[var(--chu-m)]">
+            Đang điều hành <b className="text-amber-800 dark:text-amber-300">{projectSummaries.length} dự án</b> ·{' '}
             {reviewHoldTasksCount} Task RACI chờ duyệt
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-1 shadow-sm">
-          <div className="text-[11px] font-mono text-amber-400 uppercase font-bold">
+        <div className="p-4 rounded-xl bg-[var(--panel)] border border-amber-500/40 space-y-1 shadow-sm">
+          <div className="text-[11px] font-mono text-amber-800 dark:text-amber-400 uppercase font-bold">
             3. Điểm nghẽn Hồ sơ & Rủi ro Tài chính
           </div>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl font-extrabold text-amber-400 tabular-nums">
+            <span className="text-2xl font-extrabold text-amber-800 dark:text-amber-400 tabular-nums">
               {pendingBottleneckWorkflows.length} Hồ sơ
             </span>
-            <span className="text-xs font-mono text-rose-300 font-bold">
+            <span className="text-xs font-mono text-rose-800 dark:text-rose-300 font-bold">
               {formatTyVnd(totalPendingWfImpactVnd)} VNĐ
             </span>
           </div>
-          <div className="text-[11px] text-slate-400">
-            <b className="text-rose-300">{rejectedHoldCount} Hard-Stop</b> ·{' '}
-            <b className="text-amber-300">{overdueWorkflowCount} quá hạn SLA</b>
+          <div className="text-[11px] text-[var(--chu-m)]">
+            <b className="text-rose-800 dark:text-rose-300">{rejectedHoldCount} Hard-Stop</b> ·{' '}
+            <b className="text-amber-800 dark:text-amber-300">{overdueWorkflowCount} quá hạn SLA</b>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-sky-500/35 space-y-1 shadow-sm">
-          <div className="text-[11px] font-mono text-sky-400 uppercase font-bold">
+        <div className="p-4 rounded-xl bg-[var(--panel)] border border-sky-500/35 space-y-1 shadow-sm">
+          <div className="text-[11px] font-mono text-sky-800 dark:text-sky-400 uppercase font-bold">
             4. Thiệt hại lãi vay / Phạt chậm SLA ước tính
           </div>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-2xl font-extrabold text-sky-300 tabular-nums">
+            <span className="text-2xl font-extrabold text-sky-800 dark:text-sky-300 tabular-nums">
               {formatMillionVnd(totalEstimatedPenaltyLossVnd)}
             </span>
-            <span className="text-xs font-mono text-rose-400 font-bold">Lũy kế tắc nghẽn</span>
+            <span className="text-xs font-mono text-rose-800 dark:text-rose-400 font-bold">Lũy kế tắc nghẽn</span>
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-[var(--chu-m)]">
             Tạm tính theo chi phí vốn & chậm giải ngân IPC trên {pendingBottleneckWorkflows.length} hồ sơ treo
           </div>
         </div>
@@ -619,22 +619,22 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
       {/* Hàng giữa: Biểu đồ Tròn Stage-Gate (4 cols) + Bảng Tổng hợp Tài chính & Kiểm toán Dự án (8 cols) */}
       <div className="grid grid-cols-12 gap-5">
         {/* CỘT TRÁI: BIỂU ĐỒ TRÒN TỶ LỆ HOÀN THÀNH STAGE-GATE */}
-        <div className="col-span-12 xl:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-4">
+        <div className="col-span-12 xl:col-span-4 bg-[var(--panel)] border border-[var(--line)] rounded-2xl p-4 flex flex-col justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <h3 className="text-sm font-extrabold text-[var(--chu)] flex items-center gap-1.5">
                   <span>🥧</span>
                   <span>Biểu đồ Tròn Tỷ lệ Hoàn thành Stage-Gate</span>
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[var(--chu-m)]">
                   Cơ cấu cổng kiểm soát (Đạt · Thẩm định · Khóa 3-Way · Bản thảo)
                 </p>
               </div>
               <select
                 value={pieScope}
                 onChange={e => setPieScope(e.target.value as 'ALL' | ProjectArchetypeCode)}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-300 focus:outline-none focus:border-sky-500 w-full sm:w-auto"
+                className="bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 focus:outline-none focus:border-sky-500 w-full sm:w-auto"
               >
                 <option value="ALL">Toàn bộ 6 Dự án ({portfolioTotals.totalGates} cổng)</option>
                 {projectSummaries.map(p => (
@@ -662,7 +662,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                       key={arc.datum.key}
                       d={isHovered ? arc.hoverPath : arc.path}
                       fill={arc.datum.color}
-                      stroke="#0f172a"
+                      stroke="var(--panel)"
                       strokeWidth={2}
                       className="cursor-pointer transition-all duration-150"
                       style={{
@@ -679,14 +679,14 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                 <text
                   textAnchor="middle"
                   dy="-6"
-                  className="fill-white font-extrabold text-3xl font-mono tabular-nums"
+                  className="fill-[var(--navy-ink)] font-extrabold text-3xl font-mono tabular-nums"
                 >
                   {activeHoveredSlice ? `${activeHoveredSlice.pct}%` : `${pieScopeCompletionPct}%`}
                 </text>
                 <text
                   textAnchor="middle"
                   dy="14"
-                  className="fill-slate-400 text-[10px] font-mono uppercase"
+                  className="fill-[var(--chu-m)] text-[10px] font-mono uppercase"
                 >
                   {activeHoveredSlice ? activeHoveredSlice.shortLabel : 'Đã duyệt Gate'}
                 </text>
@@ -714,7 +714,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                     className={`p-2 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
                       isHovered
                         ? `${sl.bgClass} ${sl.borderClass} ring-1 ring-white/20`
-                        : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                        : 'bg-[var(--giay)] border-[var(--line)] hover:border-[var(--line-d)]'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -722,13 +722,13 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         className="w-3 h-3 rounded-sm shrink-0"
                         style={{ backgroundColor: sl.color }}
                       />
-                      <span className="text-xs font-medium text-slate-200 truncate">
+                      <span className="text-xs font-medium text-[var(--chu)] truncate">
                         {sl.shortLabel}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 font-mono text-xs shrink-0 tabular-nums">
                       <span className={`font-bold ${sl.textClass}`}>{sl.count}</span>
-                      <span className="text-slate-400 w-11 text-right">{sl.pct}%</span>
+                      <span className="text-[var(--chu-m)] w-11 text-right">{sl.pct}%</span>
                     </div>
                   </div>
                 );
@@ -737,27 +737,27 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
           </div>
 
           {/* Thanh tiến độ chi tiết theo 3 Giai đoạn */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
-            <div className="text-[11px] font-mono font-bold text-slate-400 uppercase">
+          <div className="pt-3 border-t border-[var(--line)] space-y-2">
+            <div className="text-[11px] font-mono font-bold text-[var(--chu-m)] uppercase">
               Phân rã theo 3 Giai đoạn ({pieScope === 'ALL' ? 'Toàn danh mục' : pieScope}):
             </div>
             <div className="grid grid-cols-3 gap-2">
               {phaseBreakdownForScope.map(ph => (
                 <div
                   key={ph.id}
-                  className="p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1"
+                  className="p-2 rounded-lg bg-[var(--giay)] border border-[var(--line)] space-y-1"
                 >
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-300 font-bold truncate">{ph.short}</span>
-                    <span className="text-emerald-400 font-bold">{ph.pct}%</span>
+                    <span className="text-[var(--chu-m)] font-bold truncate">{ph.short}</span>
+                    <span className="text-emerald-800 dark:text-emerald-400 font-bold">{ph.pct}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-[var(--giay-d)] overflow-hidden">
                     <div
                       className="h-full bg-emerald-500 rounded-full transition-all"
                       style={{ width: `${ph.pct}%` }}
                     />
                   </div>
-                  <div className="text-[10px] font-mono text-slate-500">
+                  <div className="text-[10px] font-mono text-[var(--chu-nhat)]">
                     {ph.approved}/{ph.total} đạt · {ph.blocked} chặn
                   </div>
                 </div>
@@ -767,16 +767,16 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
         </div>
 
         {/* CỘT PHẢI: BẢNG TỔNG HỢP TIẾN ĐỘ, TÀI CHÍNH, BẢO LÃNH & AUDIT-READINESS TẤT CẢ DỰ ÁN */}
-        <div className="col-span-12 xl:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="col-span-12 xl:col-span-8 bg-[var(--panel)] border border-[var(--line)] rounded-2xl overflow-hidden flex flex-col">
+          <div className="px-4 py-3 bg-[var(--giay)] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+              <h3 className="text-sm font-extrabold text-[var(--chu)] flex items-center gap-1.5">
                 <span>🏗️</span>
                 <span>
                   Tổng hợp Tài chính IPC, Bảo lãnh & Audit-Readiness Toàn bộ Dự án ({projectSummaries.length})
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-[var(--chu-m)]">
                 Nhấn vào dòng dự án để xem biểu đồ tròn riêng hoặc mở Stage-Gate để xử lý khóa giải ngân IPC
               </p>
             </div>
@@ -784,7 +784,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
               <button
                 type="button"
                 onClick={() => setPieScope('ALL')}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] font-mono font-semibold border border-slate-700"
+                className="px-2.5 py-1 rounded bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-sky-800 dark:text-sky-300 text-[11px] font-mono font-semibold border border-[var(--line-d)]"
               >
                 ↺ Xem tổng hợp 6 dự án
               </button>
@@ -794,7 +794,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
           <div className="flex-1 overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs min-w-[780px]">
               <thead>
-                <tr className="bg-slate-950/70 border-b border-slate-800 text-slate-400 font-mono text-[10px] uppercase">
+                <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[10px] uppercase">
                   <th className="p-3">Dự án · Thẩm quyền</th>
                   <th className="p-3">Tổng MĐT · Đã giải ngân</th>
                   <th className="p-3">Blocked Capex</th>
@@ -804,7 +804,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                   <th className="p-3 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-[var(--line)]">
                 {projectSummaries.map(proj => {
                   const isActiveProject = proj.code === activeProjectArchetype;
                   const isPieFocused = pieScope === proj.code;
@@ -825,14 +825,14 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         isPieFocused
                           ? 'bg-sky-500/15'
                           : isActiveProject
-                          ? 'bg-amber-500/5 hover:bg-slate-800/60'
-                          : 'hover:bg-slate-800/50'
+                          ? 'bg-amber-500/5 hover:bg-[var(--giay-d)]'
+                          : 'hover:bg-[var(--giay-d)]'
                       }`}
                     >
                       <td className="p-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-base">{projectIcons[proj.code]}</span>
-                          <span className="font-mono font-extrabold text-white">
+                          <span className="font-mono font-extrabold text-[var(--chu)]">
                             {proj.code}
                           </span>
                           {isActiveProject && (
@@ -841,22 +841,22 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                             </span>
                           )}
                         </div>
-                        <div className="text-slate-200 font-medium leading-snug mt-0.5 line-clamp-1 max-w-[180px]">
+                        <div className="text-[var(--chu)] font-medium leading-snug mt-0.5 line-clamp-1 max-w-[180px]">
                           {proj.name}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-400 truncate max-w-[180px]">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] truncate max-w-[180px]">
                           {proj.authority}
                         </div>
                       </td>
 
                       <td className="p-3 font-mono tabular-nums whitespace-nowrap">
-                        <div className="font-bold text-white">
+                        <div className="font-bold text-[var(--chu)]">
                           TMĐT: {formatTyVnd(proj.totalInvestmentVnd)}
                         </div>
-                        <div className="text-[11px] text-emerald-400">
+                        <div className="text-[11px] text-emerald-800 dark:text-emerald-400">
                           Đã giải ngân: {formatTyVnd(proj.disbursedValueVnd)} ({disbursementPct}%)
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-[var(--chu-m)]">
                           Nghiệm thu: {formatTyVnd(proj.acceptedValueVnd)}
                         </div>
                       </td>
@@ -865,16 +865,16 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         <div
                           className={`font-extrabold text-xs ${
                             proj.effectiveBlockedCapexVnd > 100_000_000_000
-                              ? 'text-rose-400'
+                              ? 'text-rose-800 dark:text-rose-400'
                               : proj.effectiveBlockedCapexVnd > 0
-                              ? 'text-amber-300'
-                              : 'text-emerald-400'
+                              ? 'text-amber-800 dark:text-amber-300'
+                              : 'text-emerald-800 dark:text-emerald-400'
                           }`}
                         >
                           {formatTyVnd(proj.effectiveBlockedCapexVnd)} VNĐ
                         </div>
                         {proj.bottleneckGate && (
-                          <div className="text-[10px] text-rose-300 mt-0.5">
+                          <div className="text-[10px] text-rose-800 dark:text-rose-300 mt-0.5">
                             Nghẽn tại {proj.bottleneckGate.gate}
                           </div>
                         )}
@@ -884,10 +884,10 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         <div
                           className={
                             proj.perfDaysLeft < 0
-                              ? 'text-rose-400 font-bold'
+                              ? 'text-rose-800 dark:text-rose-400 font-bold'
                               : proj.perfDaysLeft < 15
-                              ? 'text-amber-300 font-bold'
-                              : 'text-emerald-300'
+                              ? 'text-amber-800 dark:text-amber-300 font-bold'
+                              : 'text-emerald-800 dark:text-emerald-300'
                           }
                         >
                           THHĐ: {proj.performanceBondExpiry} (
@@ -899,10 +899,10 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         <div
                           className={
                             proj.advDaysLeft < 0
-                              ? 'text-rose-400 font-bold'
+                              ? 'text-rose-800 dark:text-rose-400 font-bold'
                               : proj.advDaysLeft < 15
-                              ? 'text-amber-300 font-bold'
-                              : 'text-slate-300'
+                              ? 'text-amber-800 dark:text-amber-300 font-bold'
+                              : 'text-[var(--chu-m)]'
                           }
                         >
                           Tạm ứng: {proj.advanceBondExpiry} (
@@ -915,12 +915,12 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
 
                       <td className="p-3">
                         <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
-                          <span className="font-bold text-emerald-400">{proj.strictPct}%</span>
-                          <span className="text-slate-400">
+                          <span className="font-bold text-emerald-800 dark:text-emerald-400">{proj.strictPct}%</span>
+                          <span className="text-[var(--chu-m)]">
                             {proj.approved}/{proj.totalGates}
                           </span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden flex">
+                        <div className="h-2 w-full rounded-full bg-[var(--giay-d)] overflow-hidden flex">
                           {approvedW > 0 && (
                             <div className="bg-emerald-500 h-full" style={{ width: `${approvedW}%` }} />
                           )}
@@ -931,7 +931,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                             <div className="bg-rose-500 h-full" style={{ width: `${blockedW}%` }} />
                           )}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-400 mt-1">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] mt-1">
                           ⛔{proj.blocked} · ⏳{proj.inReview}
                         </div>
                       </td>
@@ -940,10 +940,10 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         <div
                           className={`inline-flex flex-col items-center px-2.5 py-1 rounded-lg border font-mono ${
                             proj.auditReadinessScore >= 80
-                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300'
                               : proj.auditReadinessScore >= 60
-                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                              : 'bg-rose-500/15 border-rose-500/50 text-rose-300'
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300'
+                              : 'bg-rose-500/15 border-rose-500/50 text-rose-800 dark:text-rose-300'
                           }`}
                         >
                           <span className="text-sm font-extrabold tabular-nums">
@@ -969,7 +969,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               proj.bottleneckGate?.gate || 'G12'
                             );
                           }}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-amber-500 text-slate-200 hover:text-slate-950 font-bold text-[11px] border border-slate-700 hover:border-amber-400 transition"
+                          className="px-2.5 py-1 rounded bg-[var(--giay-d)] hover:bg-amber-500 text-[var(--chu)] hover:text-slate-950 font-bold text-[11px] border border-[var(--line-d)] hover:border-amber-400 transition"
                         >
                           Mở Gate →
                         </button>
@@ -984,17 +984,17 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
       </div>
 
       {/* PHẦN DƯỚI: BẢNG DANH SÁCH ĐIỂM NGHẼN (BOTTLENECK) ĐANG CHỜ PHÊ DUYỆT — SẮP XẾP THEO RỦI RO TÀI CHÍNH */}
-      <div className="bg-slate-900 border border-rose-500/35 rounded-2xl overflow-hidden shadow-lg">
-        <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-[var(--panel)] border border-rose-500/35 rounded-2xl overflow-hidden shadow-lg">
+        <div className="px-4 py-3 bg-[var(--giay)] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <h3 className="text-sm font-extrabold text-rose-400 flex items-center gap-2">
+            <h3 className="text-sm font-extrabold text-rose-800 dark:text-rose-400 flex items-center gap-2">
               <span>🚦</span>
               <span>
                 Danh sách Điểm nghẽn (Bottleneck) Đang Chờ Phê Duyệt (
                 {pendingBottleneckWorkflows.length + gateBottlenecksAcrossProjects.length})
               </span>
             </h3>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-[var(--chu-m)]">
               Sắp xếp theo mức độ rủi ro tài chính, giá trị giải ngân bị ảnh hưởng (VNĐ) và thiệt hại lãi vay / phạt chậm SLA ước tính
             </p>
           </div>
@@ -1007,7 +1007,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                   e.target.value as 'FINANCIAL_DESC' | 'PENALTY_DESC' | 'SEVERITY_DESC'
                 )
               }
-              className="bg-slate-900 border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-xs font-bold text-amber-300 focus:outline-none"
+              className="bg-[var(--panel)] border border-amber-500/50 rounded-lg px-2.5 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 focus:outline-none"
             >
               <option value="FINANCIAL_DESC">💰 Rủi ro tài chính: Cao → Thấp</option>
               <option value="PENALTY_DESC">⏱️ Thiệt hại lãi vay / SLA: Cao → Thấp</option>
@@ -1019,9 +1019,9 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
               value={bottleneckSearch}
               onChange={e => setBottleneckSearch(e.target.value)}
               placeholder="Lọc mã hồ sơ, Gate, dự án..."
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 w-44"
+              className="bg-[var(--panel)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--chu)] placeholder-[var(--chu-nhat)] focus:outline-none focus:border-amber-500 w-44"
             />
-            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1 bg-[var(--panel)] p-1 rounded-lg border border-[var(--line)]">
               {(
                 [
                   {
@@ -1047,7 +1047,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                   className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
                     bottleneckFilter === tab.id
                       ? 'bg-rose-500 text-white'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      : 'text-[var(--chu-m)] hover:text-[var(--chu)] hover:bg-[var(--giay-d)]'
                   }`}
                 >
                   {tab.label}
@@ -1062,26 +1062,26 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
           {(bottleneckFilter === 'ALL' || bottleneckFilter === 'WORKFLOWS') && (
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-mono font-bold uppercase text-amber-400">
+                <span className="text-xs font-mono font-bold uppercase text-amber-800 dark:text-amber-400">
                   A. Tờ trình & Hồ sơ Thanh toán/Pháp lý đang chờ phê duyệt ({pendingBottleneckWorkflows.length})
                 </span>
-                <span className="text-[11px] font-mono text-slate-400">
+                <span className="text-[11px] font-mono text-[var(--chu-m)]">
                   Tổng ảnh hưởng:{' '}
-                  <b className="text-rose-300">{formatTyVnd(totalPendingWfImpactVnd)} VNĐ</b> ·
+                  <b className="text-rose-800 dark:text-rose-300">{formatTyVnd(totalPendingWfImpactVnd)} VNĐ</b> ·
                   Thiệt hại lũy kế:{' '}
-                  <b className="text-amber-300">{formatMillionVnd(totalEstimatedPenaltyLossVnd)}</b>
+                  <b className="text-amber-800 dark:text-amber-300">{formatMillionVnd(totalEstimatedPenaltyLossVnd)}</b>
                 </span>
               </div>
 
               {pendingBottleneckWorkflows.length === 0 ? (
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs text-center">
+                <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-xs text-center">
                   ✓ Không còn hồ sơ trình ký nào bị tắc nghẽn hoặc chờ phê duyệt!
                 </div>
               ) : (
-                <div className="rounded-xl border border-slate-800 overflow-x-auto bg-slate-950/60">
+                <div className="rounded-xl border border-[var(--line)] overflow-x-auto bg-[var(--giay)]">
                   <table className="w-full text-left border-collapse text-xs min-w-[920px]">
                     <thead>
-                      <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[10px] uppercase">
+                      <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[10px] uppercase">
                         <th className="p-3">Hồ sơ · Dự án · Gate</th>
                         <th className="p-3">Trích yếu & Nguyên nhân Tắc nghẽn (RACI)</th>
                         <th className="p-3 text-right">Giá trị tài chính ảnh hưởng (VNĐ)</th>
@@ -1090,7 +1090,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                         <th className="p-3 text-right">Thao tác Xử lý</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-[var(--line)]">
                       {pendingBottleneckWorkflows.map(
                         ({
                           wf,
@@ -1110,39 +1110,39 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               key={wf.id}
                               className={`transition ${
                                 wf.status === 'REJECTED_HOLD'
-                                  ? 'bg-rose-950/25 hover:bg-rose-950/40'
+                                  ? 'bg-rose-500/10 dark:bg-rose-950/40 hover:bg-rose-500/10 dark:bg-rose-950/40'
                                   : isOverSla
-                                  ? 'bg-amber-950/15 hover:bg-slate-800/50'
-                                  : 'hover:bg-slate-800/40'
+                                  ? 'bg-amber-500/10 dark:bg-amber-950/30 hover:bg-[var(--giay-d)]'
+                                  : 'hover:bg-[var(--giay-d)]'
                               }`}
                             >
                               <td className="p-3 align-top whitespace-nowrap">
-                                <div className="font-mono font-extrabold text-amber-300">
+                                <div className="font-mono font-extrabold text-amber-800 dark:text-amber-300">
                                   {wf.docCode}
                                 </div>
                                 <div className="flex items-center gap-1 mt-1">
                                   {wf.projectCode && (
-                                    <span className="px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 font-mono text-[10px] text-white font-bold">
+                                    <span className="px-1.5 py-0.2 rounded bg-[var(--giay-d)] border border-[var(--line-d)] font-mono text-[10px] text-[var(--chu)] font-bold">
                                       {projectIcons[wf.projectCode]} {wf.projectCode}
                                     </span>
                                   )}
-                                  <span className="px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30 font-mono text-[10px] text-sky-300 font-bold">
+                                  <span className="px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30 font-mono text-[10px] text-sky-800 dark:text-sky-300 font-bold">
                                     {wf.gateRef} · {wf.domain}
                                   </span>
                                 </div>
-                                <div className="text-[10px] font-mono text-slate-500 mt-1">
+                                <div className="text-[10px] font-mono text-[var(--chu-nhat)] mt-1">
                                   Nộp: {wf.submittedAt}
                                 </div>
                               </td>
 
                               <td className="p-3 align-top max-w-[340px]">
-                                <div className="font-bold text-white leading-snug">{wf.title}</div>
+                                <div className="font-bold text-[var(--chu)] leading-snug">{wf.title}</div>
                                 {wf.bottleneckReason && (
-                                  <div className="mt-1 text-[11px] text-rose-200 leading-snug">
+                                  <div className="mt-1 text-[11px] text-rose-900 dark:text-rose-200 leading-snug">
                                     • {wf.bottleneckReason}
                                   </div>
                                 )}
-                                <div className="mt-1 text-[10px] font-mono text-slate-400">
+                                <div className="mt-1 text-[10px] font-mono text-[var(--chu-m)]">
                                   {reqEmp?.fullName} ({reqEmp?.rbacRole}) → Tham vấn:{' '}
                                   {wf.consultedRole || 'BQLDA'} → Duyệt: {appEmp?.fullName} (
                                   {appEmp?.rbacRole})
@@ -1150,19 +1150,19 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               </td>
 
                               <td className="p-3 align-top text-right font-mono tabular-nums whitespace-nowrap">
-                                <div className="text-sm font-extrabold text-rose-300">
+                                <div className="text-sm font-extrabold text-rose-800 dark:text-rose-300">
                                   {formatTyVnd(impactVnd)} VNĐ
                                 </div>
-                                <div className="text-[10px] text-slate-400">
+                                <div className="text-[10px] text-[var(--chu-m)]">
                                   {impactVnd.toLocaleString('vi-VN')} đ
                                 </div>
                               </td>
 
                               <td className="p-3 align-top text-right font-mono tabular-nums whitespace-nowrap">
-                                <div className="text-xs font-extrabold text-amber-300">
+                                <div className="text-xs font-extrabold text-amber-800 dark:text-amber-300">
                                   ~{formatMillionVnd(estimatedAccruedLossVnd)} VNĐ
                                 </div>
-                                <div className="text-[10px] text-rose-300">
+                                <div className="text-[10px] text-rose-800 dark:text-rose-300">
                                   +{formatMillionVnd(dailyPenaltyVnd)}/ngày
                                 </div>
                               </td>
@@ -1185,7 +1185,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                                 </span>
                                 <div
                                   className={`text-[10px] mt-1 font-bold ${
-                                    isOverSla ? 'text-rose-400' : 'text-slate-400'
+                                    isOverSla ? 'text-rose-800 dark:text-rose-400' : 'text-[var(--chu-m)]'
                                   }`}
                                 >
                                   SLA: {elapsed}h / {slaLimit}h{' '}
@@ -1201,7 +1201,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                                         type="button"
                                         onClick={() => onApproveWorkflow(wf, 'PENDING_REVIEW')}
                                         title="Nhà thầu nộp lại / trình duyệt hồ sơ lên TVGS & Ban QLDA"
-                                        className="px-2 py-1 rounded bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-200 text-[10px] font-bold transition"
+                                        className="px-2 py-1 rounded bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/50 text-orange-900 dark:text-orange-200 text-[10px] font-bold transition"
                                       >
                                         📤 Trình duyệt
                                       </button>
@@ -1218,7 +1218,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                                             ? 'Yêu cầu quyền TVGS / Chủ đầu tư'
                                             : 'Yêu cầu quyền Tư vấn Giám sát (TVGS)'
                                         }
-                                        className="px-2 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 text-[10px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-500/20"
+                                        className="px-2 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-800 dark:text-sky-300 text-[10px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-500/20"
                                       >
                                         {raciPerms.canTvgsVerify ? '🔍' : '🔒'} TVGS Xác nhận
                                       </button>
@@ -1232,7 +1232,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                                           ? 'Trả lại yêu cầu bổ sung hồ sơ / Chặn Hold'
                                           : 'Yêu cầu quyền TVGS / Chủ đầu tư'
                                       }
-                                      className="px-2 py-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                      className="px-2 py-1 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-800 dark:text-rose-300 text-[10px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                       ↩️ Trả lại
                                     </button>
@@ -1255,7 +1255,7 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                                   <button
                                     type="button"
                                     onClick={() => onInspectInD3Flow(wf.id)}
-                                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 text-[10px] font-mono border border-slate-700 transition"
+                                    className="px-2 py-0.5 rounded bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-sky-800 dark:text-sky-300 text-[10px] font-mono border border-[var(--line-d)] transition"
                                   >
                                     🔀 Sơ đồ D3
                                   </button>
@@ -1274,14 +1274,14 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
 
           {/* B. Cổng Stage-Gate đang bị Khóa 3-Way / Chờ Thẩm định */}
           {(bottleneckFilter === 'ALL' || bottleneckFilter === 'GATES') && (
-            <div className="space-y-2.5 pt-2 border-t border-slate-800">
-              <span className="block text-xs font-mono font-bold uppercase text-sky-400">
+            <div className="space-y-2.5 pt-2 border-t border-[var(--line)]">
+              <span className="block text-xs font-mono font-bold uppercase text-sky-800 dark:text-sky-400">
                 B. Cổng Stage-Gate đang bị Khóa chéo 3 Trục / Chờ Thẩm định trên Toàn bộ Dự án (
                 {gateBottlenecksAcrossProjects.length})
               </span>
 
               {gateBottlenecksAcrossProjects.length === 0 ? (
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs text-center">
+                <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-xs text-center">
                   ✓ Tất cả các cổng Stage-Gate trên toàn bộ dự án đều đang thông suốt!
                 </div>
               ) : (
@@ -1291,21 +1291,21 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                       key={`${item.projectCode}-${item.gateCode}`}
                       className={`p-3 rounded-xl border flex flex-col justify-between gap-2 ${
                         item.status === 'HARD_STOP_BLOCKED'
-                          ? 'bg-rose-950/30 border-rose-500/50'
-                          : 'bg-slate-950 border-slate-800'
+                          ? 'bg-rose-500/10 dark:bg-rose-950/40 border-rose-500/50'
+                          : 'bg-[var(--giay)] border-[var(--line)]'
                       }`}
                     >
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-mono text-[11px] font-extrabold text-white">
+                          <span className="font-mono text-[11px] font-extrabold text-[var(--chu)]">
                             {projectIcons[item.projectCode]} {item.projectCode} · Gate{' '}
-                            <span className="text-amber-400">{item.gateCode}</span>
+                            <span className="text-amber-800 dark:text-amber-400">{item.gateCode}</span>
                           </span>
                           <span
                             className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold ${
                               item.status === 'HARD_STOP_BLOCKED'
                                 ? 'bg-rose-500 text-white'
-                                : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                                : 'bg-sky-500/20 text-sky-800 dark:text-sky-300 border border-sky-500/40'
                             }`}
                           >
                             {item.status === 'HARD_STOP_BLOCKED'
@@ -1313,26 +1313,26 @@ export const Step5PortfolioDashboard: React.FC<Step5PortfolioDashboardProps> = (
                               : '⏳ ĐANG THẨM ĐỊNH'}
                           </span>
                         </div>
-                        <div className="text-xs font-semibold text-slate-200 leading-snug">
+                        <div className="text-xs font-semibold text-[var(--chu)] leading-snug">
                           {item.gateName}
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono pt-0.5">
-                          <span className="text-rose-300 font-bold">
+                          <span className="text-rose-800 dark:text-rose-300 font-bold">
                             Ảnh hưởng: {formatTyVnd(item.impactVnd)} VNĐ
                           </span>
-                          <span className="text-amber-300">
+                          <span className="text-amber-800 dark:text-amber-300">
                             ~{formatMillionVnd(item.dailyPenaltyVnd)}/ngày
                           </span>
                         </div>
                         {item.riskFlag && (
-                          <div className="text-[11px] text-amber-200/90 leading-snug line-clamp-2">
+                          <div className="text-[11px] text-amber-900 dark:text-amber-200/90 leading-snug line-clamp-2">
                             • {item.riskFlag}
                           </div>
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-mono text-slate-400 truncate">
+                      <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono text-[var(--chu-m)] truncate">
                           {item.authority}
                         </span>
                         <button

@@ -30,6 +30,15 @@
 
   --line: #d8d2c4;
   --line-d: #bdb5a3;
+  --vien: var(--line);
+
+  --d3-node-bg: #ffffff;
+  --d3-node-bottleneck-bg: #fef2f2;
+  --d3-text: #1b3a5c;
+  --d3-muted: #52606d;
+  --d3-link-label: #075985;
+  --d3-link-warn: #a1342c;
+  --d3-accent: #92400e;
 
   --chu: #22303c;
   --chu-m: #6b7680;
@@ -69,6 +78,15 @@ body.toi {
 
   --line: #2e3a47;
   --line-d: #3d4b5a;
+  --vien: var(--line);
+
+  --d3-node-bg: #0f172a;
+  --d3-node-bottleneck-bg: #2c1219;
+  --d3-text: #f8fafc;
+  --d3-muted: #94a3b8;
+  --d3-link-label: #bae6fd;
+  --d3-link-warn: #fecdd3;
+  --d3-accent: #fcd34d;
 
   --chu: #dde5ec;
   --chu-m: #95a3b2;

@@ -516,7 +516,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
         .join('text')
         .attr('x', d => d.x)
         .attr('y', 15)
-        .attr('fill', '#94a3b8')
+        .attr('fill', 'var(--d3-muted)')
         .attr('font-size', 10)
         .attr('font-family', 'ui-monospace, monospace')
         .attr('font-weight', '700')
@@ -598,7 +598,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
         })
         .attr('y', d => ((d.y0 || 0) + (d.y1 || 0)) / 2 - 3)
         .attr('text-anchor', 'middle')
-        .attr('fill', d => (d.isBottleneckLink ? '#fecdd3' : '#bae6fd'))
+        .attr('fill', d => (d.isBottleneckLink ? 'var(--d3-link-warn)' : 'var(--d3-link-label)'))
         .attr('font-size', 9.5)
         .attr('font-family', 'ui-monospace, monospace')
         .attr('font-weight', '700')
@@ -640,14 +640,8 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           : '#64748b';
 
         const bgFill = d.isBottleneck
-          ? '#3b0a1e'
-          : d.roleGroup === 'CDT'
-          ? '#1e1b4b'
-          : d.roleGroup === 'BQLDA'
-          ? '#0c2742'
-          : d.nodeId === 'OUT_APPROVED'
-          ? '#052e24'
-          : '#0f172a';
+          ? 'var(--d3-node-bottleneck-bg)'
+          : 'var(--d3-node-bg)';
 
         // Khung khối chữ nhật chính
         g.append('rect')
@@ -682,7 +676,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
         g.append('text')
           .attr('x', 11)
           .attr('y', 16)
-          .attr('fill', d.isBottleneck ? '#fda4af' : '#fcd34d')
+          .attr('fill', d.isBottleneck ? 'var(--d3-link-warn)' : 'var(--d3-accent)')
           .attr('font-size', 10.5)
           .attr('font-family', 'ui-monospace, monospace')
           .attr('font-weight', '800')
@@ -692,7 +686,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
         g.append('text')
           .attr('x', 11)
           .attr('y', 31)
-          .attr('fill', '#f8fafc')
+          .attr('fill', 'var(--d3-text)')
           .attr('font-size', 10)
           .attr('font-weight', '600')
           .text(d.name.length > 23 ? d.name.slice(0, 22) + '…' : d.name);
@@ -702,7 +696,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           g.append('text')
             .attr('x', 11)
             .attr('y', 46)
-            .attr('fill', d.avgTurnaroundHours > d.slaLimitHours ? '#fb7185' : '#34d399')
+            .attr('fill', d.avgTurnaroundHours > d.slaLimitHours ? 'var(--son-l)' : 'var(--xanh)')
             .attr('font-size', 9.5)
             .attr('font-family', 'ui-monospace, monospace')
             .attr('font-weight', '700')
@@ -717,7 +711,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           g.append('text')
             .attr('x', 11)
             .attr('y', 60)
-            .attr('fill', '#94a3b8')
+            .attr('fill', 'var(--d3-muted)')
             .attr('font-size', 9)
             .attr('font-family', 'ui-monospace, monospace')
             .text(d.raciBadge);
@@ -802,10 +796,8 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
 
         const fillBg =
           d.data.status === 'BOTTLENECK_HOLD'
-            ? '#3b0a1e'
-            : d.data.status === 'WARNING_SLA'
-            ? '#2e1d09'
-            : '#0f172a';
+            ? 'var(--d3-node-bottleneck-bg)'
+            : 'var(--d3-node-bg)';
 
         g.append('rect')
           .attr('x', -10)
@@ -826,10 +818,10 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           .attr(
             'fill',
             d.data.status === 'BOTTLENECK_HOLD'
-              ? '#fda4af'
+              ? 'var(--d3-link-warn)'
               : d.data.status === 'WARNING_SLA'
-              ? '#fcd34d'
-              : '#6ee7b7'
+              ? 'var(--d3-accent)'
+              : 'var(--xanh)'
           )
           .attr('font-size', 9.5)
           .attr('font-family', 'ui-monospace, monospace')
@@ -848,7 +840,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
         g.append('text')
           .attr('x', 0)
           .attr('y', -boxH / 2 + 29)
-          .attr('fill', '#f8fafc')
+          .attr('fill', 'var(--d3-text)')
           .attr('font-size', 9.5)
           .attr('font-weight', '600')
           .text(d.data.name.length > 34 ? d.data.name.slice(0, 33) + '…' : d.data.name);
@@ -858,7 +850,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           g.append('text')
             .attr('x', 0)
             .attr('y', -boxH / 2 + 43)
-            .attr('fill', '#94a3b8')
+            .attr('fill', 'var(--d3-muted)')
             .attr('font-size', 8.5)
             .attr('font-family', 'ui-monospace, monospace')
             .text(
@@ -891,43 +883,43 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
   }, [nodesData, selectedNodeId]);
 
   return (
-    <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-4 space-y-3 shadow-lg">
+    <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-3 shadow-lg text-[var(--chu)]">
       {/* Header điều khiển Biểu đồ D3.js (Chuyển đổi Sankey Block <-> Hierarchy Tree + KPI Nút thắt) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono text-[10px] font-extrabold uppercase">
+            <span className="px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-800 dark:text-rose-300 font-mono text-[10px] font-extrabold uppercase">
               D3.JS BOTTLENECK ENGINE
             </span>
-            <h3 className="text-xs sm:text-sm font-bold text-white">
+            <h3 className="text-xs sm:text-sm font-bold text-[var(--navy-ink)]">
               Biểu đồ Khối Luồng Phê duyệt Hành chính: Chủ đầu tư (CĐT) ↔ Ban QLDA ↔ Các Đơn vị Tư vấn (TVTK · TVGS · LAS-XD)
             </h3>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Click vào bất kỳ <b className="text-amber-300">Khối Đơn vị</b> hoặc{' '}
-            <b className="text-rose-300">Luồng Nút thắt đỏ</b> trên sơ đồ D3.js để lọc hồ sơ bị nghẽn và giải tỏa trực tiếp theo phân quyền RBAC.
+          <p className="text-[11px] text-[var(--chu-m)]">
+            Click vào bất kỳ <b className="text-amber-800 dark:text-amber-300">Khối Đơn vị</b> hoặc{' '}
+            <b className="text-rose-800 dark:text-rose-300">Luồng Nút thắt đỏ</b> trên sơ đồ D3.js để lọc hồ sơ bị nghẽn và giải tỏa trực tiếp theo phân quyền RBAC.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Chuyển đổi giữa D3 Sankey Block và D3 Hierarchy Tree */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <div className="flex items-center bg-[var(--giay-soft)] p-1 rounded-lg border border-[var(--line)]">
             <button
               onClick={() => setDiagramMode('SANKEY_BLOCK')}
-              className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition ${
+              className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition cursor-pointer ${
                 diagramMode === 'SANKEY_BLOCK'
                   ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
               }`}
             >
               📊 D3 Sankey Khối (Luồng & Băng thông)
             </button>
             <button
               onClick={() => setDiagramMode('HIERARCHY_TREE')}
-              className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition ${
+              className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition cursor-pointer ${
                 diagramMode === 'HIERARCHY_TREE'
                   ? 'bg-sky-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
               }`}
             >
               🌳 D3 Tree Phân cấp (CĐT → Tư vấn → Hồ sơ)
@@ -937,7 +929,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
           {selectedRoleFilter !== 'ALL' && (
             <button
               onClick={() => onSelectRoleFilter('ALL')}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-xs font-bold border border-amber-500/40 transition"
+              className="px-2.5 py-1 rounded-lg bg-[var(--giay-d)] hover:opacity-90 text-amber-800 dark:text-amber-300 font-mono text-xs font-bold border border-amber-500/40 transition cursor-pointer"
             >
               ✕ Bỏ lọc đơn vị ({selectedRoleFilter.replace('UNIT_', '')})
             </button>
@@ -947,54 +939,54 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
 
       {/* Dải 4 thẻ chỉ số Nút thắt Cổ chai (Bottleneck Telemetry) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-        <div className="p-2.5 rounded-lg bg-slate-950 border border-rose-500/40 flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-[var(--giay-soft)] border border-rose-500/40 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">
+            <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
               Điểm nghẽn Cổ chai Chính
             </div>
-            <div className="font-bold text-rose-400 mt-0.5">
+            <div className="font-bold text-rose-800 dark:text-rose-300 mt-0.5">
               TVTK ↔ BQLDA & TVGS (RF-05)
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono font-extrabold text-xs">
+          <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-800 dark:text-rose-300 font-mono font-extrabold text-xs">
             {bottleneckSummary.delayedCount} HS trễ
           </span>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-950 border border-amber-500/40 flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-[var(--giay-soft)] border border-amber-500/40 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">
+            <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
               Độ trễ SLA Trung bình tại Nút thắt
             </div>
-            <div className="font-bold text-amber-300 mt-0.5">
+            <div className="font-bold text-amber-800 dark:text-amber-300 mt-0.5">
               +{bottleneckSummary.avgOverdueHours} giờ vượt định mức SLA
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-extrabold text-xs">
+          <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-extrabold text-xs">
             SLA &gt; 48h
           </span>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-950 border border-sky-500/40 flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-[var(--giay-soft)] border border-sky-500/40 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">
+            <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
               Đơn vị Đang chọn Kiểm tra
             </div>
-            <div className="font-bold text-sky-300 mt-0.5 truncate max-w-[180px]">
+            <div className="font-bold text-sky-800 dark:text-sky-300 mt-0.5 truncate max-w-[180px]">
               {activeSelectedNode.name}
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-bold text-[11px]">
+          <span className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-800 dark:text-sky-300 font-mono font-bold text-[11px]">
             {activeSelectedNode.avgTurnaroundHours}h/{activeSelectedNode.slaLimitHours}h
           </span>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-950 border border-emerald-500/40 flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-[var(--giay-soft)] border border-emerald-500/40 flex items-center justify-between">
           <div>
-            <div className="text-[10px] font-mono text-slate-400 uppercase">
+            <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
               Hồ sơ Thông qua / Tổng luồng
             </div>
-            <div className="font-bold text-emerald-400 mt-0.5">
+            <div className="font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
               {
                 approvalWorkflows.filter(
                   w => w.status === 'CDT_APPROVED' || w.status === 'TVGS_VERIFIED'
@@ -1003,7 +995,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
               / {approvalWorkflows.length} Hồ sơ đã duyệt
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-extrabold text-xs">
+          <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-mono font-extrabold text-xs">
             {Math.round(
               (approvalWorkflows.filter(
                 w => w.status === 'CDT_APPROVED' || w.status === 'TVGS_VERIFIED'
@@ -1017,22 +1009,22 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
       </div>
 
       {/* Khung Canvas SVG D3.js */}
-      <div className="relative rounded-xl bg-slate-950 border border-slate-800 p-2 overflow-x-auto">
+      <div className="relative rounded-xl bg-[var(--giay-soft)] border border-[var(--line)] p-2 overflow-x-auto">
         <svg ref={svgRef} className="w-full min-w-[780px] h-auto select-none" />
       </div>
 
       {/* Hộp Phân tích & Giải tỏa Nhanh Nút thắt Cổ chai (Bottleneck Inspector & Action Bar) */}
-      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+      <div className="p-3 rounded-xl bg-[var(--giay-soft)] border border-[var(--line)] flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-bold text-amber-400 uppercase">
+            <span className="font-mono font-bold text-amber-800 dark:text-amber-300 uppercase">
               🔍 Chẩn đoán Nút thắt tại [{activeSelectedNode.code}]:
             </span>
             <span
               className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
                 activeSelectedNode.isBottleneck
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  ? 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/40'
+                  : 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40'
               }`}
             >
               {activeSelectedNode.isBottleneck
@@ -1040,7 +1032,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
                 : 'LUỒNG THÔNG SUỐT'}
             </span>
           </div>
-          <p className="text-slate-300 leading-relaxed">{activeSelectedNode.bottleneckNote}</p>
+          <p className="text-[var(--chu-m)] leading-relaxed">{activeSelectedNode.bottleneckNote}</p>
         </div>
 
         {/* Nút Giải tỏa nhanh các hồ sơ đang bị nghẽn (Khóa quyền RACI theo Vai trò) */}
@@ -1066,7 +1058,7 @@ export const ApprovalFlowD3Diagram: React.FC<ApprovalFlowD3DiagramProps> = ({
                   type="button"
                   disabled={!isAllowed}
                   onClick={() => onQuickResolveWorkflow(wf, targetNext)}
-                  className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-emerald-500 hover:text-slate-950 border border-rose-500/50 text-rose-200 font-mono text-[11px] font-bold transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-rose-500/20 disabled:hover:text-rose-200"
+                  className="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-emerald-600 hover:text-white border border-rose-500/50 text-rose-800 dark:text-rose-200 font-mono text-[11px] font-bold transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-rose-500/15 cursor-pointer"
                   title={
                     isAllowed
                       ? `Giải tỏa nút thắt cho hồ sơ ${wf.docCode}: ${wf.title}`

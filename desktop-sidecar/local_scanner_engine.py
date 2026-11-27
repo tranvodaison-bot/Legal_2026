@@ -857,14 +857,14 @@ def detect_issuer_from_file_and_text(
     scope = f"{num_upper}\n{base_upper}"
 
     suffix_match = re.search(
-        r"(?:LUAT|NQ|ND|TT|VBHN|QD|QCVN|TCVN|\d{1,5}(?:[/_:-]\d{4})?)[/_:-](QH\d{2}|CP|TTG|BXD|BTC|BKHDT|BCA|BCT|BTNMT|BNNMT|BKHCN|UBND|BQLKKT|BQLKCN|SXD)\b",
+        r"(?:LUAT|NQ|ND|TT|VBHN|QD|QCVN|TCVN|\d{1,5}(?:[/_:-]\d{4})?)[/_:-](QH\d{2}|CP|TTG|BXD|BTC|BKHDT|BCA|BCT|BTNMT|BNNMT|BKHCN|UBNDHN|UBND|BQLKKT|BQLKCN|SXD|CHQ)\b",
         scope,
     )
     if suffix_match:
         return normalize_issuer_code(suffix_match.group(1), doc_type)
 
     explicit_match = re.search(
-        r"\b(QH15|QH14|BKHDT|BQLKKT|BQLKCN|BKHCN|BTNMT|BNNMT|BTC|BXD|BCA|BCT|UBND|TTG)\b",
+        r"\b(QH15|QH14|BKHDT|BQLKKT|BQLKCN|BKHCN|BTNMT|BNNMT|BTC|BXD|BCA|BCT|UBNDHN|UBND|TTG|CHQ)\b",
         scope,
     )
     if explicit_match:
@@ -891,8 +891,12 @@ def detect_issuer_from_file_and_text(
         return "BTNMT"
     if re.search(r"\bBO KHOA HOC\b", top_lines):
         return "BKHCN"
+    if re.search(r"\bUY BAN NHAN DAN HA NOI\b|\bUBND\s+TP\s*HA NOI\b|\bUBNDHN\b", top_lines):
+        return "UBNDHN"
     if re.search(r"\bUY BAN NHAN DAN\b|\bUBND\b", top_lines):
         return "UBND"
+    if re.search(r"\bCUC HAI QUAN\b|\bTONG CUC HAI QUAN\b", top_lines):
+        return "CHQ"
     if re.search(r"\bTU VAN GIAM SAT\b", top_lines):
         return "TVGS"
     if re.search(r"\bTU VAN THIET KE\b", top_lines):
@@ -1045,13 +1049,22 @@ def classify_3_axes_and_9_parts(
         if num_match:
             raw_doc_number = num_match.group(1)
         else:
+            base_no_year_prefix = re.sub(r"^\[\d{4}\][_\s-]*", "", base_upper_notone)
             file_num_match = re.search(
                 r"(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/:-](?:\d{4}[/:-])?[a-zA-Z]+)|(\b\d{1,4}\b)",
-                base_upper_notone,
+                base_no_year_prefix,
             )
-            raw_doc_number = file_num_match.group(0) if file_num_match else "01"
+            candidate_num = file_num_match.group(0) if file_num_match else ""
+            if candidate_num and not re.match(r"^(?:19|20)\d{2}$", candidate_num):
+                raw_doc_number = candidate_num
+            else:
+                non_year = next(
+                    (n for n in re.findall(r"\b(\d{1,4})\b", base_no_year_prefix) if not re.match(r"^(?:19|20)\d{2}$", n)),
+                    None,
+                )
+                raw_doc_number = non_year or "01"
 
-    year_match = re.search(r"(20[1-3][0-9]|199[0-9])", f"{raw_doc_number} {base_name} {text[:400]}")
+    year_match = re.search(r"\b(199\d|20[0-3]\d)\b", f"{raw_doc_number} {base_name} {text[:400]}")
     issue_year = int(ai_meta.get("issue_year") or (year_match.group(1) if year_match else datetime.now().year))
     doc_number = clean_doc_number(str(raw_doc_number), issue_year)
     issuer = ai_meta.get("issuer") or detect_issuer_from_file_and_text(

@@ -593,31 +593,31 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     const borderStyle = isSuggested ? "border-dashed" : "border-solid";
     switch (category) {
       case "INDUSTRY":
-        return `${borderStyle} bg-indigo-500/15 border-indigo-400/60 text-indigo-200`;
+        return `${borderStyle} bg-indigo-500/15 border-indigo-400/60 text-indigo-900 dark:text-indigo-200`;
       case "SUB_SECTOR":
-        return `${borderStyle} bg-cyan-500/15 border-cyan-400/60 text-cyan-200`;
+        return `${borderStyle} bg-cyan-500/15 border-cyan-400/60 text-cyan-900 dark:text-cyan-200`;
       case "DOMAIN":
-        return `${borderStyle} bg-amber-500/15 border-amber-400/60 text-amber-200`;
+        return `${borderStyle} bg-amber-500/15 border-amber-400/60 text-amber-900 dark:text-amber-200`;
       case "PROJECT_AXIS":
-        return `${borderStyle} bg-sky-500/15 border-sky-400/60 text-sky-200`;
+        return `${borderStyle} bg-sky-500/15 border-sky-400/60 text-sky-900 dark:text-sky-200`;
       case "STAGE_GATE":
-        return `${borderStyle} bg-emerald-500/15 border-emerald-400/60 text-emerald-200 font-mono`;
+        return `${borderStyle} bg-emerald-500/15 border-emerald-400/60 text-emerald-900 dark:text-emerald-200 font-mono`;
       default:
-        return `${borderStyle} bg-purple-500/15 border-purple-400/60 text-purple-200`;
+        return `${borderStyle} bg-purple-500/15 border-purple-400/60 text-purple-900 dark:text-purple-200`;
     }
   };
 
   const renderTagPickerPanel = (item: AnalyzedFileItem, onClose: () => void) => (
     <div
       onClick={e => e.stopPropagation()}
-      className="mt-2 p-2.5 rounded-xl bg-slate-950 border border-slate-700 shadow-2xl space-y-2 text-[11px]"
+      className="mt-2 p-2.5 rounded-xl bg-[var(--giay)] border border-[var(--line-d)] shadow-2xl space-y-2 text-[11px]"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-bold text-amber-300">🏷️ Thêm nhanh hoặc nhập Tag tùy chỉnh</span>
+        <span className="font-bold text-amber-800 dark:text-amber-300">🏷️ Thêm nhanh hoặc nhập Tag tùy chỉnh</span>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-900 cursor-pointer"
+          className="text-[var(--chu-m)] hover:text-[var(--chu)] px-1.5 py-0.5 rounded bg-[var(--panel)] cursor-pointer"
           aria-label="Đóng bảng chọn tag"
         >
           ✕
@@ -637,7 +637,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             }
           }}
           placeholder="Nhập tag (VD: G14, KCN, XD_DAUTHAU, Gói XL-01)..."
-          className="flex-1 min-w-[140px] bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none"
+          className="flex-1 min-w-[140px] bg-[var(--panel)] border border-[var(--line-d)] focus:border-amber-400 rounded-lg px-2 py-1 text-[11px] text-[var(--chu)] focus:outline-none"
         />
         <button
           type="button"
@@ -654,7 +654,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
       <div className="space-y-1.5">
         <div>
-          <div className="text-[10px] text-indigo-300 font-semibold mb-1">Ngành:</div>
+          <div className="text-[10px] text-indigo-800 dark:text-indigo-300 font-semibold mb-1">Ngành:</div>
           <div className="flex flex-wrap gap-1">
             {SMART_TAG_INDUSTRY_OPTIONS.map(opt => (
               <button
@@ -667,7 +667,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     label: opt.label,
                   })
                 }
-                className="px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-[10px] cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-900 dark:text-indigo-200 text-[10px] cursor-pointer"
               >
                 + {opt.code}
               </button>
@@ -676,7 +676,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         </div>
 
         <div>
-          <div className="text-[10px] text-cyan-300 font-semibold mb-1">Lĩnh vực con & Chức năng:</div>
+          <div className="text-[10px] text-cyan-800 dark:text-cyan-300 font-semibold mb-1">Lĩnh vực con & Chức năng:</div>
           <div className="flex flex-wrap gap-1">
             {SMART_TAG_SUB_SECTOR_OPTIONS.slice(0, 6).map(opt => (
               <button
@@ -689,7 +689,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     label: opt.label,
                   })
                 }
-                className="px-1.5 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-[10px] cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-900 dark:text-cyan-200 text-[10px] cursor-pointer"
               >
                 + {opt.subSectorLabel}
               </button>
@@ -705,7 +705,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     label: `LV mở rộng: ${dom}`,
                   })
                 }
-                className="px-1.5 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[10px] cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/40 text-amber-900 dark:text-amber-200 text-[10px] cursor-pointer"
               >
                 + {dom}
               </button>
@@ -714,7 +714,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         </div>
 
         <div>
-          <div className="text-[10px] text-sky-300 font-semibold mb-1">Dự án / Loại hình DA:</div>
+          <div className="text-[10px] text-sky-800 dark:text-sky-300 font-semibold mb-1">Dự án / Loại hình DA:</div>
           <div className="flex flex-wrap gap-1">
             {SMART_TAG_PROJECT_AXES.map(ax => (
               <button
@@ -727,7 +727,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     label: `DA: ${ax}`,
                   })
                 }
-                className="px-1.5 py-0.5 rounded bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-[10px] cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/40 text-sky-900 dark:text-sky-200 text-[10px] cursor-pointer"
               >
                 + {ax}
               </button>
@@ -736,7 +736,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         </div>
 
         <div>
-          <div className="text-[10px] text-emerald-300 font-semibold mb-1">Stage-Gate (G0–G16):</div>
+          <div className="text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold mb-1">Stage-Gate (G0–G16):</div>
           <div className="flex flex-wrap gap-1">
             {SMART_TAG_STAGE_GATES.map(g => (
               <button
@@ -749,7 +749,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     label: `Gate ${g}`,
                   })
                 }
-                className="px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-mono text-[10px] cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-900 dark:text-emerald-200 font-mono text-[10px] cursor-pointer"
               >
                 {g}
               </button>
@@ -781,7 +781,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               >
                 {isSuggested && (
                   <span
-                    className="text-[9px] text-amber-300 font-semibold shrink-0"
+                    className="text-[9px] text-amber-800 dark:text-amber-300 font-semibold shrink-0"
                     title="Tag tự động gợi ý từ nội dung — bấm ✓ để chốt hoặc × để bỏ"
                   >
                     ✨ Gợi ý
@@ -804,7 +804,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     }}
                     onBlur={() => handleCommitEditTag(item.id, tag.id)}
                     aria-label="Chỉnh sửa tên tag"
-                    className="w-28 bg-slate-950 border border-amber-400 rounded px-1 py-0 text-[10px] text-white focus:outline-none"
+                    className="w-28 bg-[var(--giay)] border border-amber-400 rounded px-1 py-0 text-[10px] text-[var(--chu)] focus:outline-none"
                   />
                 ) : (
                   <button
@@ -823,7 +823,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     onClick={() => handleApproveSmartTag(item.id, tag.id)}
                     title="Đồng ý chốt thành tag chính thức"
                     aria-label={`Đồng ý tag ${tag.label}`}
-                    className="px-1 rounded bg-emerald-500/25 hover:bg-emerald-500 text-emerald-200 hover:text-slate-950 font-bold text-[10px] leading-tight cursor-pointer"
+                    className="px-1 rounded bg-emerald-500/25 hover:bg-emerald-500 text-emerald-900 dark:text-emerald-200 hover:text-slate-950 font-bold text-[10px] leading-tight cursor-pointer"
                   >
                     ✓
                   </button>
@@ -835,7 +835,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     onClick={() => handleRemoveSmartTag(item.id, tag.id)}
                     title="Xóa tag"
                     aria-label={`Xóa tag ${tag.label}`}
-                    className="px-0.5 rounded hover:bg-rose-500/30 text-slate-300 hover:text-rose-200 font-bold text-[10px] leading-tight cursor-pointer"
+                    className="px-0.5 rounded hover:bg-rose-500/30 text-[var(--chu-m)] hover:text-rose-900 dark:text-rose-200 font-bold text-[10px] leading-tight cursor-pointer"
                   >
                     ×
                   </button>
@@ -854,7 +854,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 setDrawerTagPickerOpen(prev => !prev);
               }
             }}
-            className="px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 text-[10px] font-semibold cursor-pointer"
+            className="px-1.5 py-0.5 rounded-md bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-sky-800 dark:text-sky-300 text-[10px] font-semibold cursor-pointer"
           >
             + Thêm Tag
           </button>
@@ -864,7 +864,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               type="button"
               onClick={() => handleApproveAllRowTags(item.id)}
               title="Đồng ý tất cả tag gợi ý trên dòng này"
-              className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/45 text-emerald-300 text-[10px] font-bold cursor-pointer"
+              className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/45 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold cursor-pointer"
             >
               ✓ Duyệt ({suggestedCount})
             </button>
@@ -881,12 +881,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
   };
 
   const renderSsotTwoLayerExamples = (compact = false) => (
-    <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
+    <div className="bg-[var(--giay)] border border-[var(--line)] rounded-xl p-3.5 space-y-2.5 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-400">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-400">
           📐 Quy Tắc Đặt Tên VBPL Thống Nhất 100% (PascalCase ≤ 40 ký tự · Smart Tags Gợi ý)
         </span>
-        <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-mono">
+        <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono">
           {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}-${normalizeIssuerCode(
             namingForm.issuer,
             normalizedFormDocType
@@ -894,37 +894,37 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         </span>
       </div>
       <div className={`grid grid-cols-1 ${compact ? "gap-2" : "md:grid-cols-2 gap-2.5"}`}>
-        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-emerald-500/30 space-y-1">
-          <div className="text-[11px] font-bold text-emerald-300">
+        <div className="p-2.5 rounded-lg bg-[var(--panel)] border border-emerald-500/30 space-y-1">
+          <div className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
             Công thức duy nhất áp dụng cho mọi cấp VBPL (Không ngoại lệ)
           </div>
-          <div className="font-mono text-[10px] text-sky-300 break-all">
+          <div className="font-mono text-[10px] text-sky-800 dark:text-sky-300 break-all">
             [SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếuNgắn][-PhụLục].[ext]
           </div>
-          <div className="text-[10px] text-slate-400 pt-0.5 space-y-0.5">
-            <div className="font-mono text-emerald-400 break-all">
+          <div className="text-[10px] text-[var(--chu-m)] pt-0.5 space-y-0.5">
+            <div className="font-mono text-emerald-800 dark:text-emerald-400 break-all">
               Luật: 135-2025_LUAT-QH15_HDXD_LuatXayDung.pdf
             </div>
-            <div className="font-mono text-emerald-400/90 break-all">
+            <div className="font-mono text-emerald-800 dark:text-emerald-400/90 break-all">
               NĐ: 207-2026_ND-CP_QLCL_QuanLyChatLuongCongTrinh-PLIIa.pdf
             </div>
-            <div className="font-mono text-emerald-400/90 break-all">
+            <div className="font-mono text-emerald-800 dark:text-emerald-400/90 break-all">
               TT: 50-2022_TT-BTC_HDXD_BaoHiemTrongHoatDongXayDung.pdf
             </div>
-            <div className="font-mono text-sky-300/90 break-all">
+            <div className="font-mono text-sky-800 dark:text-sky-300/90 break-all">
               VBHN: 05-2025_VBHN-BXD_HDXD_QuanLyDuAnDauTuXayDung.pdf
             </div>
-            <div className="font-mono text-amber-300 break-all">
+            <div className="font-mono text-amber-800 dark:text-amber-300 break-all">
               QCVN: 06-2023_QCVN-BXD_PCCC_AnToanChayChoNhaVaCongTrinh.pdf
             </div>
           </div>
         </div>
 
-        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-sky-500/30 space-y-1">
-          <div className="text-[11px] font-bold text-sky-300">
+        <div className="p-2.5 rounded-lg bg-[var(--panel)] border border-sky-500/30 space-y-1">
+          <div className="text-[11px] font-bold text-sky-800 dark:text-sky-300">
             Thuộc tính mở rộng (Tách thành Smart Tags / Labels)
           </div>
-          <div className="text-[10px] text-slate-300 leading-relaxed">
+          <div className="text-[10px] text-[var(--chu-m)] leading-relaxed">
             • <b>Ngành</b> (XD, BDS, TC, DN) &amp; <b>Lĩnh vực con</b> (XD_XAYDUNG, XD_DAUTHAU, DN_DTU...)
             <br />• <b>Mã Dự án / Loại hình DA</b> (KCN, HTKT, DAN_DUNG, CCN, FTZ, PPP_BT)
             <br />• <b>Stage-Gate G0–G16</b> (hiển thị ✨ Gợi ý viền đứt để duyệt ✓ / sửa / xóa ×)
@@ -1931,24 +1931,24 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
   if (activeTab !== "STEP1_INGEST") return null;
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-950 text-slate-100">
+    <div className="h-full overflow-y-auto bg-[var(--giay)] text-[var(--chu)]">
       <div className="max-w-[1560px] mx-auto px-4 py-5 md:px-6 md:py-6 space-y-5">
         {/* Header Tối giản */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 text-sm">
+            <h1 className="text-base md:text-lg font-bold text-[var(--chu)] flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-400 text-sm">
                 1
               </span>
               <span>Tiếp nhận & Chuẩn hóa Hồ sơ Dự án (CDE)</span>
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-[var(--chu-m)] mt-0.5">
               Tải tài liệu hoặc nhập dữ liệu thực tế từ file CSV, kiểm duyệt tên chuẩn trước khi đưa sang Bước 2 (Tra cứu VBPL) và Bước 3 (Stage-Gate).
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-              Dự án: <b className="text-amber-400">[{activeProjectArchetype}]</b>{" "}
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--panel)] border border-[var(--line)] text-[var(--chu-m)]">
+              Dự án: <b className="text-amber-800 dark:text-amber-400">[{activeProjectArchetype}]</b>{" "}
               <span className="hidden sm:inline">{activeProjectName}</span>
             </span>
           </div>
@@ -1975,7 +1975,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             className={`lg:col-span-7 rounded-2xl border-2 border-dashed p-6 md:p-7 transition-all flex flex-col justify-center items-center text-center min-h-[210px] ${
               isDragging
                 ? "border-emerald-400 bg-emerald-500/10 shadow-lg shadow-emerald-500/10"
-                : "border-slate-700 bg-slate-900/60 hover:border-amber-400/70 hover:bg-slate-900/80"
+                : "border-[var(--line-d)] bg-[var(--panel)]/60 hover:border-amber-400/70 hover:bg-[var(--panel)]"
             }`}
           >
             {/* Hidden file & folder inputs */}
@@ -2007,12 +2007,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             <div className="h-12 w-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-2xl mb-3">
               {isAnalyzingFile ? "⏳" : "📂"}
             </div>
-            <h2 className="text-sm md:text-base font-bold text-white">
+            <h2 className="text-sm md:text-base font-bold text-[var(--chu)]">
               {isAnalyzingFile
                 ? "Đang đọc nội dung & chuẩn hóa tên hồ sơ..."
                 : "Kéo & thả File hoặc Thư mục dự án vào đây"}
             </h2>
-            <p className="text-xs text-slate-400 max-w-xl mt-1">
+            <p className="text-xs text-[var(--chu-m)] max-w-xl mt-1">
               Hỗ trợ PDF, Word, Excel, CAD (.dwg). Hệ thống tự động bóc tách trích yếu, gắn nhãn 3 Trục, kiểm tra trùng lặp SHA-256 và đề xuất tên chuẩn CDE.
             </p>
 
@@ -2028,7 +2028,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               <button
                 type="button"
                 onClick={() => folderInputRef.current?.click()}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-bold text-xs md:text-sm transition cursor-pointer inline-flex items-center gap-2"
+                className="px-4 py-2.5 rounded-xl bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-sky-800 dark:text-sky-300 font-bold text-xs md:text-sm transition cursor-pointer inline-flex items-center gap-2"
               >
                 <span>📁 Chọn Cả Thư Mục</span>
               </button>
@@ -2039,7 +2039,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               <button
                 type="button"
                 onClick={handleLoadRealDataLegalBatch}
-                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold border border-emerald-500/30 cursor-pointer flex items-center gap-1.5 transition shadow-sm"
+                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 font-bold border border-emerald-500/30 cursor-pointer flex items-center gap-1.5 transition shadow-sm"
                 title="Nạp toàn bộ 160 hồ sơ pháp lý thực tế từ kho Data_Legal_2026 trên Drive"
               >
                 <span>📂 Nạp Kho Thực Tế (160 tệp)</span>
@@ -2047,7 +2047,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               <button
                 type="button"
                 onClick={handleLoadSampleBatch}
-                className="text-slate-400 hover:text-slate-200 underline underline-offset-4 cursor-pointer text-[11px]"
+                className="text-[var(--chu-m)] hover:text-[var(--chu)] underline underline-offset-4 cursor-pointer text-[11px]"
               >
                 Nạp 8 mẫu demo
               </button>
@@ -2055,7 +2055,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           </div>
 
           {/* Thẻ Phải (30%): Nạp Dữ Liệu Thực Tế (CSV/Excel) */}
-          <div className="lg:col-span-3 rounded-2xl border border-emerald-500/35 bg-slate-900/80 p-5 flex flex-col justify-between gap-4 min-h-[210px]">
+          <div className="lg:col-span-3 rounded-2xl border border-emerald-500/35 bg-[var(--panel)] p-5 flex flex-col justify-between gap-4 min-h-[210px]">
             <input
               ref={csvInputRef}
               type="file"
@@ -2065,10 +2065,10 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             />
 
             <div className="space-y-1.5">
-              <h2 className="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+              <h2 className="text-sm font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                 <span>📊 Nạp Dữ Liệu Thực Tế (CSV/Excel)</span>
               </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-[var(--chu-m)] leading-relaxed">
                 Nhập nhanh file CSV (UTF-8) để đổ thẳng danh mục VBPL, tiến độ Stage-Gate hoặc ITP vào Bước 2 & Bước 3.
               </p>
             </div>
@@ -2079,20 +2079,20 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 <button
                   type="button"
                   onClick={() => setIsTemplateMenuOpen(prev => !prev)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition flex items-center justify-between cursor-pointer"
+                  className="w-full px-3.5 py-2 rounded-xl bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-[var(--chu)] font-semibold text-xs transition flex items-center justify-between cursor-pointer"
                 >
                   <span>📥 Tải File Mẫu</span>
-                  <span className="text-slate-400 text-[10px]">
+                  <span className="text-[var(--chu-m)] text-[10px]">
                     {isTemplateMenuOpen ? "▲" : "▼"}
                   </span>
                 </button>
 
                 {isTemplateMenuOpen && (
-                  <div className="absolute left-0 right-0 mt-1.5 z-30 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 space-y-1">
+                  <div className="absolute left-0 right-0 mt-1.5 z-30 rounded-xl bg-[var(--panel)] border border-[var(--line-d)] shadow-2xl p-1.5 space-y-1">
                     {CSV_TEMPLATES.map(tpl => (
                       <div
                         key={tpl.id}
-                        className="rounded-lg p-2 hover:bg-slate-800/90 transition flex items-center justify-between gap-2"
+                        className="rounded-lg p-2 hover:bg-[var(--giay-d)] transition flex items-center justify-between gap-2"
                       >
                         <a
                           href={tpl.href}
@@ -2103,16 +2103,16 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           }}
                           className="min-w-0 flex-1 block"
                         >
-                          <div className="text-xs font-semibold text-emerald-300 truncate">
+                          <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 truncate">
                             📥 {tpl.label}
                           </div>
-                          <div className="text-[10px] text-slate-400 truncate">{tpl.desc}</div>
+                          <div className="text-[10px] text-[var(--chu-m)] truncate">{tpl.desc}</div>
                         </a>
                         <button
                           type="button"
                           onClick={() => handleQuickLoadTemplateCsv(tpl)}
                           title={`Nạp thử dữ liệu từ ${tpl.fileName} vào ứng dụng`}
-                          className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shrink-0 cursor-pointer"
+                          className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold shrink-0 cursor-pointer"
                         >
                           Nạp thử
                         </button>
@@ -2134,11 +2134,11 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             </div>
 
             {csvImportResult && (
-              <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/40 px-3 py-2 text-[11px] text-emerald-200 space-y-1">
+              <div className="rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/40 px-3 py-2 text-[11px] text-emerald-900 dark:text-emerald-200 space-y-1">
                 <div className="font-semibold truncate">
-                  ✓ Đã nạp: <span className="text-white">{csvImportResult.fileName}</span>
+                  ✓ Đã nạp: <span className="text-[var(--chu)]">{csvImportResult.fileName}</span>
                 </div>
-                <div className="text-[10px] text-emerald-300/90 flex flex-wrap gap-x-2">
+                <div className="text-[10px] text-emerald-800 dark:text-emerald-300/90 flex flex-wrap gap-x-2">
                   <span>• {csvImportResult.docsCount} VBPL (Bước 2)</span>
                   {(csvImportResult.gatesCount > 0 ||
                     csvImportResult.qaqcCount > 0 ||
@@ -2162,15 +2162,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
            ================================================================= */}
         <section
           aria-label="Bảng kiểm duyệt hồ sơ"
-          className="rounded-2xl border border-slate-800 bg-slate-900/75 shadow-xl overflow-hidden"
+          className="rounded-2xl border border-[var(--line)] bg-[var(--panel)]/75 shadow-xl overflow-hidden"
         >
           {/* Header Bảng & Bộ lọc nhanh */}
-          <div className="px-4 py-3.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-4 py-3.5 border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-sm font-bold text-white">
+              <h2 className="text-sm font-bold text-[var(--chu)]">
                 Danh sách hồ sơ kiểm duyệt ({validatedBatchQueue.length})
               </h2>
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px] flex-wrap">
+              <div className="flex items-center gap-1 bg-[var(--giay)] p-1 rounded-lg border border-[var(--line)] text-[11px] flex-wrap">
                 {(
                   [
                     { id: "ALL", label: `Tất cả (${validatedBatchQueue.length})` },
@@ -2203,7 +2203,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         ? tab.id === "DUP_HASH"
                           ? "bg-rose-500 text-white font-bold"
                           : "bg-amber-500 text-slate-950 font-bold"
-                        : "text-slate-400 hover:text-white"
+                        : "text-[var(--chu-m)] hover:text-[var(--chu)]"
                     }`}
                   >
                     {tab.label}
@@ -2217,7 +2217,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 value={batchFilterCde}
                 onChange={e => setBatchFilterCde(e.target.value as "ALL" | CdeIsoStatus)}
                 aria-label="Lọc trạng thái CDE"
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+                className="bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--chu)] focus:outline-none focus:border-amber-400 cursor-pointer"
               >
                 <option value="ALL">CDE: Tất cả</option>
                 {CDE_ISO_19650_PIPELINE.map(code => (
@@ -2234,7 +2234,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   const nextSelected = !allQueueSelected;
                   setDroppedFilesQueue(prev => prev.map(i => ({ ...i, selected: nextSelected })));
                 }}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer"
+                className="px-2.5 py-1.5 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-[var(--chu)] text-xs font-medium cursor-pointer"
               >
                 {allQueueSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
               </button>
@@ -2246,7 +2246,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     setDroppedFilesQueue([]);
                     setConfirmBannerResult(null);
                   }}
-                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-medium cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-xs font-medium cursor-pointer"
                 >
                   Xóa danh sách
                 </button>
@@ -2256,12 +2256,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
           {/* Cảnh báo trùng mã băm SHA-256 (chỉ hiển thị khi phát hiện trùng) */}
           {duplicateHashItems.length > 0 && (
-            <div className="mx-4 mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="text-rose-200">
-                <b className="text-rose-300">
+            <div className="mx-4 mt-3 p-3 rounded-xl bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="text-rose-900 dark:text-rose-200">
+                <b className="text-rose-800 dark:text-rose-300">
                   ⚠️ Phát hiện {duplicateHashItems.length} tệp trùng nội dung (SHA-256):
                 </b>{" "}
-                <span className="font-mono text-amber-300">
+                <span className="font-mono text-amber-800 dark:text-amber-300">
                   {duplicateHashItems
                     .slice(0, 2)
                     .map(d => d.originalName)
@@ -2292,15 +2292,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           {filteredBatchQueue.length === 0 ? (
             <div className="p-10 text-center space-y-2">
               <div className="text-2xl">📭</div>
-              <p className="text-sm text-slate-300 font-medium">
+              <p className="text-sm text-[var(--chu-m)] font-medium">
                 Chưa có hồ sơ nào trong danh sách hiển thị.
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--chu-nhat)]">
                 Hãy kéo thả File/Thư mục ở phía trên, nạp file CSV thực tế hoặc{" "}
                 <button
                   type="button"
                   onClick={handleLoadRealDataLegalBatch}
-                  className="text-emerald-400 hover:underline font-bold cursor-pointer"
+                  className="text-emerald-800 dark:text-emerald-400 hover:underline font-bold cursor-pointer"
                 >
                   nạp toàn bộ kho Data_Legal_2026 (160 tệp)
                 </button>{" "}
@@ -2308,7 +2308,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 <button
                   type="button"
                   onClick={handleLoadSampleBatch}
-                  className="text-slate-400 hover:underline cursor-pointer"
+                  className="text-[var(--chu-m)] hover:underline cursor-pointer"
                 >
                   nạp 8 mẫu demo
                 </button>
@@ -2318,7 +2318,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           ) : (
             <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                <thead className="sticky top-0 z-10 bg-[var(--giay)] backdrop-blur border-b border-[var(--line)] text-[11px] uppercase tracking-wider text-[var(--chu-m)]">
                   <tr>
                     <th className="py-3 pl-4 pr-2 w-10 text-center">
                       <input
@@ -2341,7 +2341,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80 text-xs">
+                <tbody className="divide-y divide-[var(--line)] text-xs">
                   {filteredBatchQueue.map(item => {
                     const isFolder = item.itemKind === "FOLDER";
                     const isRowActive = activeBatchItemId === item.id;
@@ -2355,10 +2355,10 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         onClick={() => selectItemAndOpenDetails(item, false)}
                         className={`transition cursor-pointer ${
                           item.duplicateHashOf
-                            ? "bg-rose-950/25 hover:bg-rose-950/40"
+                            ? "bg-rose-500/10 dark:bg-rose-950/40 hover:bg-rose-500/10 dark:bg-rose-950/40"
                             : isRowActive
-                            ? "bg-slate-800/70"
-                            : "hover:bg-slate-800/40"
+                            ? "bg-[var(--giay-d)]"
+                            : "hover:bg-[var(--giay-d)]"
                         }`}
                       >
                         {/* Cột 1: [Checkbox] */}
@@ -2389,16 +2389,16 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                             </span>
                             <div className="min-w-0">
                               <div
-                                className="font-semibold text-slate-100 truncate"
+                                className="font-semibold text-[var(--chu)] truncate"
                                 title={item.originalName}
                               >
                                 {item.originalName}
                               </div>
-                              <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                              <div className="text-[11px] text-[var(--chu-m)] truncate mt-0.5">
                                 {item.fileSizeLabel || "Tệp"} · {item.readStatsLabel || "Đã đọc"}
                               </div>
                               {item.duplicateHashOf && (
-                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/50 text-rose-300 text-[10px] font-semibold">
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/50 text-rose-800 dark:text-rose-300 text-[10px] font-semibold">
                                   Trùng SHA-256
                                 </span>
                               )}
@@ -2423,18 +2423,18 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                                 )
                               );
                             }}
-                            className="w-full bg-slate-950 border border-slate-700 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 font-mono text-xs text-emerald-300 focus:outline-none"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] focus:border-emerald-400 rounded-lg px-2.5 py-1.5 font-mono text-xs text-emerald-800 dark:text-emerald-300 focus:outline-none"
                           />
                           <div className="flex items-center justify-between gap-2 mt-1 text-[11px]">
                             <span
-                              className="text-slate-400 truncate"
+                              className="text-[var(--chu-m)] truncate"
                               title={item.proposedFolderPath}
                             >
                               📂 {item.proposedFolderPath}
                             </span>
                             <span
                               className={`shrink-0 font-medium ${
-                                isValid ? "text-emerald-400" : "text-rose-400"
+                                isValid ? "text-emerald-800 dark:text-emerald-400" : "text-rose-800 dark:text-rose-400"
                               }`}
                             >
                               {isValid ? "✓ Chuẩn" : `⚠ ${item.validationMessage}`}
@@ -2445,15 +2445,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         {/* Cột 4: Phân loại & Tags (Smart Tags Gợi ý Tự động & Duyệt/Sửa/Xóa) */}
                         <td className="py-3 px-3 align-top max-w-[360px]">
                           <div className="flex flex-wrap items-center gap-1 mb-1.5">
-                            <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/35 text-rose-300 font-semibold text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/35 text-rose-800 dark:text-rose-300 font-semibold text-[10px]">
                               {normalizeSsotDocType(item.suggestion.docType)}-
                               {normalizeIssuerCode(item.suggestion.issuer, item.suggestion.docType)}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 font-semibold text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-800 dark:text-amber-300 font-semibold text-[10px]">
                               {normalizeDomainForFilename(item.suggestion.primaryDomain)}
                             </span>
                             {item.isCommitted && (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold">
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[10px] font-semibold">
                                 ✓ Đã lưu
                               </span>
                             )}
@@ -2476,16 +2476,16 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               title={cdeMeta.description}
                               className={`rounded-lg px-2 py-1 text-[11px] font-bold border cursor-pointer focus:outline-none ${cdeMeta.badgeClass}`}
                             >
-                              <option value="S0" className="bg-slate-900 text-amber-200">
+                              <option value="S0" className="bg-[var(--panel)] text-amber-900 dark:text-amber-200">
                                 S0 · WIP
                               </option>
-                              <option value="S1" className="bg-slate-900 text-sky-300">
+                              <option value="S1" className="bg-[var(--panel)] text-sky-800 dark:text-sky-300">
                                 S1 · Shared
                               </option>
-                              <option value="A1" className="bg-slate-900 text-emerald-300">
+                              <option value="A1" className="bg-[var(--panel)] text-emerald-800 dark:text-emerald-300">
                                 A1 · Published
                               </option>
-                              <option value="B1" className="bg-slate-900 text-purple-300">
+                              <option value="B1" className="bg-[var(--panel)] text-purple-800 dark:text-purple-300">
                                 B1 · Archived
                               </option>
                             </select>
@@ -2493,7 +2493,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                             <button
                               type="button"
                               onClick={() => selectItemAndOpenDetails(item, true)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-[11px] font-semibold transition cursor-pointer whitespace-nowrap"
+                              className="px-2.5 py-1 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-[var(--chu)] text-[11px] font-semibold transition cursor-pointer whitespace-nowrap"
                             >
                               ⚙️ Chi tiết
                             </button>
@@ -2510,25 +2510,25 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           {/* =================================================================
               2. THANH XÁC NHẬN RÕ RÀNG (CUỐI BẢNG)
              ================================================================= */}
-          <div className="px-4 py-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
+          <div className="px-4 py-4 bg-[var(--giay)] border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-1">
-              <div className="text-xs md:text-sm text-slate-200">
+              <div className="text-xs md:text-sm text-[var(--chu)]">
                 {droppedFilesQueue.length === 0 ? (
                   <span>
                     Chưa có file trong bảng — bấm xác nhận để lưu biểu mẫu nhập tay sang{" "}
-                    <b className="text-emerald-400">Bước 2 (Tra cứu VBPL)</b> &{" "}
-                    <b className="text-amber-400">Bước 3 (Stage-Gate)</b>.
+                    <b className="text-emerald-800 dark:text-emerald-400">Bước 2 (Tra cứu VBPL)</b> &{" "}
+                    <b className="text-amber-800 dark:text-amber-400">Bước 3 (Stage-Gate)</b>.
                   </span>
                 ) : (
                   <span>
-                    Sẽ cập nhật <b className="text-emerald-400">{selectedFileCount} hồ sơ văn bản</b>{" "}
+                    Sẽ cập nhật <b className="text-emerald-800 dark:text-emerald-400">{selectedFileCount} hồ sơ văn bản</b>{" "}
                     {selectedFolderCount > 0 && (
                       <span>
-                        (+ <b className="text-sky-300">{selectedFolderCount} thư mục</b>){" "}
+                        (+ <b className="text-sky-800 dark:text-sky-300">{selectedFolderCount} thư mục</b>){" "}
                       </span>
                     )}
-                    sang <b className="text-emerald-400">Bước 2 (Tra cứu VBPL)</b> và đồng bộ{" "}
-                    <b className="text-amber-400">
+                    sang <b className="text-emerald-800 dark:text-emerald-400">Bước 2 (Tra cứu VBPL)</b> và đồng bộ{" "}
+                    <b className="text-amber-800 dark:text-amber-400">
                       {selectedLinkedGates.length} cổng Stage-Gate
                       {selectedLinkedGates.length > 0
                         ? ` (${selectedLinkedGates.slice(0, 5).join(", ")}${
@@ -2536,13 +2536,13 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           })`
                         : ""}
                     </b>{" "}
-                    sang <b className="text-amber-400">Bước 3 (Stage-Gate)</b>.
+                    sang <b className="text-amber-800 dark:text-amber-400">Bước 3 (Stage-Gate)</b>.
                   </span>
                 )}
               </div>
 
               {invalidSelectedItems.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-amber-300">
+                <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
                   <span>
                     ⚠️ Có {invalidSelectedItems.length} mục đang chọn chưa đạt chuẩn hoặc bị trùng SHA-256.
                   </span>
@@ -2555,7 +2555,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       );
                       showToast(`Đã bỏ chọn ${invalidSelectedItems.length} mục chưa đạt chuẩn!`);
                     }}
-                    className="underline font-semibold text-amber-200 hover:text-white cursor-pointer"
+                    className="underline font-semibold text-amber-900 dark:text-amber-200 hover:text-[var(--chu)] cursor-pointer"
                   >
                     Bỏ chọn mục lỗi
                   </button>
@@ -2563,7 +2563,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               )}
 
               {confirmBannerResult && (
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-emerald-300">
+                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-emerald-800 dark:text-emerald-300">
                   <span>
                     ✓ Đã nạp lúc {confirmBannerResult.committedAt}: {confirmBannerResult.docsCount}{" "}
                     hồ sơ đã sẵn sàng.
@@ -2571,14 +2571,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   <button
                     type="button"
                     onClick={() => setActiveTab("STEP2_VBPL")}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-semibold cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-900 dark:text-emerald-200 font-semibold cursor-pointer"
                   >
                     Mở Bước 2 (Tra cứu VBPL) →
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab("STEP3_PLAN")}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-semibold cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-900 dark:text-amber-200 font-semibold cursor-pointer"
                   >
                     Mở Bước 3 (Stage-Gate) →
                   </button>
@@ -2603,20 +2603,20 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           <button
             type="button"
             onClick={() => setIsAdvancedDrawerOpen(prev => !prev)}
-            className="w-full px-4 py-3 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-left transition cursor-pointer"
+            className="w-full px-4 py-3 rounded-xl bg-[var(--panel)]/70 hover:bg-[var(--panel)] border border-[var(--line)] flex flex-wrap items-center justify-between gap-2 text-left transition cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <span className="text-base">⚙️</span>
               <div>
-                <div className="text-xs md:text-sm font-bold text-slate-200">
+                <div className="text-xs md:text-sm font-bold text-[var(--chu)]">
                   Cấu hình nâng cao & Chi tiết OCR
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-[11px] text-[var(--chu-m)]">
                   Đổi tên hàng loạt (Tìm/Thay thế), Xuất Script .PS1, Công thức [SốHiệu]-[Năm]_[LoạiVB]_[LĩnhVực], Smart Tags, 4 vùng OCR V1–V4 &amp; JSON
                 </div>
               </div>
             </div>
-            <span className="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-semibold text-amber-300 shrink-0">
+            <span className="px-3 py-1 rounded-lg bg-[var(--giay-d)] border border-[var(--line-d)] text-xs font-semibold text-amber-800 dark:text-amber-300 shrink-0">
               {isAdvancedDrawerOpen ? "Đóng ngăn cấu hình ✕" : "Mở cấu hình nâng cao ›"}
             </span>
           </button>
@@ -2632,18 +2632,18 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
           {/* Backdrop */}
           <div
             onClick={() => setIsAdvancedDrawerOpen(false)}
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-[2px]"
+            className="fixed inset-0 bg-[var(--giay)] backdrop-blur-[2px]"
           />
 
           {/* Slide-over Panel */}
-          <aside className="relative z-10 w-full max-w-3xl h-full bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
+          <aside className="relative z-10 w-full max-w-3xl h-full bg-[var(--giay)] border-l border-[var(--line)] shadow-2xl flex flex-col">
             {/* Drawer Header */}
-            <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
+            <div className="px-5 py-4 border-b border-[var(--line)] bg-[var(--panel)] flex items-center justify-between gap-3 shrink-0">
               <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--chu)] flex items-center gap-2">
                   <span>⚙️ Cấu hình nâng cao & Chi tiết OCR</span>
                 </h3>
-                <p className="text-xs text-slate-400 truncate mt-0.5">
+                <p className="text-xs text-[var(--chu-m)] truncate mt-0.5">
                   {activeBatchItem
                     ? `Đang xem mục: ${activeBatchItem.originalName}`
                     : `Chuẩn đặt tên hiện hành: ${
@@ -2656,7 +2656,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               <button
                 type="button"
                 onClick={() => setIsAdvancedDrawerOpen(false)}
-                className="h-8 w-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm cursor-pointer shrink-0"
+                className="h-8 w-8 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-[var(--chu-m)] hover:text-[var(--chu)] flex items-center justify-center text-sm cursor-pointer shrink-0"
                 aria-label="Đóng ngăn cấu hình nâng cao"
               >
                 ✕
@@ -2664,14 +2664,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
             </div>
 
             {/* Drawer Sub-Tabs */}
-            <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-900/50 grid grid-cols-3 gap-1.5 shrink-0">
+            <div className="px-5 py-2.5 border-b border-[var(--line)] bg-[var(--panel)]/50 grid grid-cols-3 gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setAdvancedTab("OCR_JSON")}
                 className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
                   advancedTab === "OCR_JSON"
                     ? "bg-emerald-500 text-slate-950"
-                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                    : "bg-[var(--panel)] text-[var(--chu-m)] hover:text-[var(--chu)] border border-[var(--line)]"
                 }`}
               >
                 👁️ OCR V1–V4 & JSON
@@ -2682,7 +2682,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
                   advancedTab === "NAMING_8PART"
                     ? "bg-amber-500 text-slate-950"
-                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                    : "bg-[var(--panel)] text-[var(--chu-m)] hover:text-[var(--chu)] border border-[var(--line)]"
                 }`}
               >
                 ✏️ Chuẩn Tên &amp; Smart Tags
@@ -2693,7 +2693,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 className={`py-2 px-2.5 rounded-lg text-xs font-bold transition cursor-pointer truncate ${
                   advancedTab === "BATCH_TOOLS"
                     ? "bg-sky-500 text-slate-950"
-                    : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                    : "bg-[var(--panel)] text-[var(--chu-m)] hover:text-[var(--chu)] border border-[var(--line)]"
                 }`}
               >
                 🛠️ Hàng loạt & Script .PS1
@@ -2706,12 +2706,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               {advancedTab === "OCR_JSON" && (
                 <div className="space-y-4">
                   {activeBatchItem && (
-                    <div className="bg-slate-900 border border-sky-500/35 rounded-xl p-4 space-y-2.5">
+                    <div className="bg-[var(--panel)] border border-sky-500/35 rounded-xl p-4 space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-bold uppercase text-sky-300">
+                        <span className="text-xs font-bold uppercase text-sky-800 dark:text-sky-300">
                           🏷️ Phân loại &amp; Smart Tags (Duyệt ✓ / Sửa trực tiếp / Xóa ×)
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[var(--chu-m)]">
                           Viền nét đứt = ✨ Gợi ý tự động · Viền liền = Đã chốt
                         </span>
                       </div>
@@ -2720,45 +2720,45 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   )}
 
                   {/* 4 Vùng OCR V1-V4 */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase text-amber-400">
+                      <span className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400">
                         🎯 Bóc tách 4 Vùng Tọa độ OCR (V1–V4)
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-bold">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-mono text-[11px] font-bold">
                         Độ tin cậy: {currentOcrZones.confidence}%
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                        <div className="text-[10px] font-mono text-sky-400">
+                      <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
+                        <div className="text-[10px] font-mono text-sky-800 dark:text-sky-400">
                           [V1] CƠ QUAN BAN HÀNH (Góc trên trái)
                         </div>
-                        <div className="font-semibold text-white mt-0.5">
+                        <div className="font-semibold text-[var(--chu)] mt-0.5">
                           {currentOcrZones.v1Issuer}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
-                        <div className="text-[10px] font-mono text-rose-400">
+                      <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
+                        <div className="text-[10px] font-mono text-rose-800 dark:text-rose-400">
                           [V2] SỐ HIỆU & NGÀY BAN HÀNH (Góc trên phải)
                         </div>
-                        <div className="font-semibold text-white mt-0.5">
+                        <div className="font-semibold text-[var(--chu)] mt-0.5">
                           {currentOcrZones.v2NumberDate}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
-                        <div className="text-[10px] font-mono text-amber-400">
+                      <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)] sm:col-span-2">
+                        <div className="text-[10px] font-mono text-amber-800 dark:text-amber-400">
                           [V3] TÊN LOẠI & TRÍCH YẾU NỘI DUNG (Trung tâm)
                         </div>
-                        <div className="font-semibold text-emerald-300 mt-0.5">
+                        <div className="font-semibold text-emerald-800 dark:text-emerald-300 mt-0.5">
                           {currentOcrZones.v3TitleSummary}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 sm:col-span-2">
-                        <div className="text-[10px] font-mono text-purple-400">
+                      <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)] sm:col-span-2">
+                        <div className="text-[10px] font-mono text-purple-800 dark:text-purple-400">
                           [V4] THẨM QUYỀN KÝ & HIỆU LỰC (Chân văn bản)
                         </div>
-                        <div className="text-slate-200 mt-0.5">
+                        <div className="text-[var(--chu)] mt-0.5">
                           {currentOcrZones.v4SignerValidity}
                         </div>
                       </div>
@@ -2766,10 +2766,10 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   </div>
 
                   {/* Trình đọc nội dung & Tìm từ khóa */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold uppercase text-emerald-400">
+                        <h4 className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                           Nội dung văn bản bóc tách ({parsedPreviewNodes.length} Chương/Điều)
                         </h4>
                         {activeBatchItem?.originalName.toLowerCase().endsWith(".pdf") && (
@@ -2783,7 +2783,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               });
                               setIsSecurePdfOpen(true);
                             }}
-                            className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                            className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
                             title="Xem trực tiếp bản scan PDF gốc có dấu đỏ an toàn (Zero-Trust Proxy, không mở Drive)"
                           >
                             <span>🔒 Xem PDF Gốc</span>
@@ -2795,11 +2795,11 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         value={readerKeywordSearch}
                         onChange={e => setReaderKeywordSearch(e.target.value)}
                         placeholder="Tìm từ khóa trong văn bản..."
-                        className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white"
+                        className="bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1 text-xs text-[var(--chu)]"
                       />
                     </div>
                     {readerKeywordSearch.trim() && (
-                      <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200">
+                      <div className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200">
                         Tìm thấy{" "}
                         <b>
                           {namingForm.rawContentToParse
@@ -2815,26 +2815,26 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       onChange={e =>
                         setNamingForm({ ...namingForm, rawContentToParse: e.target.value })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-[var(--giay)] border border-[var(--line)] rounded-lg p-3 text-xs text-[var(--chu)] font-mono leading-relaxed focus:outline-none focus:border-emerald-500"
                     />
                   </div>
 
                   {/* Cây Chương-Mục-Điều */}
                   {parsedPreviewNodes.length > 0 && (
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-                      <h4 className="text-xs font-bold uppercase text-amber-400">
+                    <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2">
+                      <h4 className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400">
                         🌳 Cấu trúc Chương · Mục · Điều ({parsedPreviewNodes.length})
                       </h4>
                       <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                         {parsedPreviewNodes.map(node => (
                           <div
                             key={node.id}
-                            className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-xs"
+                            className="p-2 rounded-lg bg-[var(--giay)] border border-[var(--line)] text-xs"
                           >
-                            <span className="font-mono font-bold text-sky-300">
+                            <span className="font-mono font-bold text-sky-800 dark:text-sky-300">
                               {node.level}: {node.code}
                             </span>{" "}
-                            <span className="text-white font-semibold">{node.title}</span>
+                            <span className="text-[var(--chu)] font-semibold">{node.title}</span>
                           </div>
                         ))}
                       </div>
@@ -2842,14 +2842,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   )}
 
                   {/* JSON Metadata 3 Trục */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase text-slate-300">
+                      <h4 className="text-xs font-bold uppercase text-[var(--chu-m)]">
                         Siêu dữ liệu JSON 3 Trục (3D Metadata SSOT)
                       </h4>
-                      <span className="text-[11px] font-mono text-amber-400">REG_Master Ready</span>
+                      <span className="text-[11px] font-mono text-amber-800 dark:text-amber-400">REG_Master Ready</span>
                     </div>
-                    <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-sky-300 overflow-x-auto">
+                    <pre className="bg-[var(--giay)] border border-[var(--line)] rounded-lg p-3 text-[11px] font-mono text-sky-800 dark:text-sky-300 overflow-x-auto">
                       {JSON.stringify(
                         {
                           ssot_file_name: generatedFileName,
@@ -2882,17 +2882,17 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               {advancedTab === "NAMING_8PART" && (
                 <div className="space-y-4">
                   {/* Tên file sinh tự động */}
-                  <div className="bg-slate-900 border border-amber-500/35 rounded-xl p-4 space-y-2.5">
+                  <div className="bg-[var(--panel)] border border-amber-500/35 rounded-xl p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold uppercase text-amber-400">
+                        <span className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400">
                           Tên file chuẩn (
                           {batchNamingStandard === "SSOT_9PART" || batchNamingStandard === "PL"
                             ? "[SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu]"
                             : batchNamingStandard}
                           )
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 font-mono text-[10px] text-sky-300">
+                        <span className="px-2 py-0.5 rounded bg-[var(--giay)] border border-[var(--line-d)] font-mono text-[10px] text-sky-800 dark:text-sky-300">
                           {`${formCleanedNumber}-${namingForm.year}_${normalizedFormDocType}-${normalizeIssuerCode(
                             namingForm.issuer,
                             normalizedFormDocType
@@ -2906,7 +2906,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                             navigator.clipboard.writeText(generatedFileName);
                             showToast("Đã copy tên file chuẩn!");
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-amber-300 font-semibold cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-xs text-amber-800 dark:text-amber-300 font-semibold cursor-pointer"
                         >
                           Copy tên
                         </button>
@@ -2919,15 +2919,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         </button>
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
+                    <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)] font-mono text-xs text-emerald-800 dark:text-emerald-400 break-all select-all">
                       {generatedFileName}
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--chu-m)]">
                       <span>
                         Trích yếu sau cắt lặp:{" "}
-                        <b className="font-mono text-slate-200">{formStrippedSummary || "—"}</b>
+                        <b className="font-mono text-[var(--chu)]">{formStrippedSummary || "—"}</b>
                       </span>
-                      <span className="font-mono text-sky-300">
+                      <span className="font-mono text-sky-800 dark:text-sky-300">
                         PascalCase: {formSummaryPascal} ({formSummaryPascal.length}/40 ký tự)
                       </span>
                     </div>
@@ -2936,19 +2936,19 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   {renderSsotTwoLayerExamples(false)}
 
                   {/* Thành phần cấu thành tên file chuẩn mới */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-                    <h4 className="text-xs font-bold uppercase text-rose-400">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold uppercase text-rose-800 dark:text-rose-400">
                       Chỉnh tay Thành phần Tên File ([SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu])
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                           Ngành (Nhóm QLVB)
                         </label>
                         <select
                           value={namingForm.industry}
                           onChange={e => setNamingForm({ ...namingForm, industry: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)]"
                         >
                           {TAXONOMY_3D.industries.map(item => (
                             <option key={item.code} value={item.code}>
@@ -2959,13 +2959,13 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-rose-400 font-bold mb-1">
+                        <label className="block text-[11px] text-rose-800 dark:text-rose-400 font-bold mb-1">
                           [LoạiVB / LoạiHS]
                         </label>
                         <select
                           value={namingForm.docType}
                           onChange={e => setNamingForm({ ...namingForm, docType: e.target.value })}
-                          className="w-full bg-slate-950 border border-rose-500/60 rounded-lg px-2.5 py-2 text-xs text-rose-300 font-bold"
+                          className="w-full bg-[var(--giay)] border border-rose-500/60 rounded-lg px-2.5 py-2 text-xs text-rose-800 dark:text-rose-300 font-bold"
                         >
                           {TAXONOMY_3D.legalGroups.map(item => (
                             <option key={item.code} value={item.code}>
@@ -2976,13 +2976,13 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                           Cơ quan ban hành
                         </label>
                         <select
                           value={namingForm.issuer}
                           onChange={e => setNamingForm({ ...namingForm, issuer: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)]"
                         >
                           {TAXONOMY_3D.issuers.map(item => (
                             <option key={item.code} value={item.code}>
@@ -2993,30 +2993,30 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                           [SốHiệu] (làm sạch: {formCleanedNumber})
                         </label>
                         <input
                           type="text"
                           value={namingForm.rawNumber}
                           onChange={e => setNamingForm({ ...namingForm, rawNumber: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)] font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">[Năm]</label>
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">[Năm]</label>
                         <input
                           type="text"
                           maxLength={4}
                           value={namingForm.year}
                           onChange={e => setNamingForm({ ...namingForm, year: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)] font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-amber-400 font-bold mb-1">
+                        <label className="block text-[11px] text-amber-800 dark:text-amber-400 font-bold mb-1">
                           [LĩnhVực]
                         </label>
                         <select
@@ -3027,7 +3027,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               primaryDomain: e.target.value as FunctionalDomainCode,
                             })
                           }
-                          className="w-full bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-2 text-xs text-amber-300 font-bold"
+                          className="w-full bg-[var(--giay)] border border-amber-500 rounded-lg px-2.5 py-2 text-xs text-amber-800 dark:text-amber-300 font-bold"
                         >
                           {TAXONOMY_3D.functionalDomains.map(item => (
                             <option key={item.code} value={item.code}>
@@ -3038,7 +3038,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-[11px] text-slate-400 mb-1">
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                           [TríchYếuNgắn] (cắt từ thừa · PascalCase ≤ 40 ký tự)
                         </label>
                         <input
@@ -3047,12 +3047,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           onChange={e =>
                             setNamingForm({ ...namingForm, rawSummary: e.target.value })
                           }
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-slate-400 mb-1">
+                        <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                           [-PhụLục]
                         </label>
                         <input
@@ -3062,7 +3062,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                             setNamingForm({ ...namingForm, appendixSuffix: e.target.value })
                           }
                           placeholder="PL01, V02, KY"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-mono"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)] font-mono"
                         />
                       </div>
                     </div>
@@ -3081,12 +3081,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   </div>
 
                   {activeBatchItem && (
-                    <div className="bg-slate-900 border border-sky-500/35 rounded-xl p-4 space-y-2.5">
+                    <div className="bg-[var(--panel)] border border-sky-500/35 rounded-xl p-4 space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-bold uppercase text-sky-300">
+                        <span className="text-xs font-bold uppercase text-sky-800 dark:text-sky-300">
                           🏷️ Smart Tags / Labels đang gắn trên dòng chọn
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[var(--chu-m)]">
                           Bấm ✓ để chốt gợi ý · Bấm tên tag để sửa · × để xóa
                         </span>
                       </div>
@@ -3095,9 +3095,9 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   )}
 
                   {/* Trục 2, Trục 3 & Gate */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-4">
                     <div>
-                      <div className="text-xs font-bold uppercase text-sky-400 mb-2">
+                      <div className="text-xs font-bold uppercase text-sky-800 dark:text-sky-400 mb-2">
                         Trục 2 — Loại hình Dự án áp dụng
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -3110,8 +3110,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               onClick={() => toggleProjectAxis(pt.code)}
                               className={`px-2.5 py-1.5 rounded-lg text-xs border transition cursor-pointer ${
                                 active
-                                  ? "bg-sky-500/20 border-sky-400 text-sky-200 font-bold"
-                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                                  ? "bg-sky-500/20 border-sky-400 text-sky-900 dark:text-sky-200 font-bold"
+                                  : "bg-[var(--giay)] border-[var(--line)] text-[var(--chu-m)]"
                               }`}
                             >
                               {active ? "✓ " : "+ "}
@@ -3123,7 +3123,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     </div>
 
                     <div>
-                      <div className="text-xs font-bold uppercase text-amber-400 mb-2">
+                      <div className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400 mb-2">
                         Trục 3 — Lĩnh vực Chức năng
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -3136,8 +3136,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               onClick={() => toggleSecondaryDomain(d.code)}
                               className={`px-2 py-1 rounded-lg text-xs border transition cursor-pointer ${
                                 active
-                                  ? "bg-amber-500/20 border-amber-500 text-amber-300 font-bold"
-                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                                  ? "bg-amber-500/20 border-amber-500 text-amber-800 dark:text-amber-300 font-bold"
+                                  : "bg-[var(--giay)] border-[var(--line)] text-[var(--chu-m)]"
                               }`}
                             >
                               {active ? "✓ " : "+ "}
@@ -3149,7 +3149,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                     </div>
 
                     <div>
-                      <div className="text-xs font-bold uppercase text-emerald-400 mb-2">
+                      <div className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400 mb-2">
                         Ánh xạ Stage-Gate (Bước 3)
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -3162,8 +3162,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               onClick={() => toggleLinkedGate(g.gate)}
                               className={`px-2 py-1 rounded text-xs font-mono border transition cursor-pointer ${
                                 active
-                                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold"
-                                  : "bg-slate-950 border-slate-800 text-slate-400"
+                                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-800 dark:text-emerald-300 font-bold"
+                                  : "bg-[var(--giay)] border-[var(--line)] text-[var(--chu-m)]"
                               }`}
                             >
                               {active ? "✓ " : ""}
@@ -3181,14 +3181,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               {advancedTab === "BATCH_TOOLS" && (
                 <div className="space-y-4">
                   {/* Chế độ đọc & Quy chuẩn đặt tên */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-                    <h4 className="text-xs font-bold uppercase text-sky-400">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold uppercase text-sky-800 dark:text-sky-400">
                       Quy chuẩn đặt tên & Chế độ đọc tài liệu
                     </h4>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div>
-                        <label className="block text-[11px] text-amber-400 font-semibold mb-1">
+                        <label className="block text-[11px] text-amber-800 dark:text-amber-400 font-semibold mb-1">
                           Chuẩn đặt tên File hàng loạt
                         </label>
                         <select
@@ -3199,7 +3199,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               folderNamingPreset
                             )
                           }
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)]"
                         >
                           <option value="SSOT_9PART">
                             Chuẩn VBPL Thống Nhất ([SốHiệu]-[Năm]_[LoạiVB]-[CơQuan]_[LĩnhVực]_[TríchYếu])
@@ -3213,7 +3213,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                       </div>
 
                       <div>
-                        <label className="block text-[11px] text-sky-400 font-semibold mb-1">
+                        <label className="block text-[11px] text-sky-800 dark:text-sky-400 font-semibold mb-1">
                           Chuẩn đổi tên Thư mục
                         </label>
                         <select
@@ -3224,7 +3224,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                               e.target.value as FolderNamingPresetCode
                             )
                           }
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white"
+                          className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-2 text-xs text-[var(--chu)]"
                         >
                           <option value="STAGE_GATE_ISO">
                             ISO 19650 Stage-Gate ({activeProjectArchetype}_G12_CDE)
@@ -3237,14 +3237,14 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
 
                     {renderSsotTwoLayerExamples(true)}
 
-                    <div className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs">
+                    <div className="flex items-center justify-between bg-[var(--giay)] border border-[var(--line)] rounded-lg p-3 text-xs">
                       <div>
-                        <div className="font-semibold text-emerald-300">
+                        <div className="font-semibold text-emerald-800 dark:text-emerald-300">
                           {deepScanReadMode
                             ? "🔍 Deep Scan (15 trang PDF + OCR V1–V4)"
                             : "⚡ Quick Scan (3 trang đầu)"}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-[var(--chu-m)]">
                           Bật Deep Scan để đọc sâu văn bản nhiều trang khi kéo-thả file mới
                         </div>
                       </div>
@@ -3254,7 +3254,7 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         className={`px-3 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
                           deepScanReadMode
                             ? "bg-emerald-500 text-slate-950 border-emerald-300"
-                            : "bg-slate-800 text-slate-300 border-slate-700"
+                            : "bg-[var(--giay-d)] text-[var(--chu-m)] border-[var(--line-d)]"
                         }`}
                       >
                         {deepScanReadMode ? "ĐANG BẬT" : "ĐANG TẮT"}
@@ -3263,8 +3263,8 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   </div>
 
                   {/* Tìm & Thay thế, Gắn hậu tố, Đánh số */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
-                    <h4 className="text-xs font-bold uppercase text-amber-400">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-3 text-xs">
+                    <h4 className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400">
                       Đổi tên hàng loạt (Áp dụng cho {selectedItems.length} mục đang chọn)
                     </h4>
                     <div className="flex flex-wrap items-center gap-2">
@@ -3273,20 +3273,20 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         value={batchFindText}
                         onChange={e => setBatchFindText(e.target.value)}
                         placeholder="Tìm từ khóa (VD: KCN, 2025)..."
-                        className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                        className="flex-1 min-w-[140px] bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-[var(--chu)]"
                       />
-                      <span className="text-slate-500">→</span>
+                      <span className="text-[var(--chu-nhat)]">→</span>
                       <input
                         type="text"
                         value={batchReplaceText}
                         onChange={e => setBatchReplaceText(e.target.value)}
                         placeholder="Thay bằng..."
-                        className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                        className="flex-1 min-w-[140px] bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-[var(--chu)]"
                       />
                       <button
                         type="button"
                         onClick={() => handleBatchFindReplaceAndFormat("FIND_REPLACE")}
-                        className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-800 dark:text-sky-300 font-semibold cursor-pointer"
                       >
                         Thay thế
                       </button>
@@ -3298,26 +3298,26 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         value={batchSuffixInput}
                         onChange={e => setBatchSuffixInput(e.target.value)}
                         placeholder="Hậu tố: PL01, V02, KY..."
-                        className="flex-1 min-w-[160px] bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono"
+                        className="flex-1 min-w-[160px] bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-[var(--chu)] font-mono"
                       />
                       <button
                         type="button"
                         onClick={() => handleBatchFindReplaceAndFormat("APPLY_SUFFIX")}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-semibold cursor-pointer"
                       >
                         + Gắn hậu tố
                       </button>
                       <button
                         type="button"
                         onClick={() => handleBatchFindReplaceAndFormat("AUTO_NUMBER")}
-                        className="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-semibold cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-800 dark:text-purple-300 font-semibold cursor-pointer"
                       >
                         🔢 Đánh số 001..N
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDuplicateSha256Action("SIMULATE_DUP")}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 font-semibold cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-sky-800 dark:text-sky-300 font-semibold cursor-pointer"
                       >
                         🧬 Test trùng SHA
                       </button>
@@ -3325,22 +3325,22 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   </div>
 
                   {/* Xuất Script .PS1 & Bảng đối chiếu CSV */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5 text-xs">
-                    <h4 className="text-xs font-bold uppercase text-emerald-400">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5 text-xs">
+                    <h4 className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                       Xuất Script đổi tên ổ cứng & Bảng đối chiếu
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => handleExportBatchRenameArtifact("PS1")}
-                        className="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold cursor-pointer"
+                        className="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-800 dark:text-sky-300 font-bold cursor-pointer"
                       >
                         💻 Xuất Script .PS1 (PowerShell)
                       </button>
                       <button
                         type="button"
                         onClick={() => handleExportBatchRenameArtifact("CSV")}
-                        className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-bold cursor-pointer"
+                        className="px-3.5 py-2 rounded-lg bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-amber-800 dark:text-amber-300 font-bold cursor-pointer"
                       >
                         📊 Xuất Bảng đối chiếu .CSV
                       </button>
@@ -3348,12 +3348,12 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                   </div>
 
                   {/* Nhật ký Đổi tên & Hoàn tác (LOG_DOITEN) */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase text-slate-300">
+                      <h4 className="text-xs font-bold uppercase text-[var(--chu-m)]">
                         📜 Nhật ký Hoàn tác (LOG_DOITEN · {renameLogs.length})
                       </h4>
-                      <span className="text-[10px] font-mono text-slate-400">
+                      <span className="text-[10px] font-mono text-[var(--chu-m)]">
                         SHA-256 Verified
                       </span>
                     </div>
@@ -3363,33 +3363,33 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           key={log.logId}
                           className={`p-2.5 rounded-lg border text-xs space-y-1 ${
                             log.isReverted
-                              ? "bg-slate-950/50 border-slate-800 opacity-60"
-                              : "bg-slate-950 border-slate-800"
+                              ? "bg-[var(--giay)] border-[var(--line)] opacity-60"
+                              : "bg-[var(--giay)] border-[var(--line)]"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
-                            <span className="text-amber-300 font-bold">
+                            <span className="text-amber-800 dark:text-amber-300 font-bold">
                               {log.logId} · {log.qlvbGroup} · CDE {log.cdeStatus || "S0"}
                             </span>
-                            <span className="text-slate-400">{log.timestamp}</span>
+                            <span className="text-[var(--chu-m)]">{log.timestamp}</span>
                           </div>
-                          <div className="text-[11px] text-slate-400 truncate">
+                          <div className="text-[11px] text-[var(--chu-m)] truncate">
                             Cũ: {log.oldName}
                           </div>
-                          <div className="text-[11px] font-mono text-emerald-400 truncate">
+                          <div className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400 truncate">
                             Mới: {log.newName}
                           </div>
                           <div className="flex items-center justify-between pt-1 text-[10px]">
-                            <span className="text-slate-500 font-mono">
+                            <span className="text-[var(--chu-nhat)] font-mono">
                               SHA256: {log.sha256Before}
                             </span>
                             {log.isReverted ? (
-                              <span className="text-rose-400 font-bold">Đã hoàn tác</span>
+                              <span className="text-rose-800 dark:text-rose-400 font-bold">Đã hoàn tác</span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleUndoRenameLog(log)}
-                                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold cursor-pointer"
+                                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-bold cursor-pointer"
                               >
                                 ↩️ Hoàn tác
                               </button>

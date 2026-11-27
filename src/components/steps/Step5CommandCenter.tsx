@@ -121,7 +121,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G0–G6",
     desc: "Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS",
     activeClass: "bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs",
-    badgeClass: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+    badgeClass: "bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-500/40",
   },
   {
     id: "THUC_HIEN",
@@ -132,7 +132,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G7–G13",
     desc: "TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT",
     activeClass: "bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs",
-    badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    badgeClass: "bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40",
   },
   {
     id: "KET_THUC",
@@ -143,7 +143,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G14–G15",
     desc: "Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành",
     activeClass: "bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs",
-    badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+    badgeClass: "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40",
   },
 ];
 
@@ -398,14 +398,14 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
           {activeTab === 'STEP5_AUDIT' && (
             <div className="h-full flex flex-col overflow-hidden">
               {/* Sub-navigation giữa [Dashboard Tổng hợp Dự án], [5B. Luồng Phê duyệt D3.js & 4 Phân hệ] và [5A. VO Wizard & Kiểm toán Thời gian] */}
-              <div className="h-11 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+              <div className="h-11 px-4 bg-[var(--panel)] border-b border-[var(--line)] flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 overflow-x-auto">
                   <button
                     onClick={() => setStep5SubMode('PORTFOLIO_DASHBOARD')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                       step5SubMode === 'PORTFOLIO_DASHBOARD'
                         ? 'bg-emerald-500 text-slate-950 shadow'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
+                        : 'bg-[var(--giay-d)] text-[var(--chu-m)] hover:text-[var(--chu)]'
                     }`}
                   >
                     📊 Dashboard Tổng hợp Dự án & Điểm nghẽn
@@ -418,7 +418,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                       step5SubMode === 'ENTERPRISE_4MODULES'
                         ? 'bg-sky-500 text-slate-950 shadow'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
+                        : 'bg-[var(--giay-d)] text-[var(--chu-m)] hover:text-[var(--chu)]'
                     }`}
                   >
                     5B. Sơ đồ Khối D3.js Luồng Phê duyệt (Sankey/Tree) & Quản trị 4 Phân hệ
@@ -428,13 +428,13 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                       step5SubMode === 'FORENSIC_VO'
                         ? 'bg-amber-500 text-slate-950 shadow'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
+                        : 'bg-[var(--giay-d)] text-[var(--chu-m)] hover:text-[var(--chu)]'
                     }`}
                   >
                     5A. Cây Quyết định Phát sinh (VO) & Kiểm toán Thời gian Hồ sơ
                   </button>
                 </div>
-                <span className="text-xs font-mono text-slate-400 hidden md:inline">
+                <span className="text-xs font-mono text-[var(--chu-m)] hidden md:inline">
                   Phiên RBAC: {currentActor.fullName} ({currentActor.rbacRole})
                 </span>
               </div>
@@ -474,21 +474,21 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                   onOpenChronoAudit={() => setStep5SubMode('FORENSIC_VO')}
                 />
               ) : step5SubMode === 'FORENSIC_VO' ? (
-                <div className="flex-1 grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+                <div className="flex-1 grid grid-cols-12 divide-x divide-[var(--line)] overflow-hidden">
                   <div className="col-span-12 lg:col-span-6 p-5 overflow-y-auto space-y-4">
-                    <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-amber-400">
+                    <div className="bg-[var(--panel)] border border-amber-500/40 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">
                         Công cụ 1: Cây Quyết định Xử lý Phát sinh Hợp đồng & Thay đổi Thiết kế (VO Wizard)
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             1. Loại Hợp đồng đang thực hiện (QLHD):
                           </label>
                           <select
                             value={voState.contractType}
                             onChange={e => setVoState({ ...voState, contractType: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)]"
                           >
                             <option value="TRON_GOI">Hợp đồng Trọn gói (Lump-sum)</option>
                             <option value="DON_GIA_CO_DINH">Hợp đồng theo Đơn giá cố định</option>
@@ -497,13 +497,13 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                         </div>
 
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             2. Phát sinh nằm ngoài phạm vi Thiết kế/HĐ?
                           </label>
                           <select
                             value={voState.isOutsideScope}
                             onChange={e => setVoState({ ...voState, isOutsideScope: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)]"
                           >
                             <option value="YES">Có — Phát sinh ngoài bản vẽ hợp đồng</option>
                             <option value="NO">Không — Chỉ chênh lệch khối lượng BOQ</option>
@@ -511,13 +511,13 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                         </div>
 
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             3. Có làm VƯỢT Giá gói thầu / Dự toán (QLCP)?
                           </label>
                           <select
                             value={voState.exceedsPkgPrice}
                             onChange={e => setVoState({ ...voState, exceedsPkgPrice: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)]"
                           >
                             <option value="NO">Không — Nằm trong dự phòng phí gói thầu</option>
                             <option value="YES">Có — Vượt dự toán gói thầu được duyệt</option>
@@ -525,13 +525,13 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                         </div>
 
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             4. Có ảnh hưởng Kết cấu chính / PCCC không?
                           </label>
                           <select
                             value={voState.affectsSafetyPCCC}
                             onChange={e => setVoState({ ...voState, affectsSafetyPCCC: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)]"
                           >
                             <option value="NO">Không ảnh hưởng an toàn chịu lực & PCCC</option>
                             <option value="YES">Có ảnh hưởng kết cấu chính / giải pháp PCCC</option>
@@ -540,24 +540,24 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                       </div>
                     </div>
 
-                    <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2 text-xs">
-                      <div className="font-bold text-emerald-400 uppercase">
+                    <div className="bg-[var(--panel)] border border-emerald-500/40 rounded-xl p-4 space-y-2 text-xs">
+                      <div className="font-bold text-emerald-800 dark:text-emerald-400 uppercase">
                         Lộ trình Pháp lý Bắt buộc cho Dự án [{activeProjectArchetype}]:
                       </div>
                       {voState.contractType === 'TRON_GOI' && voState.isOutsideScope === 'NO' ? (
-                        <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-500 text-rose-200">
+                        <div className="p-3 rounded-lg bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500 text-rose-900 dark:text-rose-200">
                           <b>CẢNH BÁO TỪ CHỐI THANH TOÁN (QLHD):</b> Đối với Hợp đồng Trọn gói, nếu không có
                           thay đổi thiết kế hoặc yêu cầu của Chủ đầu tư, mọi chênh lệch tăng khối lượng so với
                           BOQ nhà thầu tự chịu rủi ro — <b>TUYỆT ĐỐI KHÔNG ký Phụ lục bổ sung kinh phí</b>.
                         </div>
                       ) : (
-                        <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 space-y-2 text-slate-200">
+                        <div className="p-3 rounded-lg bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/40 space-y-2 text-[var(--chu)]">
                           <div>
                             <b>1. Hiện trường (QLCL - Gate G12):</b> Lập Biên bản hiện trường 4 bên (Ban QLDA,
                             TVGS, TVTK, Nhà thầu) xác nhận nguyên nhân phát sinh.
                           </div>
                           {voState.affectsSafetyPCCC === 'YES' && (
-                            <div className="text-amber-300 font-semibold">
+                            <div className="text-amber-800 dark:text-amber-300 font-semibold">
                               <b>Thẩm định lại (HDXD/PCCC - Gate G6 & G9):</b> Phải trình{' '}
                               {currentArchetypeMeta.authority} / Cục PCCC thẩm định thiết kế điều chỉnh trước
                               khi thi công!
@@ -577,11 +577,11 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                       )}
 
                       {/* Chốt phê duyệt Phụ lục VO & Tạo yêu cầu VO/RFI theo RBAC 4 Bên */}
-                      <div className="pt-2.5 border-t border-slate-800 space-y-2.5">
+                      <div className="pt-2.5 border-t border-[var(--line)] space-y-2.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-[11px] font-mono text-slate-300">
+                          <span className="text-[11px] font-mono text-[var(--chu-m)]">
                             Trạng thái Khóa chéo VO (Quy tắc c):{' '}
-                            <b className={voAppendixApproved ? 'text-emerald-400' : 'text-rose-400'}>
+                            <b className={voAppendixApproved ? 'text-emerald-800 dark:text-emerald-400' : 'text-rose-800 dark:text-rose-400'}>
                               {voAppendixApproved
                                 ? 'ĐÃ PHÊ DUYỆT PHỤ LỤC VO'
                                 : 'CHƯA DUYỆT PHỤ LỤC VO (ĐANG KHÓA IPC G14)'}
@@ -597,7 +597,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                   ? 'Tạo & Trình yêu cầu phát sinh VO mới vào luồng 4 bên'
                                   : 'TVGS chỉ xác nhận kỹ thuật, không khởi tạo yêu cầu VO trực tiếp'
                               }
-                              className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 font-bold text-[11px] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-800 dark:text-orange-300 font-bold text-[11px] transition disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               📤 Tạo Yêu cầu VO
                             </button>
@@ -610,7 +610,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                   ? 'Tạo phiếu RFI nghiệm thu hiện trường tại Bước 4'
                                   : 'TVGS chỉ xác nhận RFI, không tạo mới RFI'
                               }
-                              className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-bold text-[11px] transition disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               📝 Tạo phiếu RFI
                             </button>
@@ -652,7 +652,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                 ? 'Yêu cầu quyền TVGS / Chủ đầu tư'
                                 : 'Chỉ Tư vấn Giám sát (TVGS) mới có quyền xác nhận kỹ thuật VO'
                             }
-                            className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-800 dark:text-sky-300 font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             🔍 TVGS Xác nhận kỹ thuật VO
                           </button>
@@ -709,7 +709,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                             }}
                             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed ${
                               voAppendixApproved
-                                ? 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40'
+                                ? 'bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-emerald-800 dark:text-emerald-300 border border-emerald-500/40'
                                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                             }`}
                           >
@@ -722,36 +722,36 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     </div>
                   </div>
 
-                  <div className="col-span-12 lg:col-span-6 p-5 bg-slate-900/30 overflow-y-auto space-y-4">
-                    <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-3">
-                      <h3 className="text-sm font-bold text-sky-400">
+                  <div className="col-span-12 lg:col-span-6 p-5 bg-[var(--panel)]/30 overflow-y-auto space-y-4">
+                    <div className="bg-[var(--panel)] border border-sky-500/40 rounded-xl p-4 space-y-3">
+                      <h3 className="text-sm font-bold text-sky-800 dark:text-sky-400">
                         Công cụ 2: Kiểm toán Logic Thời gian Hồ sơ (VLXD → QLCL → TQT)
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             1. Ngày lấy mẫu vật liệu hiện trường (VLXD):
                           </label>
                           <input
                             type="date"
                             value={chronoDates.sampleDate}
                             onChange={e => setChronoDates({ ...chronoDates, sampleDate: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono tabular-nums"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)] font-mono tabular-nums"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             2. Ngày xuất Kết quả thí nghiệm LAS (VLXD):
                           </label>
                           <input
                             type="date"
                             value={chronoDates.labResultDate}
                             onChange={e => setChronoDates({ ...chronoDates, labResultDate: e.target.value })}
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono tabular-nums"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)] font-mono tabular-nums"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             3. Ngày Nghiệm thu vật liệu đầu vào (QT-03):
                           </label>
                           <input
@@ -760,11 +760,11 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                             onChange={e =>
                               setChronoDates({ ...chronoDates, materialApproveDate: e.target.value })
                             }
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono tabular-nums"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)] font-mono tabular-nums"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] text-slate-400 mb-1">
+                          <label className="block text-[11px] text-[var(--chu-m)] mb-1">
                             4. Ngày Nghiệm thu công việc xây dựng (QLCL):
                           </label>
                           <input
@@ -773,19 +773,19 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                             onChange={e =>
                               setChronoDates({ ...chronoDates, workInspectDate: e.target.value })
                             }
-                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono tabular-nums"
+                            className="w-full bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-3 py-2 text-xs text-[var(--chu)] font-mono tabular-nums"
                           />
                         </div>
                       </div>
 
                       {chronoAuditStatus.length === 0 ? (
-                        <div className="p-4 rounded-xl bg-emerald-950/50 border border-emerald-500 text-emerald-300 text-xs">
+                        <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-800 dark:text-emerald-300 text-xs">
                           <b>HỒ SƠ HỢP LỆ 100% VỀ TRÌNH TỰ THỜI GIAN!</b> Đủ điều kiện mở khóa Gate G14 giải
                           ngân.
                         </div>
                       ) : (
-                        <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500 text-rose-200 text-xs space-y-2">
-                          <div className="font-bold text-rose-400">
+                        <div className="p-4 rounded-xl bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500 text-rose-900 dark:text-rose-200 text-xs space-y-2">
+                          <div className="font-bold text-rose-800 dark:text-rose-400">
                             PHÁT HIỆN {chronoAuditStatus.length} LỖI LOGIC THỜI GIAN HỒ SƠ:
                           </div>
                           <ul className="list-disc pl-4 space-y-1">
@@ -840,7 +840,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition whitespace-nowrap ${
                             enterpriseModuleTab === tab.id
                               ? 'bg-amber-500 text-slate-950 border-amber-400'
-                              : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                              : 'bg-[var(--panel)] text-[var(--chu-m)] border-[var(--line)] hover:border-[var(--line-d)]'
                           }`}
                         >
                           {tab.label}
@@ -873,25 +873,25 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                         />
 
                         {/* Bảng chi tiết Tờ trình / Hồ sơ Phê duyệt đồng bộ trực tiếp với Sơ đồ D3.js */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                          <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                        <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl overflow-hidden">
+                          <div className="px-4 py-2.5 bg-[var(--giay)] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-amber-400 uppercase">
+                              <span className="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase">
                                 Danh mục Tờ trình & Hồ sơ trong Luồng Phê duyệt ({filteredApprovalWorkflows.length}/{approvalWorkflows.length})
                               </span>
                               {selectedD3UnitFilter !== 'ALL' && (
-                                <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold">
+                                <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-mono text-[10px] font-bold">
                                   Đang lọc theo khối D3: {selectedD3UnitFilter}
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] font-mono text-slate-400">
+                            <span className="text-[11px] font-mono text-[var(--chu-m)]">
                               Cập nhật trạng thái bên dưới sẽ tự động tính lại băng thông và nút thắt trên biểu đồ D3.js
                             </span>
                           </div>
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                              <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                              <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[11px]">
                                 <th className="p-3">Số hiệu VB</th>
                                 <th className="p-3">Trích yếu Tờ trình / Chẩn đoán Nút thắt</th>
                                 <th className="p-3">Gate · Lĩnh vực</th>
@@ -900,30 +900,30 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                 <th className="p-3 text-right">Thao tác RBAC</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800">
+                            <tbody className="divide-y divide-[var(--line)]">
                               {filteredApprovalWorkflows.map(wf => {
                                 const reqEmp = employees.find(e => e.id === wf.requesterId);
                                 const appEmp = employees.find(e => e.id === wf.approverId);
                                 const isOverSla = (wf.elapsedHours || 0) > (wf.slaHours || 48);
                                 return (
-                                  <tr key={wf.id} className="hover:bg-slate-800/40">
-                                    <td className="p-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                                  <tr key={wf.id} className="hover:bg-[var(--giay-d)]">
+                                    <td className="p-3 font-mono font-bold text-amber-800 dark:text-amber-400 whitespace-nowrap">
                                       <div>{wf.docCode}</div>
-                                      <div className="text-[10px] text-slate-400 font-normal">
+                                      <div className="text-[10px] text-[var(--chu-m)] font-normal">
                                         {wf.submittedAt}
                                       </div>
                                     </td>
                                     <td className="p-3">
-                                      <div className="font-semibold text-white">{wf.title}</div>
-                                      <div className="font-mono text-[10px] text-slate-400">
+                                      <div className="font-semibold text-[var(--chu)]">{wf.title}</div>
+                                      <div className="font-mono text-[10px] text-[var(--chu-m)]">
                                         {wf.ssotFileName}
                                       </div>
                                       {wf.bottleneckReason && (
                                         <div
                                           className={`mt-1 text-[11px] font-mono ${
                                             wf.status === 'REJECTED_HOLD' || wf.status === 'PENDING_REVIEW'
-                                              ? 'text-rose-300'
-                                              : 'text-emerald-300'
+                                              ? 'text-rose-800 dark:text-rose-300'
+                                              : 'text-emerald-800 dark:text-emerald-300'
                                           }`}
                                         >
                                           • {wf.bottleneckReason}
@@ -931,21 +931,21 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                       )}
                                     </td>
                                     <td className="p-3 font-mono whitespace-nowrap">
-                                      <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-amber-300 font-bold">
+                                      <span className="px-2 py-0.5 rounded bg-[var(--giay)] border border-[var(--line-d)] text-amber-800 dark:text-amber-300 font-bold">
                                         {wf.gateRef}
                                       </span>{' '}
-                                      · <span className="text-sky-300">{wf.domain}</span>
+                                      · <span className="text-sky-800 dark:text-sky-300">{wf.domain}</span>
                                     </td>
-                                    <td className="p-3 text-slate-300">
+                                    <td className="p-3 text-[var(--chu-m)]">
                                       <div className="text-xs">
-                                        <span className="text-amber-300 font-mono">
+                                        <span className="text-amber-800 dark:text-amber-300 font-mono">
                                           [{reqEmp?.rbacRole}]
                                         </span>{' '}
                                         {reqEmp?.fullName}
                                       </div>
-                                      <div className="text-[11px] text-slate-400 font-mono">
+                                      <div className="text-[11px] text-[var(--chu-m)] font-mono">
                                         ↳ Tham vấn: {wf.consultedRole || 'BQLDA'} → Duyệt:{' '}
-                                        <b className="text-sky-300">
+                                        <b className="text-sky-800 dark:text-sky-300">
                                           [{appEmp?.rbacRole}] {appEmp?.fullName}
                                         </b>
                                       </div>
@@ -954,19 +954,19 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                       <div
                                         className={
                                           wf.status === 'CDT_APPROVED'
-                                            ? 'text-emerald-400'
+                                            ? 'text-emerald-800 dark:text-emerald-400'
                                             : wf.status === 'TVGS_VERIFIED'
-                                            ? 'text-sky-400'
+                                            ? 'text-sky-800 dark:text-sky-400'
                                             : wf.status === 'REJECTED_HOLD'
-                                            ? 'text-rose-400'
-                                            : 'text-amber-400'
+                                            ? 'text-rose-800 dark:text-rose-400'
+                                            : 'text-amber-800 dark:text-amber-400'
                                         }
                                       >
                                         {wf.status}
                                       </div>
                                       <div
                                         className={`text-[10px] ${
-                                          isOverSla ? 'text-rose-400 font-bold' : 'text-slate-400'
+                                          isOverSla ? 'text-rose-800 dark:text-rose-400 font-bold' : 'text-[var(--chu-m)]'
                                         }`}
                                       >
                                         SLA: {wf.elapsedHours || 48}h / {wf.slaHours || 48}h{' '}
@@ -979,7 +979,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                           type="button"
                                           onClick={() => handleApproveWorkflow(wf, 'PENDING_REVIEW')}
                                           title="Nộp lại / Trình duyệt hồ sơ lên TVGS & Chủ đầu tư"
-                                          className="px-2 py-1 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 hover:bg-orange-500/30 font-semibold"
+                                          className="px-2 py-1 rounded bg-orange-500/20 border border-orange-500/40 text-orange-800 dark:text-orange-300 hover:bg-orange-500/30 font-semibold"
                                         >
                                           📤 Trình duyệt
                                         </button>
@@ -995,7 +995,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                             ? 'Yêu cầu quyền TVGS / Chủ đầu tư'
                                             : 'Chỉ Tư vấn Giám sát (TVGS) mới có quyền xác nhận kỹ thuật'
                                         }
-                                        className="px-2.5 py-1 rounded bg-sky-500/20 border border-sky-500/40 text-sky-300 hover:bg-sky-500/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="px-2.5 py-1 rounded bg-sky-500/20 border border-sky-500/40 text-sky-800 dark:text-sky-300 hover:bg-sky-500/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                                       >
                                         🔍 TVGS Xác nhận
                                       </button>
@@ -1023,7 +1023,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                             ? 'Trả lại yêu cầu bổ sung / Chặn Hold nút thắt'
                                             : 'Yêu cầu quyền TVGS / Chủ đầu tư'
                                         }
-                                        className="px-2 py-1 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="px-2 py-1 rounded bg-rose-500/20 border border-rose-500/40 text-rose-800 dark:text-rose-300 hover:bg-rose-500/30 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                                       >
                                         ↩️ Trả lại / Hold
                                       </button>
@@ -1038,10 +1038,10 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     )}
 
                     {enterpriseModuleTab === 'HRM' && (
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl overflow-hidden">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                            <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[11px]">
                               <th className="p-3">Mã NV</th>
                               <th className="p-3">Họ và Tên · Chức danh</th>
                               <th className="p-3">Phòng ban / Đơn vị</th>
@@ -1050,20 +1050,20 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               <th className="p-3 text-right">KPI · Liên kết Chéo</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800">
+                          <tbody className="divide-y divide-[var(--line)]">
                             {employees.map(emp => (
-                              <tr key={emp.id} className="hover:bg-slate-800/40">
-                                <td className="p-3 font-mono font-bold text-amber-400">{emp.code}</td>
+                              <tr key={emp.id} className="hover:bg-[var(--giay-d)]">
+                                <td className="p-3 font-mono font-bold text-amber-800 dark:text-amber-400">{emp.code}</td>
                                 <td className="p-3">
-                                  <div className="font-bold text-white">{emp.fullName}</div>
-                                  <div className="text-slate-400 text-[11px]">{emp.title}</div>
+                                  <div className="font-bold text-[var(--chu)]">{emp.fullName}</div>
+                                  <div className="text-[var(--chu-m)] text-[11px]">{emp.title}</div>
                                 </td>
-                                <td className="p-3 text-slate-300">{emp.department}</td>
-                                <td className="p-3 font-mono text-sky-300">
+                                <td className="p-3 text-[var(--chu-m)]">{emp.department}</td>
+                                <td className="p-3 font-mono text-sky-800 dark:text-sky-300">
                                   {emp.rbacRole} · RACI: {emp.raciDefault}
                                 </td>
-                                <td className="p-3 font-mono text-emerald-400">{emp.certNumber}</td>
-                                <td className="p-3 text-right font-mono tabular-nums text-slate-200">
+                                <td className="p-3 font-mono text-emerald-800 dark:text-emerald-400">{emp.certNumber}</td>
+                                <td className="p-3 text-right font-mono tabular-nums text-[var(--chu)]">
                                   KPI: <b>{emp.kpiScore}/100</b> · {emp.activeTasksCount} Task ·{' '}
                                   {emp.assignedAssetsCount} Tài sản
                                 </td>
@@ -1075,10 +1075,10 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     )}
 
                     {enterpriseModuleTab === 'TASKS_RACI' && (
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl overflow-hidden">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                            <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[11px]">
                               <th className="p-3">Mã WBS · Gate</th>
                               <th className="p-3">Nội dung Công việc Thực thi Pháp lý & Hiện trường</th>
                               <th className="p-3">Nhân sự Phụ trách (RACI)</th>
@@ -1087,20 +1087,20 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               <th className="p-3 text-right">Cập nhật</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800">
+                          <tbody className="divide-y divide-[var(--line)]">
                             {raciTasks.map(task => {
                               const assignee = employees.find(e => e.id === task.assigneeId);
                               return (
-                                <tr key={task.id} className="hover:bg-slate-800/40">
-                                  <td className="p-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                                <tr key={task.id} className="hover:bg-[var(--giay-d)]">
+                                  <td className="p-3 font-mono font-bold text-amber-800 dark:text-amber-400 whitespace-nowrap">
                                     {task.wbsCode} · {task.gateRef}
                                   </td>
-                                  <td className="p-3 font-medium text-white">{task.title}</td>
-                                  <td className="p-3 text-slate-300">
+                                  <td className="p-3 font-medium text-[var(--chu)]">{task.title}</td>
+                                  <td className="p-3 text-[var(--chu-m)]">
                                     {assignee?.fullName} ({task.raciRole})
                                   </td>
-                                  <td className="p-3 font-mono tabular-nums text-slate-300">{task.dueDate}</td>
-                                  <td className="p-3 text-right font-mono tabular-nums text-emerald-400">
+                                  <td className="p-3 font-mono tabular-nums text-[var(--chu-m)]">{task.dueDate}</td>
+                                  <td className="p-3 text-right font-mono tabular-nums text-emerald-800 dark:text-emerald-400">
                                     {task.progress}% ({task.status})
                                   </td>
                                   <td className="p-3 text-right">
@@ -1120,10 +1120,10 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     )}
 
                     {enterpriseModuleTab === 'ASSETS_LAS' && (
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl overflow-hidden">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                            <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[11px]">
                               <th className="p-3">Mã QR / Barcode</th>
                               <th className="p-3">Tên Thiết bị LAS-XD / Trắc địa / CDE</th>
                               <th className="p-3">Người giữ tài sản (Custodian)</th>
@@ -1132,27 +1132,27 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               <th className="p-3 text-right">Kiểm kê QR</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800">
+                          <tbody className="divide-y divide-[var(--line)]">
                             {projectAssets.map(asset => {
                               const holder = employees.find(e => e.id === asset.custodianId);
                               return (
-                                <tr key={asset.id} className="hover:bg-slate-800/40">
-                                  <td className="p-3 font-mono font-bold text-sky-400 whitespace-nowrap">
+                                <tr key={asset.id} className="hover:bg-[var(--giay-d)]">
+                                  <td className="p-3 font-mono font-bold text-sky-800 dark:text-sky-400 whitespace-nowrap">
                                     {asset.qrBarcode}
                                   </td>
-                                  <td className="p-3 font-medium text-white">
+                                  <td className="p-3 font-medium text-[var(--chu)]">
                                     {asset.name} (Gate {asset.gateRef})
                                   </td>
-                                  <td className="p-3 text-slate-300">{holder?.fullName}</td>
-                                  <td className="p-3 font-mono tabular-nums text-slate-300">
+                                  <td className="p-3 text-[var(--chu-m)]">{holder?.fullName}</td>
+                                  <td className="p-3 font-mono tabular-nums text-[var(--chu-m)]">
                                     {asset.calibrationDueDate}
                                   </td>
                                   <td className="p-3 font-mono tabular-nums">
                                     <span
                                       className={
                                         asset.status === 'ACTIVE_CALIBRATED'
-                                          ? 'text-emerald-400'
-                                          : 'text-amber-400'
+                                          ? 'text-emerald-800 dark:text-emerald-400'
+                                          : 'text-amber-800 dark:text-amber-400'
                                       }
                                     >
                                       {asset.status}
@@ -1162,7 +1162,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                   <td className="p-3 text-right">
                                     <button
                                       onClick={() => handleCalibrateAsset(asset)}
-                                      className="px-2.5 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 font-semibold whitespace-nowrap"
+                                      className="px-2.5 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 font-semibold whitespace-nowrap"
                                     >
                                       Xác nhận Hiệu chuẩn
                                     </button>
@@ -1176,10 +1176,10 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     )}
 
                     {enterpriseModuleTab === 'AUDIT_LOG' && (
-                      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                      <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl overflow-hidden">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                            <tr className="bg-[var(--giay)] border-b border-[var(--line)] text-[var(--chu-m)] font-mono text-[11px]">
                               <th className="p-3">Mã Audit · Thời gian</th>
                               <th className="p-3">Nhân sự Thực thi (RBAC)</th>
                               <th className="p-3">Phân hệ</th>
@@ -1188,40 +1188,40 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               <th className="p-3 text-right">Trạng thái Mới</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800">
+                          <tbody className="divide-y divide-[var(--line)]">
                             {auditLogs.map(log => (
-                              <tr key={log.id} className="hover:bg-slate-800/40">
-                                <td className="p-3 font-mono tabular-nums text-slate-400 whitespace-nowrap">
+                              <tr key={log.id} className="hover:bg-[var(--giay-d)]">
+                                <td className="p-3 font-mono tabular-nums text-[var(--chu-m)] whitespace-nowrap">
                                   <div>{log.id}</div>
                                   <div className="text-[10px]">{log.timestamp}</div>
                                 </td>
                                 <td className="p-3">
-                                  <div className="font-semibold text-white">{log.actorName}</div>
-                                  <div className="font-mono text-[10px] text-sky-400">{log.actorRole}</div>
+                                  <div className="font-semibold text-[var(--chu)]">{log.actorName}</div>
+                                  <div className="font-mono text-[10px] text-sky-800 dark:text-sky-400">{log.actorRole}</div>
                                 </td>
-                                <td className="p-3 font-mono text-amber-400 whitespace-nowrap">{log.module}</td>
-                                <td className="p-3 text-slate-200 space-y-1">
+                                <td className="p-3 font-mono text-amber-800 dark:text-amber-400 whitespace-nowrap">{log.module}</td>
+                                <td className="p-3 text-[var(--chu)] space-y-1">
                                   <div className="font-medium">{log.action}</div>
                                   {log.accountabilityNote && (
-                                    <div className="text-[11px] text-amber-200/90 italic">
+                                    <div className="text-[11px] text-amber-900 dark:text-amber-200/90 italic">
                                       “{log.accountabilityNote}”
                                     </div>
                                   )}
                                   {log.sha256Hash && (
-                                    <div className="font-mono text-[10px] text-emerald-300 bg-slate-950 border border-emerald-500/30 rounded px-2 py-0.5 inline-block">
+                                    <div className="font-mono text-[10px] text-emerald-800 dark:text-emerald-300 bg-[var(--giay)] border border-emerald-500/30 rounded px-2 py-0.5 inline-block">
                                       🔏 SHA-256: {log.sha256Hash.slice(0, 24)}…
                                     </div>
                                   )}
                                 </td>
-                                <td className="p-3 font-mono text-[11px] text-slate-400">{log.entityRef}</td>
+                                <td className="p-3 font-mono text-[11px] text-[var(--chu-m)]">{log.entityRef}</td>
                                 <td className="p-3 text-right font-mono font-bold whitespace-nowrap">
                                   <span
                                     className={
                                       log.riskSeverity === 'CRITICAL'
-                                        ? 'text-rose-400'
+                                        ? 'text-rose-800 dark:text-rose-400'
                                         : log.riskSeverity === 'WARNING'
-                                        ? 'text-amber-400'
-                                        : 'text-emerald-400'
+                                        ? 'text-amber-800 dark:text-amber-400'
+                                        : 'text-emerald-800 dark:text-emerald-400'
                                     }
                                   >
                                     {log.newState}
@@ -1243,10 +1243,10 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
               BƯỚC 6: TRUNG TÂM 5 AI AGENTS PHÁP LÝ & KIỂM TOÁN DỰ ÁN (SERVER-SIDE)
              ================================================================ */}
           {activeTab === 'STEP6_AI' && (
-            <div className="h-full grid grid-cols-12 divide-x divide-slate-800 overflow-hidden">
+            <div className="h-full grid grid-cols-12 divide-x divide-[var(--line)] overflow-hidden">
               {/* Cột Trái (4 cols): Chọn 1 trong 5 AI Agents chuyên biệt */}
-              <div className="col-span-12 lg:col-span-4 p-4 overflow-y-auto space-y-3 bg-slate-950">
-                <div className="text-xs font-bold uppercase text-indigo-400">
+              <div className="col-span-12 lg:col-span-4 p-4 overflow-y-auto space-y-3 bg-[var(--giay)]">
+                <div className="text-xs font-bold uppercase text-indigo-800 dark:text-indigo-400">
                   CHỌN TÁC NHÂN AI CHUYÊN BIỆT (5 AI AGENTS)
                 </div>
                 {AI_AGENTS_LIST.map(ag => (
@@ -1258,17 +1258,17 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     }}
                     className={`w-full text-left p-3.5 rounded-xl border transition space-y-1 ${
                       activeAiAgent === ag.id
-                        ? 'bg-indigo-500/20 border-indigo-400 text-white'
-                        : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:bg-slate-900'
+                        ? 'bg-indigo-500/20 border-indigo-400 text-[var(--chu)]'
+                        : 'bg-[var(--panel)]/70 border-[var(--line)] text-[var(--chu-m)] hover:bg-[var(--panel)]'
                     }`}
                   >
-                    <div className="text-xs font-bold text-indigo-300">{ag.name}</div>
-                    <p className="text-[11px] text-slate-400 leading-snug">{ag.desc}</p>
+                    <div className="text-xs font-bold text-indigo-800 dark:text-indigo-300">{ag.name}</div>
+                    <p className="text-[11px] text-[var(--chu-m)] leading-snug">{ag.desc}</p>
                   </button>
                 ))}
 
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 space-y-1">
-                  <div className="font-mono text-emerald-400 font-semibold">
+                <div className="p-3 rounded-xl bg-[var(--panel)] border border-[var(--line)] text-xs text-[var(--chu-m)] space-y-1">
+                  <div className="font-mono text-emerald-800 dark:text-emerald-400 font-semibold">
                     Server-Side Gemini API & Legal Engine
                   </div>
                   <p className="text-[11px]">
@@ -1280,12 +1280,12 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
 
               {/* Cột Phải (8 cols): Giao diện Thực thi AI & Phán quyết Pháp lý */}
               <div className="col-span-12 lg:col-span-8 p-5 overflow-y-auto space-y-4">
-                <div className="bg-slate-900 border border-indigo-500/40 rounded-xl p-4 space-y-3">
+                <div className="bg-[var(--panel)] border border-indigo-500/40 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-indigo-400">
+                    <span className="text-xs font-mono font-bold text-indigo-800 dark:text-indigo-400">
                       YÊU CẦU PHÂN TÍCH TÌNH HUỐNG PHÁP LÝ / KIỂM TOÁN DỰ ÁN [{activeProjectArchetype}]
                     </span>
-                    <span className="text-[11px] font-mono text-indigo-300">
+                    <span className="text-[11px] font-mono text-indigo-800 dark:text-indigo-300">
                       3D Context Active {aiEngineSource ? `· ${aiEngineSource}` : ''}
                     </span>
                   </div>
@@ -1293,7 +1293,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                     rows={4}
                     value={aiPromptInput}
                     onChange={e => setAiPromptInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[var(--giay)] border border-[var(--line)] rounded-lg p-3 text-xs text-[var(--chu)] focus:outline-none focus:border-indigo-500"
                   />
                   <button
                     onClick={runMultiAgentAnalysis}
@@ -1307,9 +1307,9 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                 </div>
 
                 {aiOutputText && (
-                  <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2">
+                  <div className="bg-[var(--panel)] border border-emerald-500/40 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-emerald-400">
+                      <span className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                         Kết quả Phân tích & Đối soát từ AI Agent:
                       </span>
                       <button
@@ -1317,34 +1317,34 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                           navigator.clipboard.writeText(aiOutputText);
                           showToast('Đã copy báo cáo phân tích của AI!');
                         }}
-                        className="text-xs bg-slate-800 px-2.5 py-1 rounded text-slate-200 hover:bg-slate-700"
+                        className="text-xs bg-[var(--giay-d)] px-2.5 py-1 rounded text-[var(--chu)] hover:bg-[var(--giay-d)]"
                       >
                         Copy Báo cáo
                       </button>
                     </div>
-                    <pre className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed">
+                    <pre className="p-4 rounded-lg bg-[var(--giay)] border border-[var(--line)] text-xs font-mono text-[var(--chu)] whitespace-pre-wrap leading-relaxed">
                       {aiOutputText}
                     </pre>
                   </div>
                 )}
 
                 {/* BẢNG ĐIỀU KHIỂN NOTEBOOKLM GROUNDED KNOWLEDGE HUB (14 SỔ LEGAL, 5 SỔ AI, THAM KHẢO) */}
-                <div className="bg-slate-900 border border-indigo-500/40 rounded-xl p-4 space-y-3.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div className="bg-[var(--panel)] border border-indigo-500/40 rounded-xl p-4 space-y-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded bg-indigo-500 text-white font-mono text-[10px] font-bold">
                           DEEP-RAG HUB
                         </span>
-                        <h3 className="text-xs font-bold uppercase text-white">
+                        <h3 className="text-xs font-bold uppercase text-[var(--chu)]">
                           NotebookLM Grounded Knowledge Hub (3 Bộ sưu tập · 21 Sổ Chuyên đề)
                         </h3>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Quản lý & gắn link trực tiếp tới 14 sổ <b className="text-amber-300">LEGAL</b>, 5 sổ{' '}
-                        <b className="text-indigo-300">AI</b> và 2 sổ đệm{' '}
-                        <b className="text-emerald-300">Tham Khảo</b> (lưu tự động trong{' '}
-                        <code className="text-sky-300">localStorage</code>).
+                      <p className="text-[11px] text-[var(--chu-m)] mt-0.5">
+                        Quản lý & gắn link trực tiếp tới 14 sổ <b className="text-amber-800 dark:text-amber-300">LEGAL</b>, 5 sổ{' '}
+                        <b className="text-indigo-800 dark:text-indigo-300">AI</b> và 2 sổ đệm{' '}
+                        <b className="text-emerald-800 dark:text-emerald-300">Tham Khảo</b> (lưu tự động trong{' '}
+                        <code className="text-sky-800 dark:text-sky-300">localStorage</code>).
                       </p>
                     </div>
 
@@ -1367,7 +1367,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                             className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border transition ${
                               active
                                 ? 'bg-indigo-500 text-white border-indigo-300 shadow-xs'
-                                : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
+                                : 'bg-[var(--giay)] text-[var(--chu-m)] border-[var(--line)] hover:bg-[var(--giay-d)]'
                             }`}
                           >
                             {tab.label}
@@ -1379,8 +1379,8 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
 
                   {/* Thông tin tóm tắt Bộ sưu tập đang chọn */}
                   {nblmCollectionFilter !== 'ALL' && (
-                    <div className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-2 text-[11px]">
-                      <span className="text-slate-300">
+                    <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)] flex items-center justify-between gap-2 text-[11px]">
+                      <span className="text-[var(--chu-m)]">
                         {NOTEBOOK_LM_COLLECTION_META[nblmCollectionFilter].description}
                       </span>
                       <span
@@ -1402,7 +1402,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                       return (
                         <div
                           key={nb.id}
-                          className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition flex flex-col justify-between gap-2"
+                          className="p-3 rounded-xl bg-[var(--giay)] border border-[var(--line)] hover:border-indigo-500/50 transition flex flex-col justify-between gap-2"
                         >
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
@@ -1412,29 +1412,29 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                 >
                                   {nb.code}
                                 </span>
-                                <span className="text-xs font-bold text-white truncate" title={nb.title}>
+                                <span className="text-xs font-bold text-[var(--chu)] truncate" title={nb.title}>
                                   {nb.title}
                                 </span>
                               </div>
                               {hasCustomUrl ? (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[9px] shrink-0">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 font-mono text-[9px] shrink-0">
                                   Đã gắn Link riêng
                                 </span>
                               ) : (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-mono text-[9px] shrink-0">
+                                <span className="px-1.5 py-0.5 rounded bg-[var(--panel)] text-[var(--chu-m)] border border-[var(--line)] font-mono text-[9px] shrink-0">
                                   Mặc định
                                 </span>
                               )}
                             </div>
 
-                            <p className="text-[11px] text-slate-400 leading-snug">{nb.description}</p>
+                            <p className="text-[11px] text-[var(--chu-m)] leading-snug">{nb.description}</p>
 
                             {/* Tags Lĩnh vực & Stage-Gate liên kết */}
                             <div className="flex flex-wrap items-center gap-1 pt-0.5">
                               {nb.linkedDomains.map(dom => (
                                 <span
                                   key={dom}
-                                  className="px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-[9px] font-mono text-sky-300"
+                                  className="px-1.5 py-0.2 rounded bg-[var(--panel)] border border-[var(--line)] text-[9px] font-mono text-sky-800 dark:text-sky-300"
                                 >
                                   {dom}
                                 </span>
@@ -1442,7 +1442,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               {nb.linkedGates.map(g => (
                                 <span
                                   key={g}
-                                  className="px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-mono text-amber-300"
+                                  className="px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-mono text-amber-800 dark:text-amber-300"
                                 >
                                   {g}
                                 </span>
@@ -1452,13 +1452,13 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
 
                           {/* Khung sửa/dán URL trực tiếp của sổ vào localStorage */}
                           {isEditingThis ? (
-                            <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                            <div className="pt-2 border-t border-[var(--line)] space-y-1.5">
                               <input
                                 type="url"
                                 value={nblmUrlDraft}
                                 onChange={e => setNblmUrlDraft(e.target.value)}
                                 placeholder="https://notebook.google.com/notebook/..."
-                                className="w-full bg-slate-900 border border-indigo-500/60 rounded px-2.5 py-1 text-[11px] font-mono text-white focus:outline-none"
+                                className="w-full bg-[var(--panel)] border border-indigo-500/60 rounded px-2.5 py-1 text-[11px] font-mono text-[var(--chu)] focus:outline-none"
                               />
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
@@ -1467,7 +1467,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                     setEditingNblmId(null);
                                     setNblmUrlDraft('');
                                   }}
-                                  className="px-2 py-1 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold"
+                                  className="px-2 py-1 rounded bg-[var(--giay-d)] text-[var(--chu-m)] text-[10px] font-semibold"
                                 >
                                   Hủy
                                 </button>
@@ -1481,7 +1481,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                               </div>
                             </div>
                           ) : (
-                            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5">
+                            <div className="pt-2 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-1.5">
                               <div className="flex items-center gap-1.5">
                                 <a
                                   href={resolvedUrl}
@@ -1499,7 +1499,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                     setEditingNblmId(nb.id);
                                     setNblmUrlDraft(nblmUrlMap[nb.id] || DEFAULT_NOTEBOOK_LM_URL);
                                   }}
-                                  className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono transition"
+                                  className="px-2 py-1 rounded bg-[var(--panel)] hover:bg-[var(--giay-d)] text-[var(--chu-m)] border border-[var(--line-d)] text-[10px] font-mono transition"
                                   title="Dán hoặc cập nhật đường dẫn URL trực tiếp tới Sổ ghi chú NotebookLM này"
                                 >
                                   🔗 Gắn Link URL
@@ -1515,7 +1515,7 @@ export const Step5CommandCenter: React.FC<Step5CommandCenterProps> = ({ ctx }) =
                                     navigator.clipboard.writeText(q);
                                     showToast(`Đã nạp & copy từ khóa tra cứu sổ [${nb.code}]!`);
                                   }}
-                                  className="px-2 py-1 rounded bg-slate-900 hover:bg-indigo-950 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono transition"
+                                  className="px-2 py-1 rounded bg-[var(--panel)] hover:bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 text-[10px] font-mono transition"
                                   title="Copy nhanh câu lệnh truy vấn mẫu và nạp vào ô Prompt AI phía trên"
                                 >
                                   📋 Copy Từ khóa RAG

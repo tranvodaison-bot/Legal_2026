@@ -1155,14 +1155,14 @@ export function detectIssuerFromFileAndText(
   const scope = `${numUpper}\n${baseUpper}`;
 
   const suffixIssuerMatch = scope.match(
-    /(?:LUAT|NQ|ND|TT|VBHN|QD|QCVN|TCVN|\d{1,5}(?:[/_:-]\d{4})?)[/_:-](QH\d{2}|CP|TTG|BXD|BTC|BKHDT|BCA|BCT|BTNMT|BNNMT|BKHCN|UBND|BQLKKT|BQLKCN|SXD)\b/
+    /(?:LUAT|NQ|ND|TT|VBHN|QD|QCVN|TCVN|\d{1,5}(?:[/_:-]\d{4})?)[/_:-](QH\d{2}|CP|TTG|BXD|BTC|BKHDT|BCA|BCT|BTNMT|BNNMT|BKHCN|UBNDHN|UBND|BQLKKT|BQLKCN|SXD|CHQ)\b/
   );
   if (suffixIssuerMatch && suffixIssuerMatch[1]) {
     return normalizeIssuerCode(suffixIssuerMatch[1], docType);
   }
 
   const explicitCodeMatch = scope.match(
-    /\b(QH15|QH14|BKHDT|BQLKKT|BQLKCN|BKHCN|BTNMT|BNNMT|BTC|BXD|BCA|BCT|UBND|TTG)\b/
+    /\b(QH15|QH14|BKHDT|BQLKKT|BQLKCN|BKHCN|BTNMT|BNNMT|BTC|BXD|BCA|BCT|UBNDHN|UBND|TTG|CHQ)\b/
   );
   if (explicitCodeMatch && explicitCodeMatch[1]) {
     return normalizeIssuerCode(explicitCodeMatch[1], docType);
@@ -1181,7 +1181,9 @@ export function detectIssuerFromFileAndText(
   if (/\bBO CONG THUONG\b/.test(topLines)) return 'BCT';
   if (/\bBO TAI NGUYEN\b|\bBO NONG NGHIEP VA MOI TRUONG\b/.test(topLines)) return 'BTNMT';
   if (/\bBO KHOA HOC\b/.test(topLines)) return 'BKHCN';
+  if (/\bUY BAN NHAN DAN HA NOI\b|\bUBND\s+TP\s*HA NOI\b|\bUBNDHN\b/.test(topLines)) return 'UBNDHN';
   if (/\bUY BAN NHAN DAN\b|\bUBND\b/.test(topLines)) return 'UBND';
+  if (/\bCUC HAI QUAN\b|\bTONG CUC HAI QUAN\b/.test(topLines)) return 'CHQ';
   if (/\bTU VAN GIAM SAT\b/.test(topLines)) return 'TVGS';
   if (/\bTU VAN THIET KE\b/.test(topLines)) return 'TVTK';
   if (/\bCHU DAU TU\b/.test(topLines)) return 'CDT';
@@ -1343,21 +1345,22 @@ export function smartAnalyzeFile3D(fileName: string, extractedText = '') {
 
   let rawNumber = '01';
   const numInText = extractedText.match(/Số\s*:\s*([0-9a-zA-Z\-/:]+)/i);
-  const numInFile = baseName.match(
+  const baseNoYearPrefix = baseName.replace(/^\[\d{4}\][_\s-]*/, '');
+  const numInFile = baseNoYearPrefix.match(
     /(\b[A-Za-z]{1,4}\d{1,4}[-/][A-Za-z]{1,4}\d{1,4}\b)|(\d{1,4}[/:-](?:\d{4}[/:-])?[a-zA-ZĐđ-]+)|(\b\d{1,4}\b)/
   );
   if (numInText && numInText[1]) {
     rawNumber = numInText[1].trim();
-  } else if (numInFile && numInFile[0]) {
+  } else if (numInFile && numInFile[0] && !/^(?:19|20)\d{2}$/.test(numInFile[0])) {
     rawNumber = numInFile[0];
   } else {
-    const bareMatch = baseName.match(/\b(\d{1,4})\b/g);
+    const bareMatch = baseNoYearPrefix.match(/\b(\d{1,4})\b/g);
     const nonYear = bareMatch?.find(n => !/^(?:19|20)\d{2}$/.test(n));
     if (nonYear) rawNumber = nonYear;
   }
 
   let year = '2026';
-  const yearMatch = combinedRaw.match(/\b(201[5-9]|202[0-9])\b/);
+  const yearMatch = combinedRaw.match(/\b(199\d|20[0-3]\d)\b/);
   if (yearMatch) year = yearMatch[1];
 
   const issuer = detectIssuerFromFileAndText(baseName, extractedText, docType, rawNumber);

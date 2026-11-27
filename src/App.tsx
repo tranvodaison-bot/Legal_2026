@@ -1432,28 +1432,58 @@ export function useLexPmoOrchestrator() {
     let content = '';
     let fileName = '';
     if (format === 'PS1') {
+      const psQuote = (val: string) => `'${String(val ?? '').replace(/'/g, "''")}'`;
       const lines = [
+        'param(',
+        '  [switch]$WhatIf,',
+        '  [switch]$InPlace',
+        ')',
         '# ==========================================================================',
-        '# LEX-PMO OS v3.0 — SCRIPT ĐỔI TÊN FILE & THƯ MỤC HÀNG LOẠT CHUẨN SSOT / QLVB',
+        '# LEX-PMO OS v3.0 — SCRIPT ĐỔI TÊN & CHUẨN HÓA FILE / THƯ MỤC CHUẨN SSOT',
         `# Ngày xuất: ${new Date().toLocaleString('sv-SE')} | Người thực hiện: ${currentActor.fullName}`,
-        '# Cách dùng: Đặt file này tại thư mục gốc và chạy bằng PowerShell',
+        '# Cách dùng mặc định (Copy an toàn): powershell -ExecutionPolicy Bypass -File .\\script.ps1',
+        '# Chạy thử (-WhatIf) hoặc chuyển vị trí gốc (-InPlace): thêm -WhatIf / -InPlace',
         '# ==========================================================================',
         '',
       ];
       selectedItems.forEach(item => {
+        const origFolder = (item.originalFolderPath || '').trim();
+        const isPlaceholderFolder = !origFolder || origFolder === '01_Thu_muc_Nguon_Ingest';
+        const targetFolder = (item.proposedFolderPath || '').trim();
+
         if (item.itemKind === 'FOLDER') {
+          const srcDir = origFolder || '.';
+          const dstDir = targetFolder || origFolder || '.';
           lines.push(
-            `# [FOLDER | CDE:${item.cdeStatus || 'S0'}] ${item.originalFolderPath} -> ${item.proposedFolderPath}`,
-            `if (Test-Path "${item.originalFolderPath}") { New-Item -ItemType Directory -Force -Path "${item.proposedFolderPath}" | Out-Null }`
+            `# [FOLDER | CDE:${item.cdeStatus || 'S0'}] ${srcDir} -> ${dstDir}`,
+            `if ((Test-Path -LiteralPath ${psQuote(srcDir)}) -and (-not (Test-Path -LiteralPath ${psQuote(dstDir)}))) { New-Item -ItemType Directory -Force -Path ${psQuote(dstDir)} -WhatIf:$WhatIf | Out-Null }`
           );
         } else {
+          const srcExpr = isPlaceholderFolder
+            ? psQuote(item.originalName)
+            : `(Join-Path -Path ${psQuote(origFolder)} -ChildPath ${psQuote(item.originalName)})`;
+          const dstExpr = targetFolder
+            ? `(Join-Path -Path ${psQuote(targetFolder)} -ChildPath ${psQuote(item.proposedName)})`
+            : isPlaceholderFolder
+            ? psQuote(item.proposedName)
+            : `(Join-Path -Path ${psQuote(origFolder)} -ChildPath ${psQuote(item.proposedName)})`;
+
           lines.push(
             `# [FILE | CDE:${item.cdeStatus || 'S0'}] ${item.originalName} -> ${item.proposedName} (SHA256: ${item.sha256Hash})`,
-            `if (Test-Path "${item.originalName}") { Rename-Item -Path "${item.originalName}" -NewName "${item.proposedName}" }`
+            `$src = ${srcExpr}`,
+            `$dst = ${dstExpr}`,
+            'if (Test-Path -LiteralPath $src) {',
+            '  $dstDir = Split-Path -Parent $dst',
+            '  if ($dstDir -and (-not (Test-Path -LiteralPath $dstDir))) { New-Item -ItemType Directory -Force -Path $dstDir -WhatIf:$WhatIf | Out-Null }',
+            '  if (-not (Test-Path -LiteralPath $dst)) {',
+            '    if ($InPlace) { Move-Item -LiteralPath $src -Destination $dst -WhatIf:$WhatIf }',
+            '    else { Copy-Item -LiteralPath $src -Destination $dst -WhatIf:$WhatIf }',
+            '  }',
+            '}'
           );
         }
       });
-      content = lines.join('\n');
+      content = '\uFEFF' + lines.join('\r\n');
       fileName = `LEX_PMO_Batch_Rename_${activeProjectArchetype}_2026.ps1`;
     } else {
       const header =
@@ -4116,6 +4146,7 @@ export default function App() {
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', isDarkMode);
       document.body.classList.toggle('toi', isDarkMode);
       document.body.classList.toggle('dark', isDarkMode);
     }
@@ -4291,9 +4322,8 @@ export default function App() {
       {/* KHUNG LÀM VIỆC CHÍNH TOÀN MÀN HÌNH (KHÔNG DƯ SIDEBAR BÊN NGOÀI) */}
       <main
         ref={workspaceMainRef}
-        className={`flex-1 flex flex-col overflow-hidden ${
-          activeTab !== 'STEP2_VBPL' ? 'bg-slate-950 text-slate-100' : ''
-        }`}
+        className="flex-1 flex flex-col overflow-hidden"
+        style={{ backgroundColor: 'var(--giay)', color: 'var(--chu)' }}
       >
         {activeTab === 'STEP1_INGEST' && <Step1CdeIngestion ctx={stepContext} />}
         {activeTab === 'STEP2_VBPL' && <Step2LegalMatrix ctx={stepContext} />}
@@ -4337,32 +4367,32 @@ export default function App() {
           MODAL XEM TRƯỚC & KÝ SỐ BIỂU MẪU AUTO-FILL (STEP 4 FORM PREVIEW MODAL)
          ==================================================================== */}
       {showFormPreviewModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-2xl w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 vbpl-md-backdrop flex items-center justify-center p-4">
+          <div className="bg-[var(--panel)] border border-[var(--line-d)] rounded-xl max-w-2xl w-full p-5 space-y-4 shadow-2xl text-[var(--chu)]">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div>
-                <span className="text-[11px] font-mono text-amber-400">
+                <span className="text-[11px] font-mono font-bold text-amber-800 dark:text-amber-300">
                   BIỂU MẪU PHÁP LÝ TỰ ĐỘNG ĐIỀN CĂN CỨ (SMART AUTO-FILL)
                 </span>
-                <h3 className="text-sm font-bold text-white mt-0.5">{currentFlowStep.formTemplateTitle}</h3>
+                <h3 className="text-sm font-bold text-[var(--navy-ink)] mt-0.5">{currentFlowStep.formTemplateTitle}</h3>
               </div>
               <button
                 onClick={() => setShowFormPreviewModal(false)}
-                className="h-7 w-7 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs"
+                className="h-7 w-7 rounded-lg bg-[var(--giay-d)] text-[var(--chu-m)] hover:text-[var(--chu)] text-xs cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-200 space-y-2 max-h-96 overflow-y-auto">
-              <div className="text-center font-bold text-white">
+            <div className="bg-[var(--giay-soft)] border border-[var(--line)] rounded-lg p-4 font-mono text-xs text-[var(--chu)] space-y-2 max-h-96 overflow-y-auto">
+              <div className="text-center font-bold text-[var(--navy-ink)]">
                 CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                 <br />
                 Độc lập - Tự do - Hạnh phúc
                 <br />
                 -------------------
               </div>
-              <div className="text-center font-bold text-amber-400 pt-2">
+              <div className="text-center font-bold text-amber-800 dark:text-amber-300 pt-2">
                 {currentFlowStep.formTemplateTitle}
               </div>
               <div>1. Dự án đầu tư: {activeProjectName}</div>
@@ -4372,13 +4402,13 @@ export default function App() {
               <div>3. Cơ quan thẩm quyền đầu mối: {currentArchetypeMeta.authority}</div>
               <div>4. Căn cứ pháp lý áp dụng: {currentProcess.legalTag}</div>
               <div>5. Thành phần tham gia nghiệm thu / xác nhận ({currentFlowStep.parties}):</div>
-              <div className="pl-3 text-slate-300">
+              <div className="pl-3 text-[var(--chu-m)]">
                 • Đại diện Chủ đầu tư / Ban QLDA: {currentFlowStep.raciDetail.CDT_QLDA}
                 <br />• Đại diện Tư vấn Giám sát: {currentFlowStep.raciDetail.TVGS}
                 <br />• Đại diện Nhà thầu thi công: {currentFlowStep.raciDetail.NhaThau}
               </div>
               <div>6. Nội dung xác nhận hiện trường:</div>
-              <div className="p-2.5 rounded bg-slate-900 border border-slate-800 text-emerald-300">
+              <div className="p-2.5 rounded bg-[var(--panel)] border border-[var(--line)] text-emerald-800 dark:text-emerald-300">
                 {currentFlowStep.diaryTemplate}
               </div>
               <div>
@@ -4390,7 +4420,7 @@ export default function App() {
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowFormPreviewModal(false)}
-                className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-semibold"
+                className="px-3.5 py-2 rounded-lg bg-[var(--giay-d)] hover:opacity-90 text-xs text-[var(--chu)] font-semibold cursor-pointer"
               >
                 Đóng
               </button>
@@ -4420,7 +4450,7 @@ export default function App() {
                   setShowFormPreviewModal(false);
                   showToast('Đã ký xác nhận và tải xuống Biểu mẫu chuẩn SSOT!');
                 }}
-                className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer"
               >
                 Ký xác nhận & Tải Biểu mẫu (.TXT)
               </button>

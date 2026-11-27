@@ -121,7 +121,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G0–G6",
     desc: "Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS",
     activeClass: "bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs",
-    badgeClass: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+    badgeClass: "bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-500/40",
   },
   {
     id: "THUC_HIEN",
@@ -132,7 +132,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G7–G13",
     desc: "TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT",
     activeClass: "bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs",
-    badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    badgeClass: "bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40",
   },
   {
     id: "KET_THUC",
@@ -143,7 +143,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G14–G15",
     desc: "Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành",
     activeClass: "bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs",
-    badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+    badgeClass: "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40",
   },
 ];
 
@@ -362,9 +362,9 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
             <div className="h-full flex flex-col lg:flex-row overflow-hidden">
               <div
                 style={{ width: `${step4Col1Pct}%` }}
-                className="w-full lg:shrink-0 min-w-[210px] p-3 overflow-y-auto space-y-2 bg-slate-950"
+                className="w-full lg:shrink-0 min-w-[210px] p-3 overflow-y-auto space-y-2 bg-[var(--giay)]"
               >
-                <div className="text-[11px] font-bold uppercase text-amber-400 px-2 py-1">
+                <div className="text-[11px] font-bold uppercase text-amber-800 dark:text-amber-400 px-2 py-1">
                   DANH MỤC SƠ ĐỒ QUY TRÌNH THỰC THI
                 </div>
                 {QAQC_PROCESSES.map(proc => (
@@ -376,15 +376,15 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                     }}
                     className={`w-full text-left p-3 rounded-xl border transition ${
                       proc.id === selectedProcessId
-                        ? 'bg-amber-500/15 border-amber-500 text-white'
-                        : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-900'
+                        ? 'bg-amber-500/15 border-amber-500 text-[var(--chu)]'
+                        : 'bg-[var(--panel)]/60 border-[var(--line)] text-[var(--chu-m)] hover:bg-[var(--panel)]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-amber-400">
+                      <span className="text-xs font-mono font-bold text-amber-800 dark:text-amber-400">
                         Quy trình {proc.code}
                       </span>
-                      <span className="text-[11px] font-mono text-sky-300">Gate {proc.gateRef}</span>
+                      <span className="text-[11px] font-mono text-sky-800 dark:text-sky-300">Gate {proc.gateRef}</span>
                     </div>
                     <div className="text-xs font-semibold mt-1">{proc.title}</div>
                   </button>
@@ -405,10 +405,10 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                 style={{ width: `${step4Col2Pct}%` }}
                 className="w-full lg:shrink-0 min-w-[280px] p-5 overflow-y-auto space-y-4"
               >
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-                  <h2 className="text-base font-bold text-white">{currentProcess.title}</h2>
-                  <p className="text-xs text-slate-400">{currentProcess.summary}</p>
-                  <div className="text-[11px] font-mono text-amber-300">
+                <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2">
+                  <h2 className="text-base font-bold text-[var(--chu)]">{currentProcess.title}</h2>
+                  <p className="text-xs text-[var(--chu-m)]">{currentProcess.summary}</p>
+                  <div className="text-[11px] font-mono text-amber-800 dark:text-amber-300">
                     Căn cứ: {currentProcess.legalTag}
                   </div>
                 </div>
@@ -421,23 +421,23 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                       className={`p-4 rounded-xl border cursor-pointer transition ${
                         idx === selectedFlowStepIdx
                           ? 'bg-amber-500/15 border-amber-500'
-                          : 'bg-slate-900 border-slate-800'
+                          : 'bg-[var(--panel)] border-[var(--line)]'
                       }`}
                     >
-                      <div className="flex justify-between text-xs font-mono text-amber-400 mb-1">
+                      <div className="flex justify-between text-xs font-mono text-amber-800 dark:text-amber-400 mb-1">
                         <span>{st.stepNo}</span>
                         <span>{st.type}</span>
                       </div>
-                      <div className="text-sm font-bold text-white">{st.name}</div>
-                      <div className="text-xs text-slate-400 mt-1">Tương tác: {st.parties}</div>
+                      <div className="text-sm font-bold text-[var(--chu)]">{st.name}</div>
+                      <div className="text-xs text-[var(--chu-m)] mt-1">Tương tác: {st.parties}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Sổ Nhật ký Thi công Điện tử đã ghi nhận */}
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase text-emerald-400">
+                    <span className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                       Nhật ký Thi công Điện tử Đã Ký Xác nhận ({customDiaryEntries.length} bản ghi)
                     </span>
                   </div>
@@ -445,31 +445,31 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                     {customDiaryEntries.map(entry => (
                       <div
                         key={entry.id}
-                        className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1"
+                        className="p-3 rounded-lg bg-[var(--giay)] border border-[var(--line)] text-xs space-y-1"
                       >
-                        <div className="flex items-center justify-between font-mono text-[11px] text-slate-400">
+                        <div className="flex items-center justify-between font-mono text-[11px] text-[var(--chu-m)]">
                           <span>
                             {entry.id} · {entry.date} · {entry.processCode}
                           </span>
-                          <span className="text-emerald-400">{entry.status}</span>
+                          <span className="text-emerald-800 dark:text-emerald-400">{entry.status}</span>
                         </div>
-                        <p className="text-slate-200 font-mono text-[11px]">{entry.content}</p>
-                        <div className="text-[10px] text-slate-400">Người ký: {entry.author}</div>
+                        <p className="text-[var(--chu)] font-mono text-[11px]">{entry.content}</p>
+                        <div className="text-[10px] text-[var(--chu-m)]">Người ký: {entry.author}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Khóa chéo 3 Trục: Kiểm soát RFI / ITP & Chứng chỉ VLXD QCVN 16:2023 / LAS-XD */}
-                <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-4 space-y-2.5">
+                <div className="bg-[var(--panel)] border border-amber-500/40 rounded-xl p-4 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-bold uppercase text-amber-400">
+                    <span className="text-xs font-bold uppercase text-amber-800 dark:text-amber-400">
                       🔒 Kiểm soát RFI / ITP & Chứng chỉ VLXD (QCVN 16:2023 / LAS-XD) · Dự án [{activeProjectArchetype}]
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveTab('STEP3_PLAN')}
-                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 text-[10px] font-mono font-semibold border border-slate-700"
+                      className="px-2.5 py-1 rounded bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-sky-800 dark:text-sky-300 text-[10px] font-mono font-semibold border border-[var(--line-d)]"
                     >
                       Kiểm tra mở khóa IPC tại Bước 3 →
                     </button>
@@ -485,10 +485,10 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                             key={item.id}
                             className={`p-3 rounded-lg border flex flex-wrap items-center justify-between gap-2 text-xs ${
                               isClosed
-                                ? 'bg-emerald-950/30 border-emerald-500/40'
+                                ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/40'
                                 : isMatchingProcess
-                                ? 'bg-rose-950/40 border-rose-500/60 ring-1 ring-rose-500/30'
-                                : 'bg-slate-950 border-slate-800'
+                                ? 'bg-rose-500/10 dark:bg-rose-950/40 border-rose-500/60 ring-1 ring-rose-500/30'
+                                : 'bg-[var(--giay)] border-[var(--line)]'
                             }`}
                           >
                             <div className="space-y-0.5 flex-1 min-w-[200px]">
@@ -504,15 +504,15 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                                     ? 'CO/CQ QCVN 16'
                                     : item.kind}
                                 </span>
-                                <span className="font-mono font-bold text-amber-300">
+                                <span className="font-mono font-bold text-amber-800 dark:text-amber-300">
                                   {item.code}
                                 </span>
-                                <span className="font-mono text-[10px] text-sky-300">
+                                <span className="font-mono text-[10px] text-sky-800 dark:text-sky-300">
                                   Gate {item.gateRef} · {item.processId}
                                 </span>
                               </div>
-                              <div className="font-semibold text-white">{item.title}</div>
-                              <div className="text-[11px] text-slate-400">{item.detailNote}</div>
+                              <div className="font-semibold text-[var(--chu)]">{item.title}</div>
+                              <div className="text-[11px] text-[var(--chu-m)]">{item.detailNote}</div>
                             </div>
 
                             <button
@@ -520,7 +520,7 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                               onClick={() => handleToggleQaQcControl(item.id)}
                               className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition shrink-0 ${
                                 isClosed
-                                  ? 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40'
+                                  ? 'bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-emerald-800 dark:text-emerald-300 border border-emerald-500/40'
                                   : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                               }`}
                             >
@@ -544,16 +544,16 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
               })}
 
               {/* Cột Phải: Hướng dẫn + Mẫu Nhật ký + Khởi tạo Biểu mẫu Tự động (Auto-Fill) */}
-              <div className="flex-1 min-w-[260px] p-5 bg-slate-900/30 overflow-y-auto space-y-4">
-                <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-4 space-y-2">
-                  <div className="text-xs font-mono text-amber-400">{currentFlowStep.stepNo}</div>
-                  <h3 className="text-sm font-bold text-white">{currentFlowStep.name}</h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">{currentFlowStep.desc}</p>
+              <div className="flex-1 min-w-[260px] p-5 bg-[var(--panel)]/30 overflow-y-auto space-y-4">
+                <div className="bg-[var(--panel)] border border-amber-500/40 rounded-xl p-4 space-y-2">
+                  <div className="text-xs font-mono text-amber-800 dark:text-amber-400">{currentFlowStep.stepNo}</div>
+                  <h3 className="text-sm font-bold text-[var(--chu)]">{currentFlowStep.name}</h3>
+                  <p className="text-xs text-[var(--chu-m)] leading-relaxed">{currentFlowStep.desc}</p>
                 </div>
 
-                <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-2">
+                <div className="bg-[var(--panel)] border border-emerald-500/30 rounded-xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-400">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400">
                       Mẫu câu ghi Nhật ký Thi công chuẩn:
                     </span>
                     <button
@@ -561,12 +561,12 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                         navigator.clipboard.writeText(currentFlowStep.diaryTemplate);
                         showToast('Đã copy mẫu ghi Nhật ký thi công!');
                       }}
-                      className="text-[11px] px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
+                      className="text-[11px] px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
                     >
                       Copy
                     </button>
                   </div>
-                  <div className="p-3 rounded bg-slate-950 font-mono text-xs text-slate-200">
+                  <div className="p-3 rounded bg-[var(--giay)] font-mono text-xs text-[var(--chu)]">
                     {currentFlowStep.diaryTemplate}
                   </div>
                   <button
@@ -595,12 +595,12 @@ export const Step4RaciHr: React.FC<Step4RaciHrProps> = ({ ctx }) => {
                 </div>
 
                 {/* Trình Khởi tạo Biểu mẫu Tự động điền căn cứ pháp lý (Smart Auto-Fill Form) */}
-                <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-3">
-                  <div className="text-xs font-bold uppercase text-sky-400">
+                <div className="bg-[var(--panel)] border border-sky-500/40 rounded-xl p-4 space-y-3">
+                  <div className="text-xs font-bold uppercase text-sky-800 dark:text-sky-400">
                     Biểu mẫu Chuẩn Tự động Điền Căn cứ Pháp lý:
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1.5 font-mono text-slate-300">
-                    <div className="text-amber-300 font-bold">{currentFlowStep.formTemplateTitle}</div>
+                  <div className="p-3 rounded-lg bg-[var(--giay)] border border-[var(--line)] text-xs space-y-1.5 font-mono text-[var(--chu-m)]">
+                    <div className="text-amber-800 dark:text-amber-300 font-bold">{currentFlowStep.formTemplateTitle}</div>
                     <div>• Dự án: {activeProjectName} [{activeProjectArchetype}]</div>
                     <div>• Căn cứ: {currentProcess.legalTag}</div>
                     <div>• Người lập/ký: {currentActor.fullName} ({currentActor.certNumber})</div>

@@ -898,7 +898,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       className="flex items-center border-b text-xs font-semibold select-none shrink-0"
                       style={{ backgroundColor: 'var(--giay)', borderColor: 'var(--line)' }}
                     >
-                      <div className="flex-1 flex items-center justify-around text-[11.5px] min-w-0">
+                      <div className="flex-1 flex items-center justify-between gap-0.5 px-1 text-[11px] min-w-0 overflow-hidden">
                         {[
                           { id: 'DOCS' as const, icon: '📂', label: 'Văn bản', count: 0 },
                           {
@@ -921,7 +921,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               key={t.id}
                               type="button"
                               onClick={() => setPane2SubTab(t.id)}
-                              className="py-2 px-1 flex items-center justify-center gap-1 transition whitespace-nowrap cursor-pointer"
+                              className="py-2 px-1 flex-1 min-w-0 flex items-center justify-center gap-0.5 transition whitespace-nowrap cursor-pointer"
                               style={{
                                 borderBottom: isAct ? '2.5px solid var(--son)' : '2.5px solid transparent',
                                 color: isAct ? 'var(--son)' : 'var(--chu-m)',
@@ -930,10 +930,10 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               }}
                             >
                               <span>{t.icon}</span>
-                              <span>{t.label}</span>
+                              <span className="truncate">{t.label}</span>
                               {t.count > 0 && (
                                 <span
-                                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold text-white"
+                                  className="px-1 py-0 rounded-full text-[9.5px] font-mono font-bold text-white shrink-0"
                                   style={{ backgroundColor: 'var(--son)' }}
                                 >
                                   {t.count}
@@ -947,7 +947,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         type="button"
                         onClick={() => setIsVbplCol2Collapsed(true)}
                         title="Thu gọn Cột 2"
-                        className="hidden lg:flex mx-1 h-6 w-6 rounded items-center justify-center text-[10px] cursor-pointer"
+                        className="hidden lg:flex ml-0.5 mr-1.5 shrink-0 h-6 w-6 rounded items-center justify-center text-[10px] cursor-pointer"
                         style={{ backgroundColor: 'var(--giay-d)', color: 'var(--chu)' }}
                       >
                         ◀
@@ -4056,20 +4056,20 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                   );
 
                   return (
-                    <div className="flex-1 p-5 overflow-y-auto space-y-5 bg-[#09111f] text-slate-100">
+                    <div className="flex-1 p-5 overflow-y-auto space-y-5 bg-[var(--giay)] text-[var(--chu)]">
                       {/* Header Toàn màn hình Road_map Bộ luật */}
-                      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-[#10223d] to-slate-900 border border-amber-500/40 space-y-3 shadow-lg">
+                      <div className="p-4 rounded-2xl bg-[var(--panel)] border border-amber-500/40 space-y-3 shadow-lg">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="px-2.5 py-0.5 rounded bg-amber-500 text-slate-950 font-mono text-xs font-extrabold">
                                 🗺️ ROAD_MAP PHẢ HỆ BỘ LUẬT (L1 → L5)
                               </span>
-                              <span className="text-xs font-mono text-emerald-400">
+                              <span className="text-xs font-mono text-emerald-800 dark:text-emerald-400">
                                 Hệ thống Cây Phả hệ: Luật gốc ➔ Luật sửa đổi, bổ sung ➔ Văn bản hợp nhất (VBHN) ➔ Nghị định ➔ Thông tư ➔ QCVN/TCVN
                               </span>
                             </div>
-                            <h2 className="text-base font-extrabold text-white">
+                            <h2 className="text-base font-extrabold text-[var(--chu)]">
                               {activePillar.fullName}
                             </h2>
                           </div>
@@ -4080,7 +4080,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               setVbplSubMode('READER_3PANE');
                               setRightReaderMode('TOC_INDEX');
                             }}
-                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-amber-300 transition"
+                            className="px-3 py-1.5 rounded-xl bg-[var(--giay-d)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-xs font-bold text-amber-800 dark:text-amber-300 transition"
                           >
                             ← Quay lại Tra cứu 3 Cột
                           </button>
@@ -4105,7 +4105,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 className={`text-left p-3 rounded-xl border transition-all flex flex-col justify-between gap-1.5 ${
                                   isSelected
                                     ? 'bg-gradient-to-br from-amber-500 to-amber-400 text-slate-950 border-white font-bold shadow-lg scale-[1.01]'
-                                    : 'bg-slate-950/80 text-slate-200 border-slate-800 hover:border-amber-500/50 hover:bg-slate-900'
+                                    : 'bg-[var(--giay)] text-[var(--chu)] border-[var(--line)] hover:border-amber-500/50 hover:bg-[var(--panel)]'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
@@ -4113,8 +4113,8 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                   <span
                                     className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                                       isSelected
-                                        ? 'bg-slate-950 text-amber-300'
-                                        : 'bg-slate-900 text-sky-300 border border-slate-700'
+                                        ? 'bg-[var(--giay)] text-amber-800 dark:text-amber-300'
+                                        : 'bg-[var(--panel)] text-sky-800 dark:text-sky-300 border border-[var(--line-d)]'
                                     }`}
                                   >
                                     {countDocs} văn bản
@@ -4125,7 +4125,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 </div>
                                 <div
                                   className={`text-[10px] font-mono truncate ${
-                                    isSelected ? 'text-slate-900 font-semibold' : 'text-slate-400'
+                                    isSelected ? 'text-slate-900 font-semibold' : 'text-[var(--chu-m)]'
                                   }`}
                                 >
                                   {pillar.rootLawNumber}
@@ -4136,9 +4136,9 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         </div>
 
                         {/* Tóm tắt lịch sử sửa đổi bổ sung */}
-                        <div className="p-3 rounded-xl bg-slate-950/90 border border-amber-500/30 text-xs text-slate-200 space-y-1">
+                        <div className="p-3 rounded-xl bg-[var(--giay)] border border-amber-500/30 text-xs text-[var(--chu)] space-y-1">
                           <div>{activePillar.summary}</div>
-                          <div className="text-amber-300 font-mono text-[11px] pt-1 border-t border-slate-800">
+                          <div className="text-amber-800 dark:text-amber-300 font-mono text-[11px] pt-1 border-t border-[var(--line)]">
                             <b>📜 Lịch sử sửa đổi, bổ sung & hợp nhất:</b> {activePillar.amendmentHistorySummary}
                           </div>
                         </div>
@@ -4165,12 +4165,12 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       />
 
                       {/* Sơ đồ Tiến hóa & Thay thế Văn bản */}
-                      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                      <div className="p-4 rounded-2xl bg-[var(--panel)] border border-[var(--line)] space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
+                          <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-400">
                             ⏳ Lộ trình Tiến hóa & Thay thế Văn bản theo Mảng Chuyên môn ({activePillar.shortName})
                           </h3>
-                          <span className="text-[11px] font-mono text-slate-400">
+                          <span className="text-[11px] font-mono text-[var(--chu-m)]">
                             Click vào thẻ văn bản để mở nội dung chi tiết
                           </span>
                         </div>
@@ -4179,13 +4179,13 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                           {activePillar.evolutionChains.map(chain => (
                             <div
                               key={chain.id}
-                              className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5"
+                              className="p-3.5 rounded-xl bg-[var(--giay)] border border-[var(--line)] space-y-2.5"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-sky-300">
+                                <span className="text-xs font-bold text-sky-800 dark:text-sky-300">
                                   {chain.domainTitle}
                                 </span>
-                                <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40 font-mono text-[10px] font-bold">
+                                <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-800 dark:text-sky-300 border border-sky-500/40 font-mono text-[10px] font-bold">
                                   Mã chức năng: {chain.domainCode}
                                 </span>
                               </div>
@@ -4193,12 +4193,12 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 {chain.steps.map((st, sIdx) => {
                                   const borderCls =
                                     st.roleBadge === 'MOI_2026'
-                                      ? 'border-rose-500/70 bg-rose-950/25'
+                                      ? 'border-rose-500/70 bg-rose-500/10 dark:bg-rose-950/40'
                                       : st.roleBadge === 'HIEN_HANH'
-                                      ? 'border-emerald-500/70 bg-emerald-950/25'
+                                      ? 'border-emerald-500/70 bg-emerald-500/10 dark:bg-emerald-950/40'
                                       : st.roleBadge === 'SUA_DOI_HOP_NHAT'
-                                      ? 'border-indigo-500/70 bg-indigo-950/25'
-                                      : 'border-slate-700 bg-slate-900/60 opacity-80';
+                                      ? 'border-indigo-500/70 bg-indigo-500/10 dark:bg-indigo-950/40'
+                                      : 'border-[var(--line-d)] bg-[var(--panel)]/60 opacity-80';
                                   const badgeText =
                                     st.roleBadge === 'MOI_2026'
                                       ? 'THẾ HỆ MỚI 2026'
@@ -4223,15 +4223,15 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                       } space-y-1.5`}
                                     >
                                       <div className="flex items-center justify-between text-[10px] font-mono">
-                                        <span className="font-bold text-amber-300">
+                                        <span className="font-bold text-amber-800 dark:text-amber-300">
                                           Bước {sIdx + 1} · {badgeText}
                                         </span>
-                                        <span className="text-slate-400">{st.period}</span>
+                                        <span className="text-[var(--chu-m)]">{st.period}</span>
                                       </div>
-                                      <div className="text-xs font-mono font-bold text-white">
+                                      <div className="text-xs font-mono font-bold text-[var(--chu)]">
                                         {st.docNumber}
                                       </div>
-                                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                                      <p className="text-[11px] text-[var(--chu-m)] leading-relaxed">
                                         {st.note}
                                       </p>
                                     </div>
@@ -4246,7 +4246,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       {/* Cây Phả hệ 5 Tầng */}
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h3 className="text-sm font-extrabold text-white">
+                          <h3 className="text-sm font-extrabold text-[var(--chu)]">
                             🌳 Cây Phả hệ 5 Tầng của {activePillar.shortName} ({totalDocsInPillar} văn bản)
                           </h3>
                           <div className="flex flex-wrap gap-1.5">
@@ -4256,7 +4256,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
                                 roadmapTierFilter === 'ALL'
                                   ? 'bg-amber-500 text-slate-950'
-                                  : 'bg-slate-900 text-slate-300 border border-slate-700'
+                                  : 'bg-[var(--panel)] text-[var(--chu-m)] border border-[var(--line-d)]'
                               }`}
                             >
                               Tất cả 5 tầng ({totalDocsInPillar})
@@ -4273,7 +4273,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                 className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
                                   roadmapTierFilter === t.tierCode
                                     ? 'bg-amber-500 text-slate-950'
-                                    : 'bg-slate-900 text-slate-300 border border-slate-700'
+                                    : 'bg-[var(--panel)] text-[var(--chu-m)] border border-[var(--line-d)]'
                                 }`}
                               >
                                 {t.tierLevel}: {t.tierName.split('&')[0].trim()} ({t.items.length})
@@ -4285,9 +4285,9 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         {visibleTiers.map(tier => (
                           <div
                             key={tier.tierCode}
-                            className="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden"
+                            className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] overflow-hidden"
                           >
-                            <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                            <div className="px-4 py-3 bg-[var(--giay)] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2.5">
                                 <span
                                   className={`px-2.5 py-1 rounded-lg font-mono text-xs font-extrabold ${tier.badgeColor}`}
@@ -4295,11 +4295,11 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                   {tier.tierLevel}
                                 </span>
                                 <div>
-                                  <div className="text-sm font-bold text-white">{tier.tierName}</div>
-                                  <div className="text-xs text-slate-400">{tier.tierSubtitle}</div>
+                                  <div className="text-sm font-bold text-[var(--chu)]">{tier.tierName}</div>
+                                  <div className="text-xs text-[var(--chu-m)]">{tier.tierSubtitle}</div>
                                 </div>
                               </div>
-                              <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-xs font-mono text-amber-300">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[var(--panel)] border border-[var(--line-d)] text-xs font-mono text-amber-800 dark:text-amber-300">
                                 {tier.items.length} văn bản
                               </span>
                             </div>
@@ -4308,7 +4308,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                               {tier.items.map(item => (
                                 <div
                                   key={item.id}
-                                  className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 hover:border-amber-500/50 transition flex flex-col justify-between gap-3"
+                                  className="p-4 rounded-xl bg-[var(--giay)] border border-[var(--line)] hover:border-amber-500/50 transition flex flex-col justify-between gap-3"
                                 >
                                   <div className="space-y-2">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -4318,33 +4318,33 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         >
                                           {item.docTypeBadge}
                                         </span>
-                                        <span className="font-mono font-extrabold text-sm text-amber-300">
+                                        <span className="font-mono font-extrabold text-sm text-amber-800 dark:text-amber-300">
                                           {item.docNumber}
                                         </span>
                                       </div>
-                                      <span className="text-[11px] font-mono text-emerald-400">
+                                      <span className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400">
                                         {item.effectiveNote}
                                       </span>
                                     </div>
 
-                                    <div className="text-xs font-bold text-white leading-snug">
+                                    <div className="text-xs font-bold text-[var(--chu)] leading-snug">
                                       {item.title}
                                     </div>
 
                                     {item.replacesOrAmends && (
-                                      <div className="px-2.5 py-1.5 rounded-lg bg-indigo-950/60 border border-indigo-500/40 text-xs text-indigo-200">
-                                        🔄 <b className="text-indigo-300">Quan hệ sửa đổi / hợp nhất:</b>{' '}
+                                      <div className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 dark:bg-indigo-950/40 border border-indigo-500/40 text-xs text-indigo-900 dark:text-indigo-200">
+                                        🔄 <b className="text-indigo-800 dark:text-indigo-300">Quan hệ sửa đổi / hợp nhất:</b>{' '}
                                         {item.replacesOrAmends}
                                       </div>
                                     )}
 
-                                    <p className="text-xs text-slate-300 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
-                                      <b className="text-sky-300">Nội dung trọng tâm:</b>{' '}
+                                    <p className="text-xs text-[var(--chu-m)] bg-[var(--panel)] p-2.5 rounded-lg border border-[var(--line)] leading-relaxed">
+                                      <b className="text-sky-800 dark:text-sky-300">Nội dung trọng tâm:</b>{' '}
                                       {item.keyArticlesOrScope}
                                     </p>
                                   </div>
 
-                                  <div className="pt-2 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-2">
+                                  <div className="pt-2 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex flex-wrap items-center gap-1">
                                       {item.linkedGates.map(gCode => (
                                         <button
@@ -4354,7 +4354,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                             setSelectedGateCode(gCode);
                                             setActiveTab('STEP3_PLAN');
                                           }}
-                                          className="px-2 py-0.5 rounded bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-emerald-300 border border-slate-700 font-mono text-[10px] font-bold transition"
+                                          className="px-2 py-0.5 rounded bg-[var(--panel)] hover:bg-amber-500 hover:text-slate-950 text-emerald-800 dark:text-emerald-300 border border-[var(--line-d)] font-mono text-[10px] font-bold transition"
                                         >
                                           {gCode}
                                         </button>
@@ -4395,7 +4395,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
                           selectedCrossExamId === topic.id
                             ? 'bg-emerald-500 text-slate-950 border-emerald-400'
-                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                            : 'bg-[var(--panel)] text-[var(--chu-m)] border-[var(--line)] hover:border-[var(--line-d)]'
                         }`}
                       >
                         {topic.title}
@@ -4405,10 +4405,10 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
 
                   {CROSS_EXAM_TOPICS.filter(t => t.id === selectedCrossExamId).map(topic => (
                     <div key={topic.id} className="space-y-4">
-                      <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-4 space-y-2">
-                        <h3 className="text-sm font-bold text-emerald-400">{topic.title}</h3>
-                        <p className="text-xs text-slate-300">{topic.summary}</p>
-                        <div className="text-[11px] font-mono text-slate-400">
+                      <div className="bg-[var(--panel)] border border-emerald-500/40 rounded-xl p-4 space-y-2">
+                        <h3 className="text-sm font-bold text-emerald-800 dark:text-emerald-400">{topic.title}</h3>
+                        <p className="text-xs text-[var(--chu-m)]">{topic.summary}</p>
+                        <div className="text-[11px] font-mono text-[var(--chu-m)]">
                           Mã chức năng liên quan: {topic.functionalCodes.join(' · ')}
                         </div>
                       </div>
@@ -4417,17 +4417,17 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                         {topic.columns.map((col, idx) => (
                           <div
                             key={idx}
-                            className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3"
+                            className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 flex flex-col justify-between space-y-3"
                           >
                             <div className="space-y-2">
-                              <div className="text-xs font-mono font-bold text-amber-400 border-b border-slate-800 pb-1.5">
+                              <div className="text-xs font-mono font-bold text-amber-800 dark:text-amber-400 border-b border-[var(--line)] pb-1.5">
                                 {col.docRef}
                               </div>
-                              <div className="text-[11px] font-mono text-sky-400">Căn cứ: {col.clause}</div>
-                              <p className="text-xs text-slate-200 leading-relaxed">{col.requirement}</p>
+                              <div className="text-[11px] font-mono text-sky-800 dark:text-sky-400">Căn cứ: {col.clause}</div>
+                              <p className="text-xs text-[var(--chu)] leading-relaxed">{col.requirement}</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-200">
-                              <b className="text-emerald-400 block mb-0.5">Chốt chặn thực thi:</b>
+                            <div className="p-2.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-900 dark:text-emerald-200">
+                              <b className="text-emerald-800 dark:text-emerald-400 block mb-0.5">Chốt chặn thực thi:</b>
                               {col.controlAction}
                             </div>
                           </div>

@@ -121,7 +121,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G0–G6",
     desc: "Chủ trương ĐT, Quy hoạch, Đất đai, ĐTM, PCCC, BCNCKT & TKCS",
     activeClass: "bg-sky-500 text-slate-950 border-sky-300 font-bold shadow-xs",
-    badgeClass: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+    badgeClass: "bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-500/40",
   },
   {
     id: "THUC_HIEN",
@@ -132,7 +132,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G7–G13",
     desc: "TKBVTC - Dự toán, GPXD, Đấu thầu, Ký HĐ, Thi công, Nghiệm thu & Tạm ứng/TT",
     activeClass: "bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-xs",
-    badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    badgeClass: "bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40",
   },
   {
     id: "KET_THUC",
@@ -143,7 +143,7 @@ const PROJECT_PHASE_META: {
     gateRangeLabel: "G14–G15",
     desc: "Nghiệm thu hoàn thành đưa vào sử dụng, Bàn giao, Quyết toán vốn & Bảo hành",
     activeClass: "bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs",
-    badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+    badgeClass: "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40",
   },
 ];
 
@@ -361,24 +361,24 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
           {activeTab === 'STEP3_PLAN' && (
             <div className="h-full flex flex-col overflow-hidden">
               {/* THANH TIẾN ĐỘ TỔNG THỂ STAGE-GATE (OVERALL STAGE-GATE PROGRESS BAR) Ở PHÍA TRÊN CÙNG BƯỚC 3 */}
-              <div className="px-4 py-3 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-b border-slate-800 space-y-2.5 shrink-0">
+              <div className="px-4 py-3 bg-[var(--panel)] border-b border-[var(--line)] space-y-2.5 shrink-0">
                 {/* Hàng 1: Tiêu đề Lộ trình Dự án + Chọn nhanh Loại hình Dự án + Tỷ lệ % Tiến độ tổng thể */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-[11px] font-bold">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold">
                       TIẾN ĐỘ LỘ TRÌNH STAGE-GATE [{stageGateProgressSummary.projectCode}]
                     </span>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-bold text-[var(--chu)]">
                       {stageGateProgressSummary.projectName}
                     </span>
-                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5 rounded">
+                    <span className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded">
                       Thẩm quyền: {stageGateProgressSummary.authority}
                     </span>
                   </div>
 
                   {/* Bộ chọn Loại hình Dự án & Chỉ số % Tổng thể */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1 bg-slate-950/90 p-1 rounded-lg border border-slate-800">
+                    <div className="flex items-center gap-1 bg-[var(--giay)] p-1 rounded-lg border border-[var(--line)]">
                       {TAXONOMY_3D.projectTypes.map(pt => (
                         <button
                           key={pt.code}
@@ -386,7 +386,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition whitespace-nowrap ${
                             activeProjectArchetype === pt.code
                               ? 'bg-amber-500 text-slate-950 shadow'
-                              : 'text-slate-400 hover:text-white'
+                              : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
                           }`}
                           title={`Chuyển sang lộ trình Stage-Gate của dự án ${pt.name}`}
                         >
@@ -395,21 +395,21 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-950 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
                       <div className="text-right">
-                        <div className="text-[10px] font-mono text-slate-400 uppercase">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
                           Đã thông qua cổng (APPROVED)
                         </div>
-                        <div className="text-xs font-mono font-extrabold text-emerald-400 tabular-nums">
+                        <div className="text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-400 tabular-nums">
                           {stageGateProgressSummary.approvedCount}/{stageGateProgressSummary.totalGates} Gate ({stageGateProgressSummary.strictCompletionPct}%)
                         </div>
                       </div>
-                      <div className="h-6 w-px bg-slate-800" />
+                      <div className="h-6 w-px bg-[var(--giay-d)]" />
                       <div className="text-right">
-                        <div className="text-[10px] font-mono text-slate-400 uppercase">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] uppercase">
                           Tiến độ Lộ trình Trọng số
                         </div>
-                        <div className="text-xs font-mono font-extrabold text-amber-400 tabular-nums">
+                        <div className="text-xs font-mono font-extrabold text-amber-800 dark:text-amber-400 tabular-nums">
                           {stageGateProgressSummary.weightedProgressPct}% · Hồ sơ {stageGateProgressSummary.checklistPct}%
                         </div>
                       </div>
@@ -419,7 +419,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
 
                 {/* Hàng 2: Thanh Progress Bar đa phân đoạn (Multi-Segment Progress Bar) + Chú giải trạng thái */}
                 <div className="space-y-1.5">
-                  <div className="relative h-3.5 w-full rounded-full bg-slate-950 border border-slate-800 overflow-hidden flex shadow-inner">
+                  <div className="relative h-3.5 w-full rounded-full bg-[var(--giay)] border border-[var(--line)] overflow-hidden flex shadow-inner">
                     {/* Phân đoạn 1: Đã duyệt (APPROVED) */}
                     {stageGateProgressSummary.approvedPctWidth > 0 && (
                       <div
@@ -456,7 +456,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         title={`Chặn Hard-Stop (BLOCKED): ${stageGateProgressSummary.blockedCount} Gate (${stageGateProgressSummary.blockedPctWidth}%)`}
                       >
                         {stageGateProgressSummary.blockedPctWidth >= 10 && (
-                          <span className="text-[9px] font-mono font-extrabold text-white">
+                          <span className="text-[9px] font-mono font-extrabold text-[var(--chu)]">
                             {stageGateProgressSummary.blockedPctWidth}%
                           </span>
                         )}
@@ -466,7 +466,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                     {stageGateProgressSummary.draftPctWidth > 0 && (
                       <div
                         style={{ width: `${stageGateProgressSummary.draftPctWidth}%` }}
-                        className="h-full bg-slate-900 transition-all duration-500"
+                        className="h-full bg-[var(--panel)] transition-all duration-500"
                         title={`Bản thảo / Chưa mở cổng (DRAFT): ${stageGateProgressSummary.draftCount} Gate (${stageGateProgressSummary.draftPctWidth}%)`}
                       />
                     )}
@@ -475,19 +475,19 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                   {/* Dải chỉ số trạng thái + Tiến độ theo 3 Giai đoạn Đầu tư Xây dựng */}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
                     <div className="flex items-center gap-3 flex-wrap font-mono">
-                      <span className="inline-flex items-center gap-1.5 text-emerald-400">
+                      <span className="inline-flex items-center gap-1.5 text-emerald-800 dark:text-emerald-400">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
                         ĐÃ DUYỆT: <b>{stageGateProgressSummary.approvedCount}</b>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-amber-400">
+                      <span className="inline-flex items-center gap-1.5 text-amber-800 dark:text-amber-400">
                         <span className="w-2 h-2 rounded-full bg-amber-400" />
                         ĐANG THẨM ĐỊNH: <b>{stageGateProgressSummary.inReviewCount}</b>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-rose-400">
+                      <span className="inline-flex items-center gap-1.5 text-rose-800 dark:text-rose-400">
                         <span className="w-2 h-2 rounded-full bg-rose-500" />
                         CHẶN HARD-STOP: <b>{stageGateProgressSummary.blockedCount}</b>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <span className="inline-flex items-center gap-1.5 text-[var(--chu-m)]">
                         <span className="w-2 h-2 rounded-full bg-slate-600" />
                         BẢN THẢO: <b>{stageGateProgressSummary.draftCount}</b>
                       </span>
@@ -498,10 +498,10 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                       {stageGateProgressSummary.phaseBreakdown.map(ph => (
                         <span
                           key={ph.phase}
-                          className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-slate-300"
+                          className="px-2 py-0.5 rounded bg-[var(--giay)] border border-[var(--line)] text-[10px] font-mono text-[var(--chu-m)]"
                         >
                           {ph.phase.replace('Giai đoạn ', 'GĐ ')}:{' '}
-                          <b className={ph.pct === 100 ? 'text-emerald-400' : 'text-amber-400'}>
+                          <b className={ph.pct === 100 ? 'text-emerald-800 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-400'}>
                             {ph.approved}/{ph.total} ({ph.pct}%)
                           </b>
                         </span>
@@ -517,12 +517,12 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                     const st = g.status || 'DRAFT';
                     const nodeStyle =
                       st === 'APPROVED'
-                        ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/25'
+                        ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25'
                         : st === 'HARD_STOP_BLOCKED'
-                        ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 hover:bg-rose-500/30'
+                        ? 'bg-rose-500/20 border-rose-500/60 text-rose-800 dark:text-rose-300 hover:bg-rose-500/30'
                         : st === 'IN_REVIEW'
-                        ? 'bg-amber-500/20 border-amber-500/60 text-amber-200 hover:bg-amber-500/30'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700';
+                        ? 'bg-amber-500/20 border-amber-500/60 text-amber-900 dark:text-amber-200 hover:bg-amber-500/30'
+                        : 'bg-[var(--giay)] border-[var(--line)] text-[var(--chu-m)] hover:border-[var(--line-d)]';
 
                     const dotIcon =
                       st === 'APPROVED'
@@ -551,7 +551,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         {idx < projectScopedGates.length - 1 && (
                           <div
                             className={`h-0.5 w-3 shrink-0 rounded ${
-                              st === 'APPROVED' ? 'bg-emerald-500/60' : 'bg-slate-800'
+                              st === 'APPROVED' ? 'bg-emerald-500/60' : 'bg-[var(--giay-d)]'
                             }`}
                           />
                         )}
@@ -564,7 +564,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                       onClick={() =>
                         setSelectedGateCode(stageGateProgressSummary.activeBottleneckGate!.gate)
                       }
-                      className="ml-auto px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-mono text-[10px] font-bold whitespace-nowrap shrink-0 transition"
+                      className="ml-auto px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-800 dark:text-rose-300 font-mono text-[10px] font-bold whitespace-nowrap shrink-0 transition"
                       title="Nhảy nhanh tới cổng đang bị chặn Hard-Stop hoặc đang chờ thẩm định"
                     >
                       ⚡ Xử lý điểm nghẽn: {stageGateProgressSummary.activeBottleneckGate.gate} →
@@ -577,7 +577,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                 {/* Cột 1: Danh sách Cổng Stage-Gate kèm trạng thái (Co giãn) */}
                 <div
                   style={{ width: `${step3Col1Pct}%` }}
-                  className="w-full lg:shrink-0 min-w-[210px] overflow-y-auto p-3 space-y-2 bg-slate-950"
+                  className="w-full lg:shrink-0 min-w-[210px] overflow-y-auto p-3 space-y-2 bg-[var(--giay)]"
                 >
                   {projectScopedGates.map(g => {
                     const isSelected = g.gate === selectedGateCode;
@@ -591,12 +591,12 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         : 'BẢN THẢO';
                     const statusColor =
                       g.status === 'APPROVED'
-                        ? 'text-emerald-400'
+                        ? 'text-emerald-800 dark:text-emerald-400'
                         : g.status === 'HARD_STOP_BLOCKED'
-                        ? 'text-rose-400'
+                        ? 'text-rose-800 dark:text-rose-400'
                         : g.status === 'IN_REVIEW'
-                        ? 'text-amber-400'
-                        : 'text-slate-400';
+                        ? 'text-amber-800 dark:text-amber-400'
+                        : 'text-[var(--chu-m)]';
 
                     return (
                       <button
@@ -604,8 +604,8 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         onClick={() => setSelectedGateCode(g.gate)}
                         className={`w-full text-left p-3 rounded-xl border transition-all ${
                           isSelected
-                            ? 'bg-amber-500/15 border-amber-500 text-white'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-900'
+                            ? 'bg-amber-500/15 border-amber-500 text-[var(--chu)]'
+                            : 'bg-[var(--panel)]/60 border-[var(--line)] text-[var(--chu-m)] hover:bg-[var(--panel)]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -617,7 +617,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           </span>
                         </div>
                         <div className="text-xs font-semibold leading-snug">{g.name}</div>
-                        <div className="text-[10px] font-mono text-slate-400 mt-1">
+                        <div className="text-[10px] font-mono text-[var(--chu-m)] mt-1">
                           Chức năng: {g.functionalTags.join(' · ')}
                         </div>
                       </button>
@@ -640,29 +640,29 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                   style={{ width: `${step3Col2Pct}%` }}
                   className="w-full lg:shrink-0 min-w-[280px] overflow-y-auto p-5 space-y-4"
                 >
-                  <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-4 space-y-2">
+                  <div className="bg-[var(--panel)] border border-sky-500/40 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-sky-400">
+                      <span className="text-xs font-mono font-bold text-sky-800 dark:text-sky-400">
                         CHỈ DẪN ĐẶC THÙ CHO DỰ ÁN [{activeProjectArchetype}] TẠI {currentGate.gate}
                       </span>
-                      <span className="text-[11px] font-mono text-sky-300">
+                      <span className="text-[11px] font-mono text-sky-800 dark:text-sky-300">
                         {currentArchetypeMeta.authority}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-200 leading-relaxed">
+                    <p className="text-xs text-[var(--chu)] leading-relaxed">
                       {currentGate.projectNotes[activeProjectArchetype]}
                     </p>
                   </div>
 
                   {/* Điều khiển Chuyển trạng thái Gate (State Transition + RBAC / RACI 4 Bên) */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-200">
+                        <span className="font-bold text-[var(--chu)]">
                           Trạng thái Phê duyệt Cổng {currentGate.gate} (RACI 4 Bên):
                         </span>
                         {gateTvgsVerifiedMap[`${activeProjectArchetype}::${currentGate.gate}`] && (
-                          <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/50 text-sky-300 font-mono text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/50 text-sky-800 dark:text-sky-300 font-mono text-[10px] font-bold">
                             ✓ TVGS Đã xác nhận kỹ thuật
                           </span>
                         )}
@@ -670,10 +670,10 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                       <span
                         className={`font-mono font-bold ${
                           currentGate.status === 'HARD_STOP_BLOCKED'
-                            ? 'text-rose-400'
+                            ? 'text-rose-800 dark:text-rose-400'
                             : currentGate.status === 'APPROVED'
-                            ? 'text-emerald-400'
-                            : 'text-amber-400'
+                            ? 'text-emerald-800 dark:text-emerald-400'
+                            : 'text-amber-800 dark:text-amber-400'
                         }`}
                       >
                         {currentGate.status}
@@ -702,7 +702,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
                               currentGate.status === st.code
                                 ? 'bg-amber-500 text-slate-950 border-amber-400'
-                                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                                : 'bg-[var(--giay)] text-[var(--chu-m)] border-[var(--line)] hover:border-[var(--line-d)]'
                             }`}
                           >
                             {st.label}
@@ -725,7 +725,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                           gateTvgsVerifiedMap[`${activeProjectArchetype}::${currentGate.gate}`]
                             ? 'bg-sky-500 text-slate-950 border-sky-400 font-bold'
-                            : 'bg-sky-500/15 text-sky-300 border-sky-500/40 hover:bg-sky-500/25'
+                            : 'bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/40 hover:bg-sky-500/25'
                         }`}
                       >
                         🔍 TVGS Xác nhận kỹ thuật
@@ -748,7 +748,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                           currentGate.status === 'APPROVED'
                             ? 'bg-emerald-500 text-slate-950 border-emerald-400'
-                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/30'
+                            : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/30'
                         }`}
                       >
                         ✓ CĐT Phê duyệt cuối cùng (APPROVED)
@@ -767,7 +767,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                           currentGate.status === 'HARD_STOP_BLOCKED'
                             ? 'bg-rose-500 text-white border-rose-400'
-                            : 'bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-rose-500/25'
+                            : 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25'
                         }`}
                       >
                         ↩️ Trả lại / Chặn Hard-Stop
@@ -790,8 +790,8 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         </button>
                       )}
                     </div>
-                    <div className="text-[11px] font-mono text-slate-400 pt-0.5">
-                      Phiên hiện tại: <b className="text-amber-300">{currentActor.rbacRole}</b> —{' '}
+                    <div className="text-[11px] font-mono text-[var(--chu-m)] pt-0.5">
+                      Phiên hiện tại: <b className="text-amber-800 dark:text-amber-300">{currentActor.rbacRole}</b> —{' '}
                       {raciPerms.isContractor
                         ? 'Nhà thầu chỉ được Nộp hồ sơ & Tạo yêu cầu VO/RFI (Các nút TVGS/CĐT đang khóa).'
                         : raciPerms.isTvgs
@@ -807,20 +807,20 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                     <div
                       className={`rounded-xl border-2 p-4 space-y-3 shadow-md ${
                         currentGateCrossLock.isHardStopLocked
-                          ? 'bg-gradient-to-br from-rose-950/60 via-slate-900 to-slate-950 border-rose-500/70'
-                          : 'bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border-emerald-500/60'
+                          ? 'bg-rose-500/10 dark:bg-gradient-to-br dark:from-rose-950/60 dark:via-slate-900 dark:to-slate-950 border-rose-500/70'
+                          : 'bg-emerald-500/10 dark:bg-gradient-to-br dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-950 border-emerald-500/60'
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="space-y-0.5">
-                          <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                          <div className="text-xs font-extrabold text-[var(--chu)] flex items-center gap-1.5">
                             <span>💰</span>
                             <span>
                               Kiểm soát Giải ngân & Điều kiện Thanh toán (IPC) · {currentGate.gate}
                             </span>
                           </div>
-                          <div className="text-[11px] font-mono text-slate-300">
-                            Đợt thanh toán: <b className="text-amber-300">{currentGateCrossLock.ipcTrancheCode}</b> —{' '}
+                          <div className="text-[11px] font-mono text-[var(--chu-m)]">
+                            Đợt thanh toán: <b className="text-amber-800 dark:text-amber-300">{currentGateCrossLock.ipcTrancheCode}</b> —{' '}
                             {currentGateCrossLock.ipcTitle}
                           </div>
                         </div>
@@ -840,37 +840,37 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
 
                       {/* 4 chỉ số tài chính của Gate */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono tabular-nums">
-                        <div className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Giá trị HĐ tại Gate</div>
-                          <div className="font-bold text-white mt-0.5">
+                        <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Giá trị HĐ tại Gate</div>
+                          <div className="font-bold text-[var(--chu)] mt-0.5">
                             {formatVndBillions(currentGateCrossLock.allocatedVnd)}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Đã nghiệm thu</div>
-                          <div className="font-bold text-sky-300 mt-0.5">
+                        <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Đã nghiệm thu</div>
+                          <div className="font-bold text-sky-800 dark:text-sky-300 mt-0.5">
                             {formatVndBillions(currentGateCrossLock.acceptedVnd)}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Đã giải ngân</div>
-                          <div className="font-bold text-emerald-400 mt-0.5">
+                        <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Đã giải ngân</div>
+                          <div className="font-bold text-emerald-800 dark:text-emerald-400 mt-0.5">
                             {formatVndBillions(currentGateCrossLock.disbursedVnd)}
                           </div>
                         </div>
                         <div
                           className={`p-2.5 rounded-lg border ${
                             currentGateCrossLock.blockedCapexVnd > 0
-                              ? 'bg-rose-950/70 border-rose-500/60'
-                              : 'bg-slate-950/90 border-slate-800'
+                              ? 'bg-rose-500/10 dark:bg-rose-950/40 border-rose-500/60'
+                              : 'bg-[var(--giay)] border-[var(--line)]'
                           }`}
                         >
-                          <div className="text-[10px] text-slate-300">Đang bị treo (Blocked)</div>
+                          <div className="text-[10px] text-[var(--chu-m)]">Đang bị treo (Blocked)</div>
                           <div
                             className={`font-extrabold mt-0.5 ${
                               currentGateCrossLock.blockedCapexVnd > 0
-                                ? 'text-rose-300'
-                                : 'text-emerald-400'
+                                ? 'text-rose-800 dark:text-rose-300'
+                                : 'text-emerald-800 dark:text-emerald-400'
                             }`}
                           >
                             {formatVndBillions(currentGateCrossLock.blockedCapexVnd)}
@@ -880,13 +880,13 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
 
                       {/* Tình trạng Bảo lãnh thực hiện HĐ & Bảo lãnh Tạm ứng */}
                       {currentGateCrossLock.isBondApplicable && (
-                        <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                        <div className="p-2.5 rounded-lg bg-[var(--giay)] border border-[var(--line)] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
                           <div className="flex flex-wrap items-center gap-3">
                             <span
                               className={
                                 currentGateCrossLock.perfBondDaysLeft < 15
-                                  ? 'text-rose-300 font-bold'
-                                  : 'text-emerald-300'
+                                  ? 'text-rose-800 dark:text-rose-300 font-bold'
+                                  : 'text-emerald-800 dark:text-emerald-300'
                               }
                             >
                               🛡️ Bảo lãnh THHĐ: {currentGateCrossLock.performanceBondExpiry} (
@@ -898,8 +898,8 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                             <span
                               className={
                                 currentGateCrossLock.advBondDaysLeft < 15
-                                  ? 'text-rose-300 font-bold'
-                                  : 'text-sky-300'
+                                  ? 'text-rose-800 dark:text-rose-300 font-bold'
+                                  : 'text-sky-800 dark:text-sky-300'
                               }
                             >
                               🏦 Bảo lãnh Tạm ứng: {currentGateCrossLock.advanceBondExpiry} (
@@ -924,17 +924,17 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                       {/* Chi tiết 4 Quy tắc Chặn tự động liên hoàn (Hard-Stop Cross-Locking) */}
                       {currentGateCrossLock.isHardStopLocked ? (
                         <div className="space-y-2">
-                          <div className="text-[11px] font-mono font-bold text-rose-300 uppercase">
+                          <div className="text-[11px] font-mono font-bold text-rose-800 dark:text-rose-300 uppercase">
                             ⛔ Phát hiện {currentGateCrossLock.lockReasons.length} Vi phạm Khóa chéo — Bắt buộc xử lý để mở khóa IPC:
                           </div>
                           {currentGateCrossLock.lockReasons.map(reason => (
                             <div
                               key={reason.ruleCode}
-                              className="p-2.5 rounded-lg bg-slate-950/90 border border-rose-500/40 flex flex-wrap items-center justify-between gap-2 text-xs"
+                              className="p-2.5 rounded-lg bg-[var(--giay)] border border-rose-500/40 flex flex-wrap items-center justify-between gap-2 text-xs"
                             >
                               <div className="space-y-0.5 flex-1 min-w-[200px]">
-                                <div className="font-bold text-rose-300">{reason.label}</div>
-                                <div className="text-[11px] text-slate-300 leading-snug">
+                                <div className="font-bold text-rose-800 dark:text-rose-300">{reason.label}</div>
+                                <div className="text-[11px] text-[var(--chu-m)] leading-snug">
                                   {reason.detail}
                                 </div>
                               </div>
@@ -972,7 +972,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           ))}
                         </div>
                       ) : (
-                        <div className="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-500/40 text-xs text-emerald-200 flex items-center gap-2">
+                        <div className="p-2.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
                           <span>✅</span>
                           <span>
                             <b>Đạt chuẩn 3-Way Gate Locking:</b> Đã đóng RFI/ITP Bước 4, đủ CO/CQ QCVN 16:2023 & LAS-XD, không vướng VO chưa duyệt và Bảo lãnh còn hiệu lực &ge; 15 ngày.
@@ -982,9 +982,9 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
 
                       {/* Nút Trình duyệt Thanh toán / Giải ngân IPC */}
                       <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] font-mono text-slate-300">
+                        <span className="text-[11px] font-mono text-[var(--chu-m)]">
                           Giá trị chờ giải ngân đợt này:{' '}
-                          <b className="text-amber-300">
+                          <b className="text-amber-800 dark:text-amber-300">
                             {formatVndBillions(currentGateCrossLock.pendingPayableVnd)}
                           </b>
                         </span>
@@ -997,9 +997,9 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           onClick={() => handleSubmitGateIpcPayment(currentGate.gate)}
                           className={`px-4 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1.5 ${
                             currentGateCrossLock.isHardStopLocked
-                              ? 'bg-rose-950/90 text-rose-300 border border-rose-500/50 cursor-not-allowed opacity-80'
+                              ? 'bg-rose-500/10 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-500/50 cursor-not-allowed opacity-80'
                               : currentGateCrossLock.pendingPayableVnd === 0
-                              ? 'bg-slate-800 text-emerald-400 border border-emerald-500/40 cursor-default'
+                              ? 'bg-[var(--giay-d)] text-emerald-800 dark:text-emerald-400 border border-emerald-500/40 cursor-default'
                               : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg cursor-pointer'
                           }`}
                         >
@@ -1035,48 +1035,48 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                   {currentGate.steps.map(step => (
                     <div
                       key={step.code}
-                      className="bg-slate-900/70 border border-amber-500/40 rounded-xl p-4 space-y-4"
+                      className="bg-[var(--panel)]/70 border border-amber-500/40 rounded-xl p-4 space-y-4"
                     >
                       <div>
                         <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950 mr-2">
                           Bước {step.code}
                         </span>
-                        <span className="text-[11px] font-mono text-rose-300">{step.mandatory}</span>
-                        <h3 className="text-sm font-bold text-white mt-2">{step.title}</h3>
+                        <span className="text-[11px] font-mono text-rose-800 dark:text-rose-300">{step.mandatory}</span>
+                        <h3 className="text-sm font-bold text-[var(--chu)] mt-2">{step.title}</h3>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Chủ đầu tư (CDT)</div>
-                          <div className="font-semibold text-amber-400">{step.raci.CDT}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Chủ đầu tư (CDT)</div>
+                          <div className="font-semibold text-amber-800 dark:text-amber-400">{step.raci.CDT}</div>
                         </div>
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Ban QLDA</div>
-                          <div className="font-semibold text-emerald-400">{step.raci.BQLDA}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Ban QLDA</div>
+                          <div className="font-semibold text-emerald-800 dark:text-emerald-400">{step.raci.BQLDA}</div>
                         </div>
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Tư vấn Thiết kế</div>
-                          <div className="font-semibold text-sky-400">{step.raci.TVTK}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Tư vấn Thiết kế</div>
+                          <div className="font-semibold text-sky-800 dark:text-sky-400">{step.raci.TVTK}</div>
                         </div>
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Tư vấn Giám sát</div>
-                          <div className="font-semibold text-purple-400">{step.raci.TVGS}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Tư vấn Giám sát</div>
+                          <div className="font-semibold text-purple-800 dark:text-purple-400">{step.raci.TVGS}</div>
                         </div>
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Nhà thầu (NTTC)</div>
-                          <div className="font-semibold text-orange-400">{step.raci.NhaThau}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Nhà thầu (NTTC)</div>
+                          <div className="font-semibold text-orange-800 dark:text-orange-400">{step.raci.NhaThau}</div>
                         </div>
-                        <div className="p-2.5 rounded bg-slate-950 border border-slate-800">
-                          <div className="text-[10px] text-slate-400">Cơ quan Thẩm quyền</div>
-                          <div className="font-semibold text-slate-200">{currentArchetypeMeta.authority}</div>
+                        <div className="p-2.5 rounded bg-[var(--giay)] border border-[var(--line)]">
+                          <div className="text-[10px] text-[var(--chu-m)]">Cơ quan Thẩm quyền</div>
+                          <div className="font-semibold text-[var(--chu)]">{currentArchetypeMeta.authority}</div>
                         </div>
                       </div>
 
-                      <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-xs text-rose-200 space-y-2.5">
+                      <div className="p-3.5 rounded-xl bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/40 text-xs text-rose-900 dark:text-rose-200 space-y-2.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="font-bold text-rose-400 flex items-center gap-1.5">
+                          <div className="font-bold text-rose-800 dark:text-rose-400 flex items-center gap-1.5">
                             <span>🛡️ Chốt chặn Rủi ro Kiểm toán Pháp lý:</span>
-                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-[10px] font-mono text-rose-300">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-[10px] font-mono text-rose-800 dark:text-rose-300">
                               {PROJECT_ARCHETYPE_ICONS[activeProjectArchetype]} {activeProjectArchetype}
                             </span>
                           </div>
@@ -1107,7 +1107,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           </button>
                         </div>
 
-                        <div className="leading-relaxed text-rose-100/95 bg-slate-950/50 p-2.5 rounded-lg border border-rose-500/20">
+                        <div className="leading-relaxed text-rose-900 dark:text-rose-100/95 bg-[var(--giay)] p-2.5 rounded-lg border border-rose-500/20">
                           {step.riskFlag}
                         </div>
 
@@ -1129,14 +1129,14 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           return (
                             <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/60 space-y-2">
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[11px] font-mono font-extrabold text-amber-300 flex items-center gap-1.5">
+                                <span className="text-[11px] font-mono font-extrabold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                                   <span>📌</span>
                                   <span>
                                     Lưu ý Pháp lý từ Ban QLDA ({sharedDirectives.length} chỉ thị
                                     đồng bộ vào {currentGate.gate})
                                   </span>
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/40 text-[9px] font-mono text-amber-200">
+                                <span className="px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/40 text-[9px] font-mono text-amber-900 dark:text-amber-200">
                                   Đồng bộ từ Bước 2 · Cột 3
                                 </span>
                               </div>
@@ -1149,10 +1149,10 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                                   return (
                                     <div
                                       key={noteKey}
-                                      className="p-2.5 rounded-lg bg-slate-950/85 border border-amber-500/40 flex flex-wrap items-start justify-between gap-2"
+                                      className="p-2.5 rounded-lg bg-[var(--giay)] border border-amber-500/40 flex flex-wrap items-start justify-between gap-2"
                                     >
                                       <div className="space-y-0.5 flex-1 min-w-[200px]">
-                                        <div className="text-[10px] font-mono text-amber-300 font-bold">
+                                        <div className="text-[10px] font-mono text-amber-800 dark:text-amber-300 font-bold">
                                           ⚖️ {note.docNumber || targetDocId} ·{' '}
                                           {note.nodeCode || targetNodeId} · Người ban hành:{' '}
                                           {note.author} ({note.updatedAt})
@@ -1186,18 +1186,18 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                         })()}
 
                         {gateRiskAiReports[`${currentGate.gate}-${step.code}-${activeProjectArchetype}`] && (
-                          <div className="mt-2 p-3.5 rounded-xl bg-slate-950/95 border border-amber-500/50 text-slate-200 space-y-2.5 shadow-inner">
-                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                          <div className="mt-2 p-3.5 rounded-xl bg-[var(--giay)] border border-amber-500/50 text-[var(--chu)] space-y-2.5 shadow-inner">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[var(--line)]">
                               <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-[10px] font-mono">
+                                <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-bold text-[10px] font-mono">
                                   🤖 AI KHUYẾN NGHỊ & BIỆN PHÁP KHẮC PHỤC
                                 </span>
-                                <span className="text-[10px] font-mono text-emerald-400">
+                                <span className="text-[10px] font-mono text-emerald-800 dark:text-emerald-400">
                                   Dự án: [{activeProjectArchetype}] {currentArchetypeMeta.name}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-slate-400 font-mono">
+                                <span className="text-[10px] text-[var(--chu-m)] font-mono">
                                   {gateRiskAiReports[`${currentGate.gate}-${step.code}-${activeProjectArchetype}`].source} ·{' '}
                                   {gateRiskAiReports[`${currentGate.gate}-${step.code}-${activeProjectArchetype}`].timestamp}
                                 </span>
@@ -1209,7 +1209,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                                     );
                                     showToast('Đã sao chép biện pháp khắc phục AI vào Clipboard!');
                                   }}
-                                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold transition"
+                                  className="px-2 py-0.5 rounded bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-[var(--chu-m)] text-[10px] font-semibold transition"
                                 >
                                   📋 Sao chép
                                 </button>
@@ -1227,7 +1227,7 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                                     setActiveTab('STEP6_AI');
                                     showToast('Đã chuyển kết quả sang Trung tâm AI (Bước 6)');
                                   }}
-                                  className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-[10px] font-semibold transition"
+                                  className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-800 dark:text-indigo-300 text-[10px] font-semibold transition"
                                 >
                                   Mở tại AI Core →
                                 </button>
@@ -1240,14 +1240,14 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                                       return next;
                                     })
                                   }
-                                  className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[10px] transition"
+                                  className="px-1.5 py-0.5 rounded bg-[var(--giay-d)] hover:bg-rose-500/20 text-[var(--chu-m)] hover:text-rose-800 dark:text-rose-300 text-[10px] transition"
                                   title="Đóng bảng phân tích AI"
                                 >
                                   ✕
                                 </button>
                               </div>
                             </div>
-                            <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-200 max-h-80 overflow-y-auto pr-1">
+                            <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[var(--chu)] max-h-80 overflow-y-auto pr-1">
                               {gateRiskAiReports[`${currentGate.gate}-${step.code}-${activeProjectArchetype}`].report}
                             </div>
                           </div>
@@ -1268,9 +1268,9 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                 })}
 
                 {/* Cột 3: Checklist Hồ sơ Bắt buộc & Liên kết Nhân sự / Tài sản (Co giãn) */}
-                <div className="flex-1 min-w-[260px] overflow-y-auto p-5 bg-slate-900/30 space-y-4">
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
-                    <h3 className="text-xs font-bold uppercase text-emerald-400">
+                <div className="flex-1 min-w-[260px] overflow-y-auto p-5 bg-[var(--panel)]/30 space-y-4">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2.5">
+                    <h3 className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                       Checklist Hồ sơ Bắt buộc tại {currentGate.gate} ({activeProjectArchetype})
                     </h3>
                     {currentStep.auditChecklist.map((item, idx) => {
@@ -1282,8 +1282,8 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                           onClick={() => setCheckedAuditItems(prev => ({ ...prev, [key]: !prev[key] }))}
                           className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer text-xs ${
                             isChecked
-                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200'
-                              : 'bg-slate-950 border-slate-800 text-slate-300'
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-900 dark:text-emerald-200'
+                              : 'bg-[var(--giay)] border-[var(--line)] text-[var(--chu-m)]'
                           }`}
                         >
                           <input
@@ -1299,23 +1299,23 @@ export const Step3StageGate: React.FC<Step3StageGateProps> = ({ ctx }) => {
                   </div>
 
                   {/* Liên kết Thực thể Chéo tại Gate này (Tasks & Thiết bị) */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2 text-xs">
-                    <div className="font-bold text-sky-400 uppercase">
+                  <div className="bg-[var(--panel)] border border-[var(--line)] rounded-xl p-4 space-y-2 text-xs">
+                    <div className="font-bold text-sky-800 dark:text-sky-400 uppercase">
                       Thực thể Liên kết Chéo tại {currentGate.gate}:
                     </div>
-                    <div className="text-slate-300">
+                    <div className="text-[var(--chu-m)]">
                       • Định danh biểu mẫu SSOT:{' '}
-                      <span className="font-mono text-emerald-400 break-all">{currentStep.ssotTemplate}</span>
+                      <span className="font-mono text-emerald-800 dark:text-emerald-400 break-all">{currentStep.ssotTemplate}</span>
                     </div>
-                    <div className="text-slate-300">
+                    <div className="text-[var(--chu-m)]">
                       • Công việc RACI đang mở:{' '}
-                      <b className="font-mono tabular-nums text-white">
+                      <b className="font-mono tabular-nums text-[var(--chu)]">
                         {raciTasks.filter(t => t.gateRef === currentGate.gate).length} task
                       </b>
                     </div>
-                    <div className="text-slate-300">
+                    <div className="text-[var(--chu-m)]">
                       • Thiết bị LAS/Trắc địa phục vụ Gate:{' '}
-                      <b className="font-mono tabular-nums text-white">
+                      <b className="font-mono tabular-nums text-[var(--chu)]">
                         {projectAssets.filter(a => a.gateRef === currentGate.gate).length} thiết bị
                       </b>
                     </div>

@@ -468,29 +468,29 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
     <div
       className={`rounded-2xl border overflow-hidden space-y-3 p-3.5 ${
         darkTheme
-          ? 'bg-slate-950/95 border-amber-500/40 text-slate-100'
-          : 'bg-[#0c1829] border-[#163d5c] text-slate-100 shadow-md'
+          ? 'bg-[var(--giay)] border-amber-500/40 text-[var(--chu)]'
+          : 'bg-[var(--panel)] border-[#163d5c] text-[var(--chu)] shadow-md'
       }`}
     >
       {/* Thanh tiêu đề & Điều khiển Sơ đồ Cây Phả hệ */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-[var(--line)]">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-mono text-xs font-extrabold shadow-xs">
             🌳 SƠ ĐỒ CÂY PHẢ HỆ BỘ LUẬT
           </span>
-          <span className="text-xs font-bold text-amber-300">
+          <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
             {pillar.icon} {pillar.shortName} ({nodeMap.size} văn bản)
           </span>
 
           {/* Bộ chuyển đổi Chế độ: Chỉ văn bản còn hiệu lực hiện tại vs Áp dụng theo Mốc chuyển tiếp Dự án */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-700 text-[10px] font-mono">
+          <div className="flex items-center bg-[var(--panel)] p-0.5 rounded-lg border border-[var(--line-d)] text-[10px] font-mono">
             <button
               type="button"
               onClick={() => handleSetFilterMode('CURRENT_VALID_ONLY')}
               className={`px-2 py-1 rounded font-bold transition ${
                 activeFilterMode === 'CURRENT_VALID_ONLY'
                   ? 'bg-emerald-500 text-slate-950 shadow-xs'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
               }`}
               title="Chỉ giữ lại các Nghị định, Thông tư, VBHN đang còn hiệu lực hiện tại"
             >
@@ -502,7 +502,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
               className={`px-2 py-1 rounded font-bold transition ${
                 activeFilterMode === 'PROJECT_TRANSITION'
                   ? 'bg-amber-400 text-slate-950 shadow-xs'
-                  : 'text-amber-300 hover:text-white'
+                  : 'text-amber-800 dark:text-amber-300 hover:text-[var(--chu)]'
               }`}
               title="Đối chiếu 3 mốc thời gian Dự án để bảo lưu VB chuyển tiếp cũ & cảnh báo quy định bắt buộc mới/hồi tố"
             >
@@ -513,19 +513,19 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
 
         {activeFilterMode === 'PROJECT_TRANSITION' && (
           <div className="w-full p-2 rounded-lg bg-amber-500/10 border border-amber-500/40 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-            <div className="flex flex-wrap items-center gap-2 text-amber-200">
-              <span className="font-bold text-amber-400">{regimeInfo.label}</span>
-              <span className="text-slate-300">
-                (CTĐT: <b className="text-white">{projectMilestones.investmentPolicyDate}</b> · TKBVTC:{' '}
-                <b className="text-white">{projectMilestones.projectDesignApprovalDate}</b> · Ký HĐ:{' '}
-                <b className="text-white">{projectMilestones.constructionContractDate}</b>)
+            <div className="flex flex-wrap items-center gap-2 text-amber-900 dark:text-amber-200">
+              <span className="font-bold text-amber-800 dark:text-amber-400">{regimeInfo.label}</span>
+              <span className="text-[var(--chu-m)]">
+                (CTĐT: <b className="text-[var(--chu)]">{projectMilestones.investmentPolicyDate}</b> · TKBVTC:{' '}
+                <b className="text-[var(--chu)]">{projectMilestones.projectDesignApprovalDate}</b> · Ký HĐ:{' '}
+                <b className="text-[var(--chu)]">{projectMilestones.constructionContractDate}</b>)
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-              <span className="px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-400/60 text-emerald-300 font-bold">
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-400/60 text-emerald-800 dark:text-emerald-300 font-bold">
                 🛡️ Bảo lưu chuyển tiếp HĐ/QĐ cũ
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-rose-950/90 border border-rose-400/70 text-rose-300 font-bold">
+              <span className="px-1.5 py-0.5 rounded bg-rose-500/10 dark:bg-rose-950/40 border border-rose-400/70 text-rose-800 dark:text-rose-300 font-bold">
                 ⚡ Bắt buộc áp dụng mới/hồi tố
               </span>
             </div>
@@ -534,14 +534,14 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
 
         {/* Bộ công cụ Hướng cây, Thu phóng & Đóng/Mở nhánh */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-700 text-[11px] font-mono">
+          <div className="flex items-center bg-[var(--panel)] p-0.5 rounded-lg border border-[var(--line-d)] text-[11px] font-mono">
             <button
               type="button"
               onClick={() => setLayoutOrientation('HORIZONTAL')}
               className={`px-2 py-1 rounded font-bold transition ${
                 layoutOrientation === 'HORIZONTAL'
                   ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
               }`}
               title="Sơ đồ Cây Phân nhánh Ngang (Trái sang Phải)"
             >
@@ -553,7 +553,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
               className={`px-2 py-1 rounded font-bold transition ${
                 layoutOrientation === 'VERTICAL'
                   ? 'bg-amber-500 text-slate-950'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-[var(--chu-m)] hover:text-[var(--chu)]'
               }`}
               title="Sơ đồ Cây Phân cấp Đứng (Trên xuống Dưới)"
             >
@@ -561,22 +561,22 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
             </button>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded-lg border border-slate-700 text-[11px] font-mono">
+          <div className="flex items-center gap-1 bg-[var(--panel)] px-1.5 py-0.5 rounded-lg border border-[var(--line-d)] text-[11px] font-mono">
             <button
               type="button"
               onClick={() => setZoomScale(s => Math.max(0.6, Math.round((s - 0.1) * 10) / 10))}
-              className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold"
+              className="px-1.5 py-0.5 rounded hover:bg-[var(--giay-d)] text-[var(--chu-m)] font-bold"
               title="Thu nhỏ sơ đồ cây"
             >
               −
             </button>
-            <span className="text-amber-300 font-bold min-w-[40px] text-center">
+            <span className="text-amber-800 dark:text-amber-300 font-bold min-w-[40px] text-center">
               {Math.round(zoomScale * 100)}%
             </span>
             <button
               type="button"
               onClick={() => setZoomScale(s => Math.min(1.5, Math.round((s + 0.1) * 10) / 10))}
-              className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-300 font-bold"
+              className="px-1.5 py-0.5 rounded hover:bg-[var(--giay-d)] text-[var(--chu-m)] font-bold"
               title="Phóng to sơ đồ cây"
             >
               +
@@ -584,7 +584,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
             <button
               type="button"
               onClick={() => setZoomScale(1)}
-              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 text-[10px]"
+              className="px-1.5 py-0.5 rounded bg-[var(--giay-d)] hover:bg-[var(--giay-d)] text-sky-800 dark:text-sky-300 text-[10px]"
               title="Đặt lại tỷ lệ 100%"
             >
               100%
@@ -594,7 +594,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
           <button
             type="button"
             onClick={() => setCollapsedNodeIds({})}
-            className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-mono text-[10px] font-bold transition"
+            className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-mono text-[10px] font-bold transition"
           >
             + Mở hết nhánh
           </button>
@@ -609,7 +609,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
               });
               setCollapsedNodeIds(nextCollapsed);
             }}
-            className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px] transition"
+            className="px-2 py-1 rounded-lg bg-[var(--panel)] hover:bg-[var(--giay-d)] border border-[var(--line-d)] text-[var(--chu-m)] font-mono text-[10px] transition"
           >
             − Thu gọn nhánh Thông tư (L4)
           </button>
@@ -639,14 +639,14 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
         </div>
 
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-slate-400">Soi nhánh theo mảng:</span>
+          <span className="text-[var(--chu-m)]">Soi nhánh theo mảng:</span>
           <button
             type="button"
             onClick={() => setHighlightDomain('ALL')}
             className={`px-1.5 py-0.5 rounded border transition ${
               highlightDomain === 'ALL'
                 ? 'bg-amber-400 text-slate-950 border-white font-bold'
-                : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                : 'bg-[var(--panel)] text-[var(--chu-m)] border-[var(--line-d)] hover:text-[var(--chu)]'
             }`}
           >
             Tất cả
@@ -659,7 +659,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
               className={`px-1.5 py-0.5 rounded border transition ${
                 highlightDomain === dom
                   ? 'bg-sky-400 text-slate-950 border-white font-bold'
-                  : 'bg-slate-900 text-sky-300 border-slate-700 hover:border-sky-400'
+                  : 'bg-[var(--panel)] text-sky-800 dark:text-sky-300 border-[var(--line-d)] hover:border-sky-400'
               }`}
             >
               {dom}
@@ -669,7 +669,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
       </div>
 
       {/* VÙNG VẼ SƠ ĐỒ CÂY PHẢ HỆ TƯƠNG TÁC (SVG CANVAS) */}
-      <div className="relative w-full overflow-auto rounded-xl bg-[#07101e] border border-slate-800 max-h-[540px] shadow-inner">
+      <div className="relative w-full overflow-auto rounded-xl bg-[var(--giay-soft)] border border-[var(--line)] max-h-[540px] shadow-inner">
         <div
           style={{
             width: `${Math.round(svgWidth * zoomScale)}px`,
@@ -769,7 +769,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
                       width={88}
                       height={15}
                       rx={4}
-                      fill="#091326"
+                      fill="var(--panel)"
                       stroke={targetStyle.border}
                       strokeWidth={0.7}
                     />
@@ -777,7 +777,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
                       x={midX}
                       y={midY + 2.5}
                       textAnchor="middle"
-                      fill="#cbd5e1"
+                      fill="var(--chu-m)"
                       fontSize="8.5"
                       fontFamily="monospace"
                     >
@@ -960,7 +960,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
                       >
                         <circle
                           r={10}
-                          fill={isCollapsed ? '#f59e0b' : '#0f172a'}
+                          fill={isCollapsed ? '#f59e0b' : 'var(--panel)'}
                           stroke="#facc15"
                           strokeWidth={1.5}
                         />
@@ -986,46 +986,46 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
       </div>
 
       {/* HỘP CHI TIẾT NÚT PHẢ HỆ ĐANG CHỌN (NODE INSPECTOR PANEL) */}
-      <div className="p-3.5 rounded-xl bg-slate-900/95 border border-amber-500/40 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+      <div className="p-3.5 rounded-xl bg-[var(--panel)] border border-amber-500/40 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
         <div className="space-y-1 flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-mono text-[10px] font-extrabold">
               🔍 NÚT PHẢ HỆ ĐANG CHỌN: {inspectedNode.badge}
             </span>
-            <span className="font-mono font-extrabold text-sm text-white">
+            <span className="font-mono font-extrabold text-sm text-[var(--chu)]">
               {inspectedNode.code}
             </span>
-            <span className="text-[11px] font-mono text-emerald-400">
+            <span className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400">
               ({inspectedNode.effectiveText})
             </span>
           </div>
-          <div className="text-xs font-bold text-amber-200">{inspectedNode.title}</div>
+          <div className="text-xs font-bold text-amber-900 dark:text-amber-200">{inspectedNode.title}</div>
           {activeFilterMode === 'PROJECT_TRANSITION' && inspectedNode.cutoffEval && (
             <div
               className={`p-2 rounded-lg border text-[11px] leading-snug ${
                 inspectedNode.cutoffEval.badgeType === 'MANDATORY_NEW_RETROACTIVE'
-                  ? 'bg-rose-950/70 border-rose-500/60 text-rose-200'
+                  ? 'bg-rose-500/10 dark:bg-rose-950/40 border-rose-500/60 text-rose-900 dark:text-rose-200'
                   : inspectedNode.cutoffEval.badgeType === 'TRANSITIONAL_OLD'
-                  ? 'bg-amber-950/60 border-amber-500/60 text-amber-100'
-                  : 'bg-emerald-950/50 border-emerald-500/50 text-emerald-200'
+                  ? 'bg-amber-500/10 dark:bg-amber-950/30 border-amber-500/60 text-amber-900 dark:text-amber-100'
+                  : 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/50 text-emerald-900 dark:text-emerald-200'
               }`}
             >
               <span className="font-mono font-extrabold mr-1.5">
                 {inspectedNode.cutoffEval.badgeLabel}:
               </span>
               <span>{inspectedNode.cutoffEval.reason}</span>{' '}
-              <span className="text-slate-400 font-mono text-[10px]">
+              <span className="text-[var(--chu-m)] font-mono text-[10px]">
                 ({inspectedNode.cutoffEval.basisLaw})
               </span>
             </div>
           )}
           {inspectedNode.replacesOrAmends && (
-            <div className="text-[11px] text-indigo-300 font-mono">
+            <div className="text-[11px] text-indigo-800 dark:text-indigo-300 font-mono">
               🔄 Quan hệ sửa đổi / kế thừa: <b>{inspectedNode.replacesOrAmends}</b>
             </div>
           )}
           {inspectedNode.keyArticlesOrScope && (
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-[var(--chu-m)] leading-relaxed">
               {inspectedNode.keyArticlesOrScope}
             </p>
           )}
@@ -1037,7 +1037,7 @@ export const LawGenealogyTreeDiagram: React.FC<LawGenealogyTreeDiagramProps> = (
               key={gCode}
               type="button"
               onClick={() => onSelectGate(gCode)}
-              className="px-2 py-1 rounded-lg bg-slate-950 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold transition"
+              className="px-2 py-1 rounded-lg bg-[var(--giay)] hover:bg-amber-500 hover:text-slate-950 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold transition"
               title={`Chuyển sang Bước 3: Cổng kiểm soát ${gCode}`}
             >
               🧭 Gate {gCode}
