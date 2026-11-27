@@ -859,15 +859,6 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         Bỏ lọc
                                       </button>
                                     )}
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsFunctionalDomainsExpanded(prev => !prev)}
-                                      aria-expanded={showFunctionalDomains}
-                                      title="Thu gọn hoặc mở rộng danh sách 13 chức năng chuyên môn"
-                                      className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[9.5px] font-bold tracking-normal normal-case text-[#e8c66a] hover:text-white border border-white/15 cursor-pointer transition whitespace-nowrap"
-                                    >
-                                      {showFunctionalDomains ? 'Thu gọn ▲' : 'Drill Down ▾'}
-                                    </button>
                                   </div>
                                 </div>
                                 {showFunctionalDomains && (
