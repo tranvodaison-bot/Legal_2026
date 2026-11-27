@@ -93,23 +93,67 @@ export default async function documentClausesHandler(
       )
       .all(String(doc.doc_key));
 
-    const totalChars = clauses.reduce((sum, cl) => sum + String(cl.content || '').length, 0);
+    let activeDoc = doc;
+    let activeClauses = clauses;
+    let totalChars = activeClauses.reduce((sum, cl) => sum + String(cl.content || '').length, 0);
+
+    // Nếu bản ghi gốc là PDF hỏng/rỗng, tự động fallback sang bản lành cùng số hiệu trong kho SQLite
+    const isCorruptOrEmpty =
+      String(activeDoc.source_type || '').toUpperCase().includes('CORRUPT') ||
+      activeClauses.length === 0 ||
+      totalChars < 120;
+    const matchedDocNum = String(activeDoc.doc_number || '').trim();
+    if (isCorruptOrEmpty && matchedDocNum && matchedDocNum !== '01') {
+      const healthySibling = db
+        .prepare(
+          `SELECT doc_key, ssot_file_name, original_name, doc_number, title,
+                  source_type, total_pages, article_count, clause_count
+           FROM fact_vbpl_documents
+           WHERE LOWER(doc_number) = LOWER(?)
+             AND doc_key <> ?
+             AND UPPER(COALESCE(source_type, '')) NOT LIKE '%CORRUPT%'
+           ORDER BY clause_count DESC, article_count DESC, total_pages DESC
+           LIMIT 1`
+        )
+        .get(matchedDocNum, String(activeDoc.doc_key));
+
+      if (healthySibling) {
+        const siblingClauses = db
+          .prepare(
+            `SELECT clause_key AS id, node_level AS level, article_number AS code,
+                    title, content_text AS content, clause_count AS clauseCount
+             FROM fact_vbpl_clauses
+             WHERE doc_key = ?
+             ORDER BY order_index ASC`
+          )
+          .all(String(healthySibling.doc_key));
+        const siblingChars = siblingClauses.reduce(
+          (sum, cl) => sum + String(cl.content || '').length,
+          0
+        );
+        if (siblingChars > totalChars) {
+          activeDoc = healthySibling;
+          activeClauses = siblingClauses;
+          totalChars = siblingChars;
+        }
+      }
+    }
 
     sendJson(res, 200, {
       ok: true,
-      found: clauses.length > 0,
+      found: activeClauses.length > 0,
       source: 'sqlite-fts5',
-      doc,
-      total: clauses.length,
-      clauses,
+      doc: activeDoc,
+      total: activeClauses.length,
+      clauses: activeClauses,
       meta: {
-        sourceType: String(doc.source_type || 'SQLITE'),
-        totalPages: Number(doc.total_pages || 1),
-        articleCount: Number(doc.article_count || 0),
-        clauseCount: Number(doc.clause_count || 0),
+        sourceType: String(activeDoc.source_type || 'SQLITE'),
+        totalPages: Number(activeDoc.total_pages || 1),
+        articleCount: Number(activeDoc.article_count || 0),
+        clauseCount: Number(activeDoc.clause_count || 0),
         totalChars,
-        originalName: String(doc.original_name || ''),
-        isVerbatimComplete: clauses.length > 0 && totalChars >= 200,
+        originalName: String(activeDoc.original_name || ''),
+        isVerbatimComplete: activeClauses.length > 0 && totalChars >= 200,
       },
     });
   } catch (err) {

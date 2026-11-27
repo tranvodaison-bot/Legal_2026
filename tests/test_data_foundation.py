@@ -481,6 +481,28 @@ Nghị định này có hiệu lực thi hành từ ngày 01 tháng 7 năm 2026.
         self.assertIn("01 tháng 7 năm 2026", body_clean)
         self.assertIn("Nơi nhận:", end_block)
 
+    def test_appendix_muc_chuong_without_articles_keeps_body_text(self):
+        from data_foundation.lake_pipeline import _parse_clauses_from_raw_text
+
+        long_para = (
+            "1. Dự toán xây dựng công trình được xác định theo công thức (2.1) bao gồm "
+            "chi phí xây dựng, chi phí thiết bị, chi phí quản lý dự án, chi phí tư vấn "
+            "và chi phí dự phòng theo quy định tại Nghị định số 206/2026/NĐ-CP và Thông tư số 36/2026/TT-BXD."
+        )
+        self.assertGreater(len(long_para), 180)
+        sample = f"""Phụ lục II
+PHƯƠNG PHÁP XÁC ĐỊNH DỰ TOÁN XÂY DỰNG
+MỤC 1
+PHƯƠNG PHÁP XÁC ĐỊNH DỰ TOÁN XÂY DỰNG CÔNG TRÌNH
+{long_para}
+2. Bảng tổng hợp chi phí thiết bị công trình và công nghệ.
+"""
+        nodes, _, _, _ = _parse_clauses_from_raw_text("DOC-APPX", "36-2026_PL2.pdf", sample)
+        muc_nodes = [n for n in nodes if n.node_level == "Mục"]
+        self.assertEqual(len(muc_nodes), 1)
+        self.assertLess(len(muc_nodes[0].title), 120)
+        self.assertIn("công thức (2.1)", muc_nodes[0].content_text)
+        self.assertIn("Bảng tổng hợp chi phí thiết bị", muc_nodes[0].content_text)
 
 
 if __name__ == "__main__":

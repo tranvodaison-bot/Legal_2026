@@ -210,12 +210,26 @@ def _parse_clauses_from_raw_text(
         if not current_article_num:
             if not in_body:
                 preamble_lines.append(line)
-            elif clauses_out and clauses_out[-1].node_level in ("Chương", "Mục") and len(line) <= 180:
-                # Gắn dòng tiêu đề rơi lẻ giữa Chương/Mục với Điều đầu tiên vào chính Chương/Mục đó
-                clauses_out[-1].title = f"{clauses_out[-1].title} {line}".strip()
-                if clauses_out[-1].node_level == "Chương":
-                    current_chapter = f"{clauses_out[-1].article_number}: {clauses_out[-1].title}".strip(": ")
-                    clauses_out[-1].chapter_title = current_chapter
+            elif clauses_out and clauses_out[-1].node_level in ("Chương", "Mục"):
+                prev_node = clauses_out[-1]
+                is_short_upper_heading = (
+                    not prev_node.content_text
+                    and len(prev_node.title) < 120
+                    and len(line) <= 90
+                    and line.isupper()
+                    and not re.match(r"^(?:\d+[\.\)]|STT\b|BẢNG\b|PHỤ\s+LỤC\b)", line, re.IGNORECASE)
+                )
+                if is_short_upper_heading:
+                    prev_node.title = f"{prev_node.title} {line}".strip()
+                    if prev_node.node_level == "Chương":
+                        current_chapter = f"{prev_node.article_number}: {prev_node.title}".strip(": ")
+                        prev_node.chapter_title = current_chapter
+                else:
+                    prev_node.content_text = (
+                        f"{prev_node.content_text}\n{line}" if prev_node.content_text else line
+                    )
+                    prev_node.clause_count += 1
+                    prev_node.word_count = len(prev_node.content_text.split())
         else:
             m_k = _RE_KHOAN.match(line)
             m_p = _RE_DIEM.match(line)

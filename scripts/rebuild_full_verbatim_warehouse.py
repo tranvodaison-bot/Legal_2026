@@ -16,6 +16,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import sqlite3
 import sys
 import time
@@ -153,6 +154,52 @@ def _load_warehouse_metadata(sqlite_path: pathlib.Path) -> List[Dict[str, Any]]:
         conn.close()
 
 
+_RE_DOC_PREFIX = re.compile(r"^(\[\d{4}\]_\d+-\d{4}_[A-Za-z0-9-]+_)")
+
+
+def _find_healthy_sibling_file(pdf_path: pathlib.Path) -> Optional[pathlib.Path]:
+    """Khi một file PDF bị hỏng luồng (0 trang/corrupt), tìm bản Word hoặc PDF lành cùng số hiệu trong thư mục."""
+    m = _RE_DOC_PREFIX.match(pdf_path.name)
+    if not m or not pdf_path.parent.is_dir():
+        return None
+    prefix = m.group(1).lower()
+    word_docx: List[pathlib.Path] = []
+    word_doc: List[pathlib.Path] = []
+    healthy_pdfs: List[pathlib.Path] = []
+
+    for cand in sorted(pdf_path.parent.iterdir()):
+        if not cand.is_file() or cand == pdf_path or cand.name.startswith("~$"):
+            continue
+        if not cand.name.lower().startswith(prefix):
+            continue
+        ext = cand.suffix.lower()
+        if ext == ".docx":
+            word_docx.append(cand)
+        elif ext == ".doc":
+            word_doc.append(cand)
+        elif ext == ".pdf":
+            try:
+                with fitz.open(str(cand)) as d:
+                    if len(d) > 0:
+                        healthy_pdfs.append(cand)
+            except Exception:
+                continue
+
+    if word_docx:
+        return word_docx[0]
+    if word_doc:
+        return word_doc[0]
+    if healthy_pdfs:
+        healthy_pdfs.sort(
+            key=lambda p: (
+                0 if "congbomau" in p.name.lower() or not re.search(r"-pl\d+\.pdf$", p.name, re.IGNORECASE) else 1,
+                p.name.lower(),
+            )
+        )
+        return healthy_pdfs[0]
+    return None
+
+
 def main() -> None:
     t0 = time.time()
     src_dir = pathlib.Path(DEFAULT_SOURCE_DIR)
@@ -194,6 +241,29 @@ def main() -> None:
             raw_text, source_type, ocr_applied, total_pages = _extract_verbatim_pdf(
                 phys, sha=sha, ocr_cache_dir=ocr_cache_dir, ocr_workers=12
             )
+            if source_type == "PDF_CORRUPT" or total_pages == 0 or not raw_text.strip():
+                sibling = _find_healthy_sibling_file(phys)
+                if sibling:
+                    sib_ext = sibling.suffix.lower()
+                    if sib_ext == ".docx":
+                        raw_text, total_pages = sidecar_mod._extract_docx_full_text(str(sibling))
+                        raw_text = _clean_page_noise(raw_text)
+                    elif sib_ext == ".doc":
+                        cached_docx = sidecar_mod.convert_doc_to_cached_docx(str(sibling), str(cache_dir))
+                        if cached_docx and os.path.isfile(cached_docx):
+                            raw_text, total_pages = sidecar_mod._extract_docx_full_text(cached_docx)
+                            raw_text = _clean_page_noise(raw_text)
+                    elif sib_ext == ".pdf":
+                        sib_sha = hashlib.sha256(sibling.read_bytes()).hexdigest()
+                        raw_text, _, ocr_applied, total_pages = _extract_verbatim_pdf(
+                            sibling, sha=sib_sha, ocr_cache_dir=ocr_cache_dir, ocr_workers=12
+                        )
+                    if raw_text.strip():
+                        source_type = "PDF_SIBLING_FALLBACK"
+                        print(
+                            f"  [{idx}/{len(meta_docs)}] SIBLING FALLBACK: {phys.name} <- {sibling.name} ({len(raw_text):,} chars)",
+                            flush=True,
+                        )
             if ocr_applied:
                 ocr_count += 1
                 print(
