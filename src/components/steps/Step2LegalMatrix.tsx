@@ -90,6 +90,8 @@ import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
 import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
 import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
 import { SecurePdfViewerModal } from "../SecurePdfViewerModal";
+import { SlideOverRefDrawer, SlideOverRefTarget } from "../SlideOverRefDrawer";
+import { getVbplBadgeClass, getVbplBadgeLabel } from "../modals/VbplLibraryModals";
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: "🛣️",
@@ -364,2338 +366,930 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
 
   const [isSecurePdfOpen, setIsSecurePdfOpen] = React.useState(false);
   const [securePdfTarget, setSecurePdfTarget] = React.useState<{ fileName: string; docTitle?: string; docNumber?: string }>({ fileName: '' });
+  const [slideRefTarget, setSlideRefTarget] = React.useState<SlideOverRefTarget | null>(null);
+  const [isPmoFilterOpen, setIsPmoFilterOpen] = React.useState(false);
+  const [mobilePane, setMobilePane] = React.useState<'c1' | 'c2' | 'c3'>('c3');
+
+  // Tô sáng từ khóa tìm kiếm trong đoạn văn bản
+  const renderHighlightedSpan = (rawText: string, query: string) => {
+    const q = query.trim();
+    if (!q || q.length < 2) return rawText;
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = rawText.split(regex);
+    if (parts.length <= 1) return rawText;
+    return parts.map((p, i) =>
+      p.toLowerCase() === q.toLowerCase() ? (
+        <mark key={i} className="vbpl-hit">
+          {p}
+        </mark>
+      ) : (
+        <React.Fragment key={i}>{p}</React.Fragment>
+      )
+    );
+  };
+
+  // Định dạng nội dung điều khoản chuẩn sách luật: Số khoản/điểm màu Đỏ son (--son)
+  const renderFormattedArticleBody = (content: string) => {
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    return (
+      <div className="space-y-2 vbpl-article-prose">
+        {lines.map((line, lIdx) => {
+          const clauseMatch = line.match(/^(\d+\.\s+)(.*)$/);
+          if (clauseMatch) {
+            return (
+              <p key={lIdx} className="leading-[1.78]" style={{ color: 'var(--chu)' }}>
+                <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
+                  {clauseMatch[1]}
+                </b>
+                {renderHighlightedSpan(clauseMatch[2], globalSearch)}
+              </p>
+            );
+          }
+          const pointMatch = line.match(/^([a-zđ]\)\s+|-\s+)(.*)$/i);
+          if (pointMatch) {
+            return (
+              <p key={lIdx} className="pl-5 leading-[1.78]" style={{ color: 'var(--chu)' }}>
+                <b className="font-bold mr-1" style={{ color: 'var(--son)' }}>
+                  {pointMatch[1]}
+                </b>
+                {renderHighlightedSpan(pointMatch[2], globalSearch)}
+              </p>
+            );
+          }
+          return (
+            <p key={lIdx} className="leading-[1.78]" style={{ color: 'var(--chu)' }}>
+              {renderHighlightedSpan(line, globalSearch)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Danh sách văn bản liên quan / phả hệ cho văn bản đang mở
+  const relatedLineageDocs = React.useMemo(() => {
+    if (!currentLegalDoc) return [];
+    return legalDocs
+      .filter(
+        d =>
+          d.id !== currentLegalDoc.id &&
+          (d.primaryDomain === currentLegalDoc.primaryDomain ||
+            d.subSectorCode === currentLegalDoc.subSectorCode)
+      )
+      .slice(0, 4);
+  }, [currentLegalDoc, legalDocs]);
+
+  const spacedDocTypeHeader = (docType: string) => {
+    const label = getVbplBadgeLabel(docType);
+    return label.split('').join(' ');
+  };
 
   return (
     <>
-          {activeTab === 'STEP2_VBPL' && (
-            <div className="h-full flex flex-col overflow-hidden">
-              {/* CHẾ ĐỘ 2A: GIAO DIỆN 3 CỘT CO GIÃN LINH HOẠT THEO NGÀNH / LĨNH VỰC */}
-              {vbplSubMode === 'READER_3PANE' ? (
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                  {/* ==========================================================
-                      CỘT 1: CÂY PHÂN CẤP NGÀNH (CẤP 1) -> LĨNH VỰC CON -> DỰ ÁN -> VĂN BẢN
-                     ========================================================== */}
-                  {isVbplCol1Collapsed ? (
-                    <div className="w-8 bg-[#0b1322] border-r border-slate-800 flex flex-col items-center py-3 justify-between shrink-0 select-none">
-                      <button
-                        onClick={() => setIsVbplCol1Collapsed(false)}
-                        title="Mở rộng Cột 1: Ngành · Lĩnh vực"
-                        className="h-7 w-6 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center shadow"
-                      >
-                        ▶
-                      </button>
-                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-widest text-amber-400 uppercase">
-                        CỘT 1 · NGÀNH & LĨNH VỰC (15)
-                      </div>
-                      <span className="text-xs">📚</span>
-                    </div>
-                  ) : (
-                    <div
-                      style={{ width: `${vbplCol1Pct}%` }}
-                      className="w-full lg:shrink-0 min-w-[175px] bg-[#0b1322] flex flex-col justify-between overflow-hidden select-none"
+      {activeTab === 'STEP2_VBPL' && (
+        <div className="h-full flex flex-col overflow-hidden">
+          {/* CHẾ ĐỘ 2A: GIAO DIỆN 3 CỘT CHUẨN MẪU thuvien-vbpl-26.web.app */}
+          {vbplSubMode === 'READER_3PANE' ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+                {/* ==========================================================
+                    CỘT 1 (.vbpl-c1): CÂY LĨNH VỰC NỀN XANH NAVY ĐẬM (#12293f)
+                   ========================================================== */}
+                {isVbplCol1Collapsed ? (
+                  <div className="hidden lg:flex w-8 vbpl-c1 border-r border-white/10 flex-col items-center py-3 justify-between shrink-0 select-none">
+                    <button
+                      type="button"
+                      onClick={() => setIsVbplCol1Collapsed(false)}
+                      title="Mở rộng Cột 1: Lĩnh vực"
+                      className="h-7 w-6 rounded bg-[#c8a33c] hover:bg-[#e8c66a] text-[#2c2003] font-bold text-xs flex items-center justify-center cursor-pointer"
                     >
-                      <div className="p-2.5 border-b border-slate-800/90 space-y-2 relative">
-                        <div className="flex items-center justify-between gap-1 px-0.5">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-sm">📚</span>
-                            <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 truncate">
-                              NGÀNH · LĨNH VỰC
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[10px] font-mono text-sky-300 bg-[#16243d] px-1.5 py-0.5 rounded">
-                              {Math.round(vbplCol1Pct)}%
-                            </span>
-                            <button
-                              onClick={() => setIsVbplCol1Collapsed(true)}
-                              title="Thu gọn Cột 1 (Ngành · Lĩnh vực)"
-                              className="h-5 w-5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] flex items-center justify-center border border-slate-700"
-                            >
-                              ◀
-                            </button>
-                          </div>
+                      ▶
+                    </button>
+                    <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-widest text-[#e8c66a] uppercase">
+                      LĨNH VỰC ({LEGAL_CATEGORY_TREE.length})
+                    </div>
+                    <span className="text-xs">📚</span>
+                  </div>
+                ) : (
+                  <div
+                    style={{ width: undefined }}
+                    className={`${
+                      mobilePane === 'c1' ? 'flex' : 'hidden'
+                    } lg:flex w-full lg:shrink-0 min-w-[190px] vbpl-c1 flex-col justify-between overflow-hidden select-none lg:[width:var(--c1-w)]`}
+                    ref={el => {
+                      if (el) el.style.setProperty('--c1-w', `${vbplCol1Pct}%`);
+                    }}
+                  >
+                    {/* Header Cột 1 + Ô lọc lĩnh vực */}
+                    <div className="p-2.5 border-b border-white/10 space-y-2 shrink-0">
+                      <div className="flex items-center justify-between gap-1 px-0.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm">📚</span>
+                          <span className="text-[11.5px] font-extrabold uppercase tracking-wider text-[#e8c66a] truncate">
+                            LĨNH VỰC
+                          </span>
                         </div>
-
-                        {/* Bộ 3 nút chuyển đổi trình tự Cột 1: [Ngành] | [Lĩnh vực] | [Dự án] */}
-                        <div className="grid grid-cols-3 gap-1 bg-[#070d18] p-0.5 rounded-md border border-slate-800 text-[10px]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCol1ViewMode('BY_15_INDUSTRIES');
-                              setFilterTreeByActiveProject(false);
-                              setIsCol1SubDomainMenuOpen(false);
-                              setVbplDomainFilter('ALL');
-                              setVbplProjectFilter('ALL');
-                              if (vbplIndustryGroupFilter === 'ALL') {
-                                setVbplIndustryGroupFilter('IND-XAYDUNG-DAUTHAU');
-                              }
-                              setPane2SubTab('DOCS');
-                            }}
-                            title="Hiển thị danh sách các thẻ theo Ngành"
-                            className={`py-1.5 px-1 rounded font-semibold transition truncate ${
-                              col1ViewMode === 'BY_15_INDUSTRIES'
-                                ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                            }`}
-                          >
-                            Ngành
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCol1ViewMode('BY_SUBDOMAINS');
-                              setFilterTreeByActiveProject(false);
-                              setIsCol1SubDomainMenuOpen(false);
-                              setVbplIndustryGroupFilter('ALL');
-                              setVbplSubSectorFilter('ALL');
-                              setVbplProjectFilter('ALL');
-                              setPane2SubTab('DOCS');
-                            }}
-                            title="Hiển thị các thẻ dành riêng cho từng nhóm Lĩnh vực: QLCL, QLHD, QLCP, HDXD..."
-                            className={`py-1.5 px-1 rounded font-semibold transition truncate flex items-center justify-center gap-0.5 ${
-                              col1ViewMode === 'BY_SUBDOMAINS'
-                                ? 'bg-sky-500 text-slate-950 font-bold shadow-xs'
-                                : 'text-sky-200/90 hover:text-white hover:bg-slate-800/60'
-                            }`}
-                          >
-                            <span className="truncate">Lĩnh vực</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCol1ViewMode('BY_PROJECT');
-                              setFilterTreeByActiveProject(true);
-                              setIsCol1SubDomainMenuOpen(false);
-                              setVbplIndustryGroupFilter('ALL');
-                              setVbplSubSectorFilter('ALL');
-                              setVbplDomainFilter('ALL');
-                              setVbplProjectFilter(activeProjectArchetype);
-                              setExpandedStandaloneProjects(prev => ({
-                                ...prev,
-                                [activeProjectArchetype]: true,
-                              }));
-                              setPane2SubTab('DOCS');
-                            }}
-                            title="Ứng với từng Dự án hiển thị các thẻ Văn bản pháp luật & Hồ sơ dự án liên quan"
-                            className={`py-1.5 px-1 rounded font-semibold transition truncate ${
-                              col1ViewMode === 'BY_PROJECT'
-                                ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                            }`}
-                          >
-                            Dự án
-                          </button>
-                        </div>
-
-                        {/* Ô TÌM KIẾM NHANH TRONG CỘT 1 */}
-                        <div className="flex items-center gap-1.5">
-                          <div className="relative flex-1 min-w-0">
-                            <input
-                              type="text"
-                              value={categorySearch}
-                              onChange={e => setCategorySearch(e.target.value)}
-                              placeholder={
-                                col1ViewMode === 'BY_SUBDOMAINS'
-                                  ? 'Tìm QLCL, QLHD, QLCP, số hiệu VB...'
-                                  : col1ViewMode === 'BY_PROJECT'
-                                  ? 'Tìm dự án KCN, HTKT, văn bản, hồ sơ...'
-                                  : 'Tìm ngành, số hiệu văn bản...'
-                              }
-                              className="w-full min-w-0 bg-[#131f35] border border-slate-700/80 rounded-md pl-2.5 pr-6 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-amber-500"
-                            />
-                            {categorySearch && (
-                              <button
-                                type="button"
-                                onClick={() => setCategorySearch('')}
-                                className="absolute right-2 top-1.5 text-[10px] text-slate-400 hover:text-white"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-
-                          {(vbplDomainFilter !== 'ALL' ||
-                            vbplProjectFilter !== 'ALL' ||
-                            vbplProjectPhaseFilter !== 'ALL' ||
-                            vbplGateFilter !== 'ALL') && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center bg-black/25 rounded p-0.5 border border-white/10 text-[10px]">
                             <button
                               type="button"
                               onClick={() => {
-                                setVbplDomainFilter('ALL');
-                                setVbplProjectPhaseFilter('ALL');
-                                setVbplGateFilter('ALL');
-                                if (col1ViewMode !== 'BY_PROJECT') {
-                                  setVbplProjectFilter('ALL');
-                                }
+                                setCol1ViewMode('BY_15_INDUSTRIES');
+                                setFilterTreeByActiveProject(false);
+                                setVbplProjectFilter('ALL');
                               }}
-                              title="Đặt lại bộ lọc nhóm, cấp độ Gate & trạng thái giai đoạn đang chọn"
-                              className="h-7 px-1.5 rounded-md bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-[10px] font-mono font-bold flex items-center justify-center shrink-0"
+                              className={`px-1.5 py-0.5 rounded font-semibold transition cursor-pointer ${
+                                col1ViewMode !== 'BY_PROJECT'
+                                  ? 'bg-[#c8a33c] text-[#2c2003] font-bold'
+                                  : 'text-slate-300 hover:text-white'
+                              }`}
+                              title="Cây phân cấp theo Ngành & Lĩnh vực chuẩn"
                             >
-                              Tất cả ✕
+                              Ngành
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCol1ViewMode('BY_PROJECT');
+                                setFilterTreeByActiveProject(true);
+                                setVbplIndustryGroupFilter('ALL');
+                                setVbplSubSectorFilter('ALL');
+                                setVbplProjectFilter(activeProjectArchetype);
+                                setExpandedStandaloneProjects(prev => ({
+                                  ...prev,
+                                  [activeProjectArchetype]: true,
+                                }));
+                              }}
+                              className={`px-1.5 py-0.5 rounded font-semibold transition cursor-pointer ${
+                                col1ViewMode === 'BY_PROJECT'
+                                  ? 'bg-[#c8a33c] text-[#2c2003] font-bold'
+                                  : 'text-slate-300 hover:text-white'
+                              }`}
+                              title="Lọc theo 6 Loại hình Dự án & Cổng Stage-Gate (G0–G15)"
+                            >
+                              Dự án
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsVbplCol1Collapsed(true)}
+                            title="Thu gọn Cột 1"
+                            className="hidden lg:flex h-5 w-5 rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[10px] items-center justify-center cursor-pointer"
+                          >
+                            ◀
+                          </button>
                         </div>
                       </div>
 
-                      {/* ========================================================
-                          NỘI DUNG DANH SÁCH THẺ CỘT 1 THEO 3 CHẾ ĐỘ:
-                          1. BY_15_INDUSTRIES ("Ngành"): Hiển thị các thẻ theo Ngành & danh mục văn bản ngành
-                          2. BY_SUBDOMAINS ("Lĩnh vực"): Tự động xuất hiện các thẻ dành cho nhóm Lĩnh vực (QLCL, QLHD, QLCP, HDXD...)
-                          3. BY_PROJECT ("Dự án"): Ứng với từng Dự án xuất hiện các thẻ Văn bản pháp luật & Hồ sơ dự án liên quan
-                         ======================================================== */}
-                      <div className="flex-1 overflow-y-auto px-1.5 py-2 space-y-1.5">
-                        {/* ======================================================
-                            CHẾ ĐỘ 1: CLICK "NGÀNH" — HIỂN THỊ CÁC THẺ NGÀNH & VĂN BẢN THUỘC NGÀNH
-                           ====================================================== */}
-                        {col1ViewMode === 'BY_15_INDUSTRIES' &&
-                          LEGAL_CATEGORY_TREE.map(group => {
-                            const isExpanded = !!expandedCatGroups[group.id];
-                            const q = categorySearch.trim().toLowerCase();
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={categorySearch}
+                          onChange={e => setCategorySearch(e.target.value)}
+                          placeholder="Lọc lĩnh vực…"
+                          className="w-full bg-white/8 border border-white/15 rounded-md pl-2.5 pr-6 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#c8a33c]"
+                        />
+                        {categorySearch && (
+                          <button
+                            type="button"
+                            onClick={() => setCategorySearch('')}
+                            className="absolute right-2 top-1.5 text-[10px] text-slate-300 hover:text-white cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                            // Tất cả văn bản thuộc Ngành này
-                            const allGroupDocs = legalDocs.filter(d => d.industryGroupId === group.id);
-                            const industryDocs = allGroupDocs.filter(d => {
-                              if (
-                                filterTreeByActiveProject &&
-                                !d.projectAxes.includes(activeProjectArchetype)
-                              ) {
-                                return false;
-                              }
-                              if (
-                                vbplDomainFilter !== 'ALL' &&
-                                d.primaryDomain !== vbplDomainFilter &&
-                                !d.secondaryDomains.includes(vbplDomainFilter as FunctionalDomainCode)
-                              ) {
-                                return false;
-                              }
+                    {/* Cây phân cấp 2 tầng có vạch nối nhánh chuẩn thuvien-vbpl-26 */}
+                    <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
+                      {col1ViewMode !== 'BY_PROJECT' ? (
+                        <>
+                          {LEGAL_CATEGORY_TREE.map(group => {
+                            const q = categorySearch.trim().toLowerCase();
+                            const groupDocs = legalDocs.filter(d => d.industryGroupId === group.id);
+                            if (groupDocs.length === 0) return null;
+
+                            const matchingChildren = group.children.filter(child => {
                               if (!q) return true;
                               return (
                                 group.name.toLowerCase().includes(q) ||
-                                d.docNumber.toLowerCase().includes(q) ||
-                                d.title.toLowerCase().includes(q) ||
-                                d.primaryDomain.toLowerCase().includes(q) ||
-                                d.secondaryDomains.some(sd => sd.toLowerCase().includes(q))
+                                child.name.toLowerCase().includes(q) ||
+                                child.code.toLowerCase().includes(q)
                               );
                             });
-
-                            if (industryDocs.length === 0) {
+                            if (q && matchingChildren.length === 0 && !group.name.toLowerCase().includes(q)) {
                               return null;
                             }
 
-                            const isGroupActive =
+                            const isExpanded =
+                              q.length > 0 ||
+                              expandedCatGroups[group.id] !== false &&
+                                (expandedCatGroups[group.id] || vbplIndustryGroupFilter === group.id || group.priorityOrder <= 3);
+                            const isGroupSelected =
                               vbplIndustryGroupFilter === group.id &&
-                              vbplDomainFilter === 'ALL' &&
-                              vbplProjectFilter === 'ALL';
-                            const isDocCatalogOpen =
-                              expandedIndustryDocCatalog[group.id] !== undefined
-                                ? expandedIndustryDocCatalog[group.id]
-                                : true;
+                              vbplSubSectorFilter === 'ALL' &&
+                              vbplDomainFilter === 'ALL';
 
                             return (
-                              <div
-                                key={group.id}
-                                className={`group/ind rounded-lg border overflow-hidden transition-all duration-200 ${
-                                  isGroupActive
-                                    ? 'border-amber-400 bg-[#121e36] shadow-md shadow-amber-500/10'
-                                    : 'border-slate-800/80 bg-[#0e172a]/70 hover:border-amber-500/60 hover:bg-[#13203a] hover:shadow-lg hover:shadow-amber-500/10 hover:-translate-y-0.5'
-                                }`}
-                              >
-                                {/* CẤP 1: NGÀNH */}
+                              <div key={group.id} className="space-y-0.5">
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const nextExpanded = !isExpanded;
                                     setExpandedCatGroups(prev => ({
                                       ...prev,
-                                      [group.id]: nextExpanded,
+                                      [group.id]: !isExpanded,
                                     }));
-                                    if (nextExpanded) {
-                                      setExpandedIndustryDocCatalog(prev => ({
-                                        ...prev,
-                                        [group.id]: true,
-                                      }));
-                                    }
                                     setVbplIndustryGroupFilter(group.id);
                                     setVbplSubSectorFilter('ALL');
+                                    setVbplDomainFilter('ALL');
                                     setVbplProjectFilter('ALL');
                                     setPane2SubTab('DOCS');
+                                    setMobilePane('c2');
                                   }}
-                                  title={group.industrySummary}
-                                  className={`w-full text-left px-2 py-1.5 flex items-center justify-between gap-1.5 text-xs transition-all duration-200 ${
-                                    isGroupActive
-                                      ? 'bg-gradient-to-r from-amber-500/25 to-slate-800/90 text-amber-300 font-bold border-b border-amber-500/30'
-                                      : 'text-slate-100 group-hover/ind:text-amber-200 hover:bg-slate-800/70 font-semibold'
+                                  className={`w-full text-left px-2 py-1.5 rounded-md flex items-center justify-between gap-1.5 text-[12.5px] font-bold transition cursor-pointer ${
+                                    isGroupSelected
+                                      ? 'bg-white/14 text-[#e8c66a]'
+                                      : 'text-slate-100 hover:bg-white/8'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="text-[10px] text-amber-400 w-2.5 shrink-0 transition-transform duration-200 group-hover/ind:scale-110">
+                                  <span className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] text-slate-400 w-2.5 shrink-0">
                                       {isExpanded ? '▾' : '▸'}
                                     </span>
-                                    <span className="text-xs shrink-0 transition-transform duration-200 group-hover/ind:scale-110">
-                                      {isExpanded ? '📖' : '📕'}
-                                    </span>
-                                    <span className="truncate text-[12px]">{group.name}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <span
-                                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums transition-all duration-200 ${
-                                        isExpanded
-                                          ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                                          : 'bg-[#1c2c47] text-sky-300 group-hover/ind:bg-amber-500/20 group-hover/ind:text-amber-300 group-hover/ind:ring-1 group-hover/ind:ring-amber-400/50'
-                                      }`}
-                                    >
-                                      {industryDocs.length} VB
-                                    </span>
-                                  </div>
+                                    <span className="text-xs shrink-0">📁</span>
+                                    <span className="truncate">{group.name}</span>
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 ${
+                                      vbplIndustryGroupFilter === group.id
+                                        ? 'bg-[#c8a33c] text-[#3a2c05] font-extrabold'
+                                        : 'bg-white/12 text-slate-200'
+                                    }`}
+                                  >
+                                    {groupDocs.length}
+                                  </span>
                                 </button>
 
-                                {/* NỘI DUNG KHI SỔ NGÀNH: CHỈ HIỂN THỊ DANH MỤC VĂN BẢN CỦA NGÀNH */}
                                 {isExpanded && (
-                                  <div className="p-1.5 space-y-1.5 bg-[#09101e] border-t border-slate-800/80">
-                                    <div className="rounded border border-slate-800 bg-[#0d1729]">
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setExpandedIndustryDocCatalog(prev => ({
-                                            ...prev,
-                                            [group.id]: !isDocCatalogOpen,
-                                          }))
-                                        }
-                                        className="w-full px-2 py-1 text-left flex items-center justify-between text-[10px] font-mono font-bold text-emerald-300 hover:bg-slate-800/50 transition"
-                                      >
-                                        <span className="flex items-center gap-1 truncate">
-                                          <span>{isDocCatalogOpen ? '▾' : '▸'}</span>
-                                          <span>📂 Danh mục văn bản ngành ({industryDocs.length})</span>
-                                        </span>
-                                        <span className="text-[9px] text-slate-400">Click chọn VB</span>
-                                      </button>
-
-                                      {isDocCatalogOpen && (
-                                        <div className="px-1.5 pb-1.5 pt-0.5 space-y-1 border-t border-slate-800/70">
-                                          {industryDocs.map(doc => {
-                                            const isDocSelected = currentLegalDoc?.id === doc.id;
-                                            return (
-                                              <button
-                                                key={doc.id}
-                                                type="button"
-                                                onClick={() =>
-                                                  handleSelectDocFromColumn1(doc, {
-                                                    industryId: group.id,
-                                                  })
-                                                }
-                                                title={`${doc.docType} ${doc.docNumber} — ${doc.title}`}
-                                                className={`w-full text-left px-2 py-1 rounded text-[11px] transition-all duration-150 flex items-start justify-between gap-1.5 border ${
-                                                  isDocSelected
-                                                    ? 'bg-emerald-500/20 border-emerald-400 text-white font-bold shadow-xs'
-                                                    : 'bg-[#121e36]/80 border-slate-800 text-slate-300 hover:bg-[#172847] hover:border-amber-500/50 hover:text-white hover:translate-x-0.5'
-                                                }`}
-                                              >
-                                                <div className="min-w-0 flex-1">
-                                                  <div className="flex items-center gap-1">
-                                                    <span className="px-1 py-0.1 rounded bg-slate-950 text-amber-300 font-mono text-[9px] font-bold shrink-0">
-                                                      {doc.docType}
-                                                    </span>
-                                                    <span className="font-mono font-semibold truncate text-[11px]">
-                                                      {doc.docNumber}
-                                                    </span>
-                                                  </div>
-                                                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                                    {doc.shortSummary || doc.title}
-                                                  </div>
-                                                </div>
-                                                <span className="px-1 py-0.2 rounded bg-sky-950 text-sky-300 border border-sky-700/40 font-mono text-[9px] shrink-0">
-                                                  {doc.primaryDomain}
-                                                </span>
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
+                                  <div className="vbpl-tree-children space-y-0.5 py-0.5">
+                                    {matchingChildren.map(child => {
+                                      const subCount = groupDocs.filter(
+                                        d => d.subSectorCode === child.code
+                                      ).length;
+                                      const isSubActive =
+                                        vbplIndustryGroupFilter === group.id &&
+                                        vbplSubSectorFilter === child.code;
+                                      return (
+                                        <button
+                                          key={child.code}
+                                          type="button"
+                                          onClick={() => {
+                                            setVbplIndustryGroupFilter(group.id);
+                                            setVbplSubSectorFilter(child.code);
+                                            setVbplDomainFilter('ALL');
+                                            setVbplProjectFilter('ALL');
+                                            setPane2SubTab('DOCS');
+                                            setMobilePane('c2');
+                                          }}
+                                          className={`vbpl-tree-item ${isSubActive ? 'active' : ''}`}
+                                        >
+                                          <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-[11px] opacity-80 shrink-0">📄</span>
+                                            <span className="truncate">{child.name}</span>
+                                          </span>
+                                          <span
+                                            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 ${
+                                              isSubActive
+                                                ? 'bg-[#3a2c05]/18 text-[#3a2c05] font-extrabold'
+                                                : 'bg-white/10 text-slate-300'
+                                            }`}
+                                          >
+                                            {subCount}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
                             );
                           })}
 
-                        {/* ======================================================
-                            CHẾ ĐỘ 2: CLICK "LĨNH VỰC" — TỰ ĐỘNG XUẤT HIỆN CÁC THẺ DÀNH CHO NHÓM ẤY (QLCL, QLHD, QLCP, HDXD...)
-                           ====================================================== */}
-                        {col1ViewMode === 'BY_SUBDOMAINS' && (
-                          <div className="space-y-2">
-                            {/* Thanh chọn nhanh nhóm Lĩnh vực */}
-                            <div className="p-2 rounded-lg bg-[#0d182c] border border-sky-500/30 space-y-1.5">
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="font-mono font-bold text-sky-300 uppercase">
-                                  🏷️ Nhóm Lĩnh vực (13 nhóm):
-                                </span>
-                                {vbplDomainFilter !== 'ALL' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setVbplDomainFilter('ALL')}
-                                    className="text-amber-300 hover:underline font-mono text-[9px]"
-                                  >
-                                    Hiện tất cả nhóm
-                                  </button>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1">
+                          {/* Nhóm Lĩnh vực Chức năng chuyên sâu (QLCP, QLCL, QLHD, DTH, TQT...) */}
+                          <div className="pt-2 mt-2 border-t border-white/10 space-y-0.5">
+                            <div className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-wider text-[#e8c66a] flex items-center justify-between">
+                              <span>🏷️ Chức năng chuyên môn</span>
+                              {vbplDomainFilter !== 'ALL' && (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setVbplDomainFilter('ALL');
-                                    setVbplIndustryGroupFilter('ALL');
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border transition ${
-                                    vbplDomainFilter === 'ALL'
-                                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                                      : 'bg-[#131f35] text-slate-300 border-slate-700 hover:border-slate-500'
-                                  }`}
+                                  onClick={() => setVbplDomainFilter('ALL')}
+                                  className="text-[10px] underline text-slate-300 cursor-pointer"
                                 >
-                                  Tất cả ({TAXONOMY_3D.functionalDomains.length})
+                                  Bỏ lọc
                                 </button>
-                                {TAXONOMY_3D.functionalDomains.map(dom => {
-                                  const isSelectedChip = vbplDomainFilter === dom.code;
-                                  const domDocCount = legalDocs.filter(
-                                    d =>
-                                      d.primaryDomain === dom.code ||
-                                      d.secondaryDomains.includes(dom.code)
-                                  ).length;
-                                  return (
-                                    <button
-                                      key={dom.code}
-                                      type="button"
-                                      onClick={() => {
-                                        const nextDom = isSelectedChip ? 'ALL' : dom.code;
-                                        setVbplDomainFilter(nextDom);
-                                        setVbplIndustryGroupFilter('ALL');
-                                        setVbplSubSectorFilter('ALL');
-                                        if (nextDom !== 'ALL') {
-                                          setExpandedStandaloneSubDomains(prev => ({
-                                            ...prev,
-                                            [nextDom]: true,
-                                          }));
-                                        }
-                                        setPane2SubTab('DOCS');
-                                      }}
-                                      title={`${dom.code} — ${dom.name} (${domDocCount} văn bản)`}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border transition flex items-center gap-0.5 ${
-                                        isSelectedChip
-                                          ? 'bg-sky-500 text-slate-950 border-sky-300 font-bold'
-                                          : 'bg-[#131f35] text-sky-200 border-slate-700/80 hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      <span>{dom.code}</span>
-                                      <span
-                                        className={`text-[8px] ${
-                                          isSelectedChip ? 'text-slate-900' : 'text-slate-400'
-                                        }`}
-                                      >
-                                        ({domDocCount})
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                              )}
                             </div>
-
-                            {/* Danh sách các Thẻ Lĩnh vực con (QLCL, QLHD, QLCP, HDXD...) */}
-                            {TAXONOMY_3D.functionalDomains
-                              .filter(dom => {
-                                if (vbplDomainFilter !== 'ALL' && dom.code !== vbplDomainFilter) {
-                                  return false;
-                                }
-                                const q = categorySearch.trim().toLowerCase();
-                                const domDocs = legalDocs.filter(
-                                  d =>
-                                    d.primaryDomain === dom.code ||
-                                    d.secondaryDomains.includes(dom.code)
-                                );
-                                if (domDocs.length === 0 && !q) return true;
-                                if (!q) return true;
-                                return (
-                                  dom.code.toLowerCase().includes(q) ||
-                                  dom.name.toLowerCase().includes(q) ||
-                                  domDocs.some(
-                                    d =>
-                                      d.docNumber.toLowerCase().includes(q) ||
-                                      d.title.toLowerCase().includes(q)
-                                  )
-                                );
-                              })
-                              .map(dom => {
-                                const q = categorySearch.trim().toLowerCase();
-                                const domDocs = legalDocs.filter(d => {
-                                  const matchDom =
-                                    d.primaryDomain === dom.code ||
-                                    d.secondaryDomains.includes(dom.code);
-                                  if (!matchDom) return false;
+                            <div className="vbpl-tree-children space-y-0.5">
+                              {TAXONOMY_3D.functionalDomains
+                                .filter(fd => {
+                                  const q = categorySearch.trim().toLowerCase();
                                   if (!q) return true;
                                   return (
-                                    dom.code.toLowerCase().includes(q) ||
-                                    dom.name.toLowerCase().includes(q) ||
-                                    d.docNumber.toLowerCase().includes(q) ||
-                                    d.title.toLowerCase().includes(q)
+                                    fd.code.toLowerCase().includes(q) ||
+                                    fd.name.toLowerCase().includes(q)
                                   );
-                                });
-
-                                const isCardExpanded =
-                                  vbplDomainFilter === dom.code ||
-                                  !!expandedStandaloneSubDomains[dom.code];
-                                const isCardActive = vbplDomainFilter === dom.code;
-
-                                // Các cổng Stage-Gate liên quan đến Lĩnh vực con này
-                                const relatedGates = gates.filter(g =>
-                                  g.functionalTags.includes(dom.code)
-                                );
-
-                                return (
-                                  <div
-                                    key={dom.code}
-                                    className={`rounded-lg border overflow-hidden transition ${
-                                      isCardActive
-                                        ? 'border-sky-400 bg-[#10203a] shadow-md'
-                                        : 'border-slate-800/90 bg-[#0e172a]/85'
-                                    }`}
-                                  >
-                                    {/* Header Thẻ Lĩnh vực con (QLCL, QLHD...) */}
+                                })
+                                .map(fd => {
+                                  const domCount = legalDocs.filter(
+                                    d =>
+                                      d.primaryDomain === fd.code ||
+                                      d.secondaryDomains.includes(fd.code)
+                                  ).length;
+                                  const isDomActive = vbplDomainFilter === fd.code;
+                                  return (
                                     <button
+                                      key={fd.code}
                                       type="button"
                                       onClick={() => {
-                                        const nextExpanded = !isCardExpanded;
-                                        setExpandedStandaloneSubDomains(prev => ({
-                                          ...prev,
-                                          [dom.code]: nextExpanded,
-                                        }));
-                                        setVbplDomainFilter(dom.code);
                                         setVbplIndustryGroupFilter('ALL');
                                         setVbplSubSectorFilter('ALL');
+                                        setVbplDomainFilter(isDomActive ? 'ALL' : fd.code);
                                         setPane2SubTab('DOCS');
+                                        setMobilePane('c2');
                                       }}
-                                      className={`w-full text-left px-2.5 py-2 flex items-center justify-between gap-1.5 transition ${
-                                        isCardActive
-                                          ? 'bg-gradient-to-r from-sky-600/30 to-sky-500/10 text-white font-bold border-b border-sky-500/30'
-                                          : 'text-slate-100 hover:bg-slate-800/70 font-semibold'
-                                      }`}
+                                      className={`vbpl-tree-item ${isDomActive ? 'active' : ''}`}
+                                      title={fd.name}
                                     >
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="text-[10px] text-sky-400 shrink-0">
-                                          {isCardExpanded ? '▾' : '▸'}
-                                        </span>
-                                        <span
-                                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-extrabold shrink-0 ${
-                                            isCardActive
-                                              ? 'bg-sky-400 text-slate-950'
-                                              : 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                                          }`}
-                                        >
-                                          {dom.code}
-                                        </span>
-                                        <span className="truncate text-xs">{dom.name}</span>
-                                      </div>
+                                      <span className="truncate">
+                                        <b>{fd.code}</b> · {fd.name}
+                                      </span>
                                       <span
                                         className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 ${
-                                          isCardActive
-                                            ? 'bg-amber-400 text-slate-950 font-bold'
-                                            : 'bg-slate-950 text-sky-300 border border-slate-800'
+                                          isDomActive
+                                            ? 'bg-[#3a2c05]/18 text-[#3a2c05] font-extrabold'
+                                            : 'bg-white/10 text-slate-300'
                                         }`}
                                       >
-                                        {domDocs.length} thẻ
-                                      </span>
-                                    </button>
-
-                                    {/* Nội dung các Thẻ thuộc nhóm Lĩnh vực con (QLCL, QLHD...) */}
-                                    {isCardExpanded && (
-                                      <div className="p-1.5 space-y-1.5 bg-[#08101f]">
-                                        {relatedGates.length > 0 && (
-                                          <div className="flex flex-wrap items-center gap-1 px-1">
-                                            <span className="text-[9px] font-mono text-slate-400">
-                                              Stage-Gate:
-                                            </span>
-                                            {relatedGates.map(g => (
-                                              <span
-                                                key={g.gate}
-                                                className="px-1 py-0.1 rounded bg-emerald-950/80 border border-emerald-700/40 text-emerald-300 font-mono text-[9px]"
-                                              >
-                                                {g.gate}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        )}
-
-                                        {domDocs.length === 0 ? (
-                                          <div className="p-2 text-[10px] text-slate-400 italic text-center">
-                                            Chưa có thẻ văn bản trong nhóm [{dom.code}].
-                                          </div>
-                                        ) : (
-                                          <div className="space-y-1">
-                                            {domDocs.map(doc => {
-                                              const isDocSelected = currentLegalDoc?.id === doc.id;
-                                              const isPrimary = doc.primaryDomain === dom.code;
-                                              return (
-                                                <button
-                                                  key={doc.id}
-                                                  type="button"
-                                                  onClick={() =>
-                                                    handleSelectDocFromColumn1(doc, {
-                                                      domainCode: dom.code,
-                                                    })
-                                                  }
-                                                  title={`${doc.docType} ${doc.docNumber} — ${doc.title}`}
-                                                  className={`w-full text-left p-2 rounded-md text-[11px] transition flex flex-col gap-1 border ${
-                                                    isDocSelected
-                                                      ? 'bg-sky-500/20 border-sky-400 text-white shadow-xs'
-                                                      : 'bg-[#101c34] border-slate-800/90 text-slate-200 hover:bg-slate-800 hover:border-slate-600'
-                                                  }`}
-                                                >
-                                                  <div className="flex items-center justify-between gap-1">
-                                                    <div className="flex items-center gap-1 min-w-0">
-                                                      <span className="px-1 py-0.1 rounded bg-slate-950 text-amber-300 font-mono text-[9px] font-bold shrink-0">
-                                                        {doc.docType}
-                                                      </span>
-                                                      <span className="font-mono font-bold truncate text-[11px]">
-                                                        {doc.docNumber}
-                                                      </span>
-                                                    </div>
-                                                    <span
-                                                      className={`px-1 py-0.1 rounded font-mono text-[8px] shrink-0 ${
-                                                        isPrimary
-                                                          ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 font-bold'
-                                                          : 'bg-slate-900 text-sky-300 border border-slate-700'
-                                                      }`}
-                                                    >
-                                                      {isPrimary ? `Trọng tâm ${dom.code}` : `Liên đới ${dom.code}`}
-                                                    </span>
-                                                  </div>
-                                                  <div className="text-[10px] text-slate-300 line-clamp-2 leading-snug">
-                                                    {doc.shortSummary || doc.title}
-                                                  </div>
-                                                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                                                    {doc.projectAxes.map(pCode => (
-                                                      <span
-                                                        key={pCode}
-                                                        className="px-1 py-0.1 rounded bg-slate-950/90 text-emerald-300 font-mono text-[8px] flex items-center gap-0.5"
-                                                      >
-                                                        <span>{PROJECT_ARCHETYPE_ICONS[pCode]}</span>
-                                                        <span>{pCode}</span>
-                                                      </span>
-                                                    ))}
-                                                  </div>
-                                                </button>
-                                              );
-                                            })}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        )}
-
-                        {/* ======================================================
-                            CHẾ ĐỘ 3: CLICK "DỰ ÁN" — ỨNG VỚI TỪNG DỰ ÁN XUẤT HIỆN CÁC THẺ VĂN BẢN PHÁP LUẬT & HỒ SƠ DỰ ÁN
-                           ====================================================== */}
-                        {col1ViewMode === 'BY_PROJECT' && (
-                          <div className="space-y-2">
-                            {/* Thanh chọn nhanh Dự án (KCN, HTKT, DAN_DUNG, CCN, FTZ, PPP_BT) */}
-                            <div className="p-2 rounded-lg bg-[#0a1929] border border-emerald-500/30 space-y-1.5">
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="font-mono font-bold text-emerald-300 uppercase">
-                                  🏗️ Chọn Dự án ({TAXONOMY_3D.projectTypes.length} loại hình):
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVbplProjectFilter('ALL');
-                                    const allOpen: Record<string, boolean> = {};
-                                    TAXONOMY_3D.projectTypes.forEach(p => {
-                                      allOpen[p.code] = true;
-                                    });
-                                    setExpandedStandaloneProjects(allOpen);
-                                  }}
-                                  className="text-amber-300 hover:underline font-mono text-[9px]"
-                                >
-                                  Mở cả 6 DA
-                                </button>
-                              </div>
-                              <div className="grid grid-cols-3 gap-1">
-                                {TAXONOMY_3D.projectTypes.map(pt => {
-                                  const isProjActive =
-                                    activeProjectArchetype === pt.code &&
-                                    vbplProjectFilter === pt.code;
-                                  const projCount = legalDocs.filter(
-                                    d =>
-                                      d.projectAxes.includes(pt.code) &&
-                                      matchesDocProjectPhase(d, vbplProjectPhaseFilter) &&
-                                      evaluateLegalDocumentCutoff(
-                                        d,
-                                        projectLegalDatesMap[pt.code],
-                                        legalCutoffMode
-                                      ).included
-                                  ).length;
-                                  return (
-                                    <button
-                                      key={pt.code}
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveProjectArchetype(pt.code);
-                                        setVbplProjectFilter(pt.code);
-                                        setVbplIndustryGroupFilter('ALL');
-                                        setVbplSubSectorFilter('ALL');
-                                        setExpandedStandaloneProjects(prev => ({
-                                          ...prev,
-                                          [pt.code]: true,
-                                        }));
-                                        setPane2SubTab('DOCS');
-                                      }}
-                                      title={`${pt.name} (${projCount} VBPL)`}
-                                      className={`group/pchip px-1.5 py-1 rounded text-[10px] font-mono font-semibold border transition-all duration-150 flex items-center justify-between gap-0.5 ${
-                                        isProjActive
-                                          ? 'bg-emerald-500 text-slate-950 border-emerald-300 font-bold shadow-xs'
-                                          : 'bg-[#112238] text-emerald-200 border-slate-700/80 hover:bg-[#17304d] hover:border-emerald-400/70 hover:text-white hover:-translate-y-0.5 hover:shadow-md hover:shadow-emerald-500/10'
-                                      }`}
-                                    >
-                                      <span className="flex items-center gap-1 min-w-0 truncate">
-                                        <span className="text-[11px] shrink-0 transition-transform duration-150 group-hover/pchip:scale-110">
-                                          {PROJECT_ARCHETYPE_ICONS[pt.code]}
-                                        </span>
-                                        <span className="truncate">{pt.code}</span>
-                                      </span>
-                                      <span
-                                        className={`text-[8px] shrink-0 ${
-                                          isProjActive ? 'text-slate-900' : 'text-slate-400'
-                                        }`}
-                                      >
-                                        ({projCount})
+                                        {domCount}
                                       </span>
                                     </button>
                                   );
                                 })}
-                              </div>
                             </div>
-
-                            {/* BỘ CẤU HÌNH MỐC THỜI GIAN PHÁP LÝ GỐC CỦA DỰ ÁN (LEGAL CUT-OFF ENGINE) */}
-                            <div className="p-2.5 rounded-lg bg-[#0c1b2e] border border-amber-500/45 space-y-2 shadow-sm">
-                              <div className="flex items-center justify-between gap-1 text-[10px]">
-                                <span className="font-mono font-extrabold text-amber-300 uppercase flex items-center gap-1 truncate">
-                                  <span>⚖️</span>
-                                  <span className="truncate">
-                                    Mốc Pháp lý Gốc [{activeProjectArchetype}]:
-                                  </span>
-                                </span>
-                                <span
-                                  className={`px-1.5 py-0.5 rounded font-mono text-[8px] font-bold shrink-0 ${
-                                    activeProjectCutoffRegime.regime === 'LEGACY_TRANSITIONAL'
-                                      ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
-                                      : activeProjectCutoffRegime.regime === 'NEW_2026'
-                                      ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50'
-                                      : 'bg-sky-500/25 text-sky-300 border border-sky-400/50'
-                                  }`}
-                                >
-                                  {activeProjectCutoffRegime.shortTag}
-                                </span>
-                              </div>
-
-                              {/* Chọn nhanh kịch bản mẫu */}
-                              <div className="grid grid-cols-2 gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    applyProjectMilestonePreset(
-                                      activeProjectArchetype,
-                                      'LEGACY_2023_2024'
-                                    )
-                                  }
-                                  className={`px-1.5 py-1 rounded text-[9px] font-mono font-bold border transition text-left leading-tight ${
-                                    activeProjectMilestones.presetId === 'LEGACY_2023_2024'
-                                      ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-xs'
-                                      : 'bg-slate-900 text-amber-200 border-slate-700 hover:border-amber-400/60'
-                                  }`}
-                                >
-                                  🛡️ Dự án cũ chuyển tiếp 2023–2024
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    applyProjectMilestonePreset(
-                                      activeProjectArchetype,
-                                      'NEW_2026'
-                                    )
-                                  }
-                                  className={`px-1.5 py-1 rounded text-[9px] font-mono font-bold border transition text-left leading-tight ${
-                                    activeProjectMilestones.presetId === 'NEW_2026'
-                                      ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-xs'
-                                      : 'bg-slate-900 text-emerald-200 border-slate-700 hover:border-emerald-400/60'
-                                  }`}
-                                >
-                                  🆕 Dự án khởi tạo mới 2026
-                                </button>
-                              </div>
-
-                              {/* 3 Mốc thời gian pháp lý gốc */}
-                              <div className="space-y-1 text-[9px]">
-                                <label className="flex items-center justify-between gap-1.5 bg-slate-950/70 px-1.5 py-1 rounded border border-slate-800">
-                                  <span className="text-slate-300 font-medium truncate">
-                                    1. Duyệt Chủ trương ĐT:
-                                  </span>
-                                  <input
-                                    type="date"
-                                    value={activeProjectMilestones.investmentPolicyDate}
-                                    onChange={e =>
-                                      updateProjectMilestoneField(
-                                        activeProjectArchetype,
-                                        'investmentPolicyDate',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[9px] font-mono text-amber-200 focus:outline-none focus:border-amber-400"
-                                  />
-                                </label>
-                                <label className="flex items-center justify-between gap-1.5 bg-slate-950/70 px-1.5 py-1 rounded border border-slate-800">
-                                  <span className="text-slate-300 font-medium truncate">
-                                    2. Duyệt Dự án / TKBVTC:
-                                  </span>
-                                  <input
-                                    type="date"
-                                    value={activeProjectMilestones.projectDesignApprovalDate}
-                                    onChange={e =>
-                                      updateProjectMilestoneField(
-                                        activeProjectArchetype,
-                                        'projectDesignApprovalDate',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[9px] font-mono text-amber-200 focus:outline-none focus:border-amber-400"
-                                  />
-                                </label>
-                                <label className="flex items-center justify-between gap-1.5 bg-slate-950/70 px-1.5 py-1 rounded border border-slate-800">
-                                  <span className="text-slate-300 font-medium truncate">
-                                    3. Ký Hợp đồng XD:
-                                  </span>
-                                  <input
-                                    type="date"
-                                    value={activeProjectMilestones.constructionContractDate}
-                                    onChange={e =>
-                                      updateProjectMilestoneField(
-                                        activeProjectArchetype,
-                                        'constructionContractDate',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-[9px] font-mono text-amber-200 focus:outline-none focus:border-amber-400"
-                                  />
-                                </label>
-                              </div>
-
-                              {/* Nút bật nhanh chế độ Cut-off Engine */}
-                              <div className="grid grid-cols-2 gap-1 bg-[#050b14] p-0.5 rounded border border-slate-800 text-[9px] font-mono">
-                                <button
-                                  type="button"
-                                  onClick={() => setLegalCutoffMode('CURRENT_VALID_ONLY')}
-                                  className={`py-1 px-1 rounded font-bold transition truncate ${
-                                    legalCutoffMode === 'CURRENT_VALID_ONLY'
-                                      ? 'bg-emerald-500 text-slate-950'
-                                      : 'text-slate-400 hover:text-white'
-                                  }`}
-                                >
-                                  🟢 Còn hiệu lực hiện tại
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setLegalCutoffMode('PROJECT_TRANSITION')}
-                                  className={`py-1 px-1 rounded font-bold transition truncate ${
-                                    legalCutoffMode === 'PROJECT_TRANSITION'
-                                      ? 'bg-amber-400 text-slate-950'
-                                      : 'text-amber-300 hover:text-white'
-                                  }`}
-                                >
-                                  ⚖️ Theo Mốc chuyển tiếp
-                                </button>
-                              </div>
-
-                              {legalCutoffMode === 'PROJECT_TRANSITION' && (
-                                <div className="text-[9px] text-amber-200/90 leading-snug bg-amber-500/10 px-1.5 py-1 rounded border border-amber-500/30">
-                                  {activeProjectCutoffRegime.summary}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Bộ lọc Trạng thái / Giai đoạn Dự án (Chuẩn bị - Thực hiện - Kết thúc) ngay dưới thanh chọn loại hình dự án */}
-                            <div className="p-2 rounded-lg bg-[#0b1829] border border-sky-500/30 space-y-1.5">
-                              <div className="flex items-center justify-between gap-1 text-[10px]">
-                                <span className="font-mono font-bold text-sky-300 uppercase flex items-center gap-1 truncate">
-                                  <span>⏱️</span>
-                                  <span className="truncate">Trạng thái Dự án:</span>
-                                </span>
+                          </div>
+                        </>
+                      ) : (
+                        /* Chế độ Cây Dự án -> Stage-Gate G0-G15 gọn chuẩn */
+                        <div className="space-y-1">
+                          {TAXONOMY_3D.projectTypes.map(pt => {
+                            const projDocs = legalDocs.filter(d => d.projectAxes.includes(pt.code));
+                            const isProjOpen = Boolean(expandedStandaloneProjects[pt.code]);
+                            const isProjSelected =
+                              vbplProjectFilter === pt.code && vbplGateFilter === 'ALL';
+                            return (
+                              <div key={pt.code} className="space-y-0.5">
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setVbplProjectPhaseFilter('ALL');
+                                    setExpandedStandaloneProjects(prev => ({
+                                      ...prev,
+                                      [pt.code]: !isProjOpen,
+                                    }));
+                                    setActiveProjectArchetype(pt.code);
+                                    setVbplProjectFilter(pt.code);
+                                    setVbplGateFilter('ALL');
                                     setPane2SubTab('DOCS');
+                                    setMobilePane('c2');
                                   }}
-                                  className={`px-1.5 py-0.5 rounded font-mono text-[9px] border transition shrink-0 ${
-                                    vbplProjectPhaseFilter === 'ALL'
-                                      ? 'bg-slate-200 text-slate-950 border-white font-bold'
-                                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-slate-500 hover:text-white'
+                                  className={`w-full text-left px-2 py-1.5 rounded-md flex items-center justify-between gap-1.5 text-[12.5px] font-bold transition cursor-pointer ${
+                                    isProjSelected
+                                      ? 'bg-[#c8a33c] text-[#3a2c05]'
+                                      : 'text-slate-100 hover:bg-white/8'
                                   }`}
                                 >
-                                  Tất cả GĐ
-                                </button>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-1">
-                                {PROJECT_PHASE_META.map(phase => {
-                                  const isSelectedPhase = vbplProjectPhaseFilter === phase.id;
-                                  const phaseDocCount = legalDocs.filter(d => {
-                                    const matchProj =
-                                      vbplProjectFilter === 'ALL'
-                                        ? true
-                                        : d.projectAxes.includes(
-                                            vbplProjectFilter as ProjectArchetypeCode
-                                          );
-                                    const cutoffOk = evaluateLegalDocumentCutoff(
-                                      d,
-                                      activeProjectMilestones,
-                                      legalCutoffMode
-                                    ).included;
-                                    return matchProj && cutoffOk && matchesDocProjectPhase(d, phase.id);
-                                  }).length;
-
-                                  return (
-                                    <button
-                                      key={phase.id}
-                                      type="button"
-                                      onClick={() => {
-                                        const nextPhase: ProjectPhaseFilter = isSelectedPhase
-                                          ? 'ALL'
-                                          : phase.id;
-                                        setVbplProjectPhaseFilter(nextPhase);
-                                        setPane2SubTab('DOCS');
-                                      }}
-                                      title={`Giai đoạn ${phase.label} (${phase.gateRangeLabel}): ${phase.desc} — ${phaseDocCount} VBPL`}
-                                      className={`group/phase px-1.5 py-1.5 rounded-md text-[10px] border transition-all duration-150 flex flex-col items-center justify-center gap-0.5 ${
-                                        isSelectedPhase
-                                          ? phase.activeClass
-                                          : 'bg-[#112036] text-slate-200 border-slate-700/80 hover:bg-[#172b47] hover:border-sky-400/60 hover:text-white hover:-translate-y-0.5 hover:shadow-md'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-1 font-semibold leading-none">
-                                        <span className="text-[11px] transition-transform duration-150 group-hover/phase:scale-110">
-                                          {phase.icon}
-                                        </span>
-                                        <span className="truncate">{phase.shortLabel}</span>
-                                      </div>
-                                      <div
-                                        className={`text-[8px] font-mono leading-none mt-0.5 ${
-                                          isSelectedPhase ? 'text-slate-900 font-bold' : 'text-slate-400'
-                                        }`}
-                                      >
-                                        {phase.gateRangeLabel} ({phaseDocCount})
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {vbplProjectPhaseFilter !== 'ALL' && (
-                                <div className="px-1.5 py-1 rounded bg-slate-950/80 border border-slate-800/90 flex items-center justify-between gap-1 text-[9px]">
-                                  <span className="text-slate-300 truncate">
-                                    {
-                                      PROJECT_PHASE_META.find(p => p.id === vbplProjectPhaseFilter)
-                                        ?.desc
-                                    }
+                                  <span className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] w-2.5 shrink-0">
+                                      {isProjOpen ? '▾' : '▸'}
+                                    </span>
+                                    <span>{PROJECT_ARCHETYPE_ICONS[pt.code]}</span>
+                                    <span className="truncate">[{pt.code}] {pt.name}</span>
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setVbplProjectPhaseFilter('ALL')}
-                                    className="text-rose-300 hover:text-rose-200 font-mono shrink-0"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/20 shrink-0">
+                                    {projDocs.length}
+                                  </span>
+                                </button>
 
-                            {/* Danh sách Thẻ theo từng Dự án (Đưa dự án đang chọn lên đầu tiên) */}
-                            {[...TAXONOMY_3D.projectTypes]
-                              .sort((a, b) =>
-                                a.code === activeProjectArchetype
-                                  ? -1
-                                  : b.code === activeProjectArchetype
-                                  ? 1
-                                  : 0
-                              )
-                              .map(pt => {
-                                const q = categorySearch.trim().toLowerCase();
-                                const projDocs = legalDocs.filter(d => {
-                                  if (!d.projectAxes.includes(pt.code)) return false;
-                                  if (legalCutoffMode === 'PROJECT_TRANSITION') {
-                                    const projMilestones =
-                                      projectLegalDatesMap[pt.code] || PRESET_LEGACY_2023_2024;
-                                    const cut = evaluateLegalDocumentCutoff(
-                                      d,
-                                      projMilestones,
-                                      'PROJECT_TRANSITION'
-                                    );
-                                    if (!cut.included) return false;
-                                  } else if (d.validityPeriod === 'AMENDED') {
-                                    return false;
-                                  }
-                                  if (!matchesDocProjectPhase(d, vbplProjectPhaseFilter)) {
-                                    return false;
-                                  }
-                                  if (
-                                    vbplDomainFilter !== 'ALL' &&
-                                    d.primaryDomain !== vbplDomainFilter &&
-                                    !d.secondaryDomains.includes(
-                                      vbplDomainFilter as FunctionalDomainCode
-                                    )
-                                  ) {
-                                    return false;
-                                  }
-                                  if (!q) return true;
-                                  return (
-                                    pt.code.toLowerCase().includes(q) ||
-                                    pt.name.toLowerCase().includes(q) ||
-                                    d.docNumber.toLowerCase().includes(q) ||
-                                    d.title.toLowerCase().includes(q) ||
-                                    d.primaryDomain.toLowerCase().includes(q)
-                                  );
-                                });
-
-                                // Hồ sơ dự án (HSDA) & Stage-Gate gắn với dự án này (phục vụ mở rộng hồ sơ dự án)
-                                const projDossiers = approvalWorkflows.filter(wf => {
-                                  if (!matchesDossierProjectPhase(wf.gateRef, vbplProjectPhaseFilter)) {
-                                    return false;
-                                  }
-                                  if (!q) return true;
-                                  return (
-                                    wf.docCode.toLowerCase().includes(q) ||
-                                    wf.title.toLowerCase().includes(q) ||
-                                    wf.ssotFileName.toLowerCase().includes(q)
-                                  );
-                                });
-
-                                const isProjExpanded =
-                                  pt.code === activeProjectArchetype
-                                    ? expandedStandaloneProjects[pt.code] ?? true
-                                    : !!expandedStandaloneProjects[pt.code];
-                                const isCurrentActiveProj = pt.code === activeProjectArchetype;
-                                const activeSubMode = projectCardSubTab[pt.code] || 'VBPL';
-
-                                return (
-                                  <div
-                                    key={pt.code}
-                                    className={`group/proj rounded-lg border overflow-hidden transition-all duration-200 ${
-                                      isCurrentActiveProj
-                                        ? 'border-emerald-400 bg-[#0d1f33] shadow-md shadow-emerald-500/10 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-500/15'
-                                        : 'border-slate-800/90 bg-[#0e172a]/85 hover:border-emerald-400/70 hover:bg-[#13233b] hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5'
-                                    }`}
-                                  >
-                                    {/* Header Thẻ Dự án */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const nextExp = !isProjExpanded;
-                                        setExpandedStandaloneProjects(prev => ({
-                                          ...prev,
-                                          [pt.code]: nextExp,
-                                        }));
-                                        setActiveProjectArchetype(pt.code);
-                                        setVbplProjectFilter(pt.code);
-                                        setVbplIndustryGroupFilter('ALL');
-                                        setPane2SubTab('DOCS');
-                                      }}
-                                      className={`w-full text-left px-2.5 py-2 flex items-center justify-between gap-1.5 transition-all duration-200 ${
-                                        isCurrentActiveProj
-                                          ? 'bg-gradient-to-r from-emerald-600/30 to-emerald-500/10 text-white font-bold border-b border-emerald-500/30'
-                                          : 'text-slate-100 group-hover/proj:text-emerald-200 hover:bg-slate-800/70 font-semibold'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="text-[10px] text-emerald-400 shrink-0 transition-transform duration-200 group-hover/proj:scale-110">
-                                          {isProjExpanded ? '▾' : '▸'}
-                                        </span>
-                                        <span
-                                          title={`Loại hình dự án: ${pt.name}`}
-                                          className={`h-5 w-5 rounded flex items-center justify-center text-xs shrink-0 transition-transform duration-200 group-hover/proj:scale-110 ${
-                                            isCurrentActiveProj
-                                              ? 'bg-emerald-500/30 border border-emerald-300/60'
-                                              : 'bg-slate-900 border border-slate-700 group-hover/proj:border-emerald-400/50'
-                                          }`}
+                                {isProjOpen && (
+                                  <div className="vbpl-tree-children space-y-0.5 py-0.5">
+                                    {gates.map(gItem => {
+                                      const gCount = projDocs.filter(d =>
+                                        d.linkedGates.includes(gItem.gate)
+                                      ).length;
+                                      const isGateActive =
+                                        vbplProjectFilter === pt.code &&
+                                        vbplGateFilter === gItem.gate;
+                                      return (
+                                        <button
+                                          key={gItem.gate}
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveProjectArchetype(pt.code);
+                                            setVbplProjectFilter(pt.code);
+                                            setVbplGateFilter(isGateActive ? 'ALL' : gItem.gate);
+                                            setPane2SubTab('DOCS');
+                                            setMobilePane('c2');
+                                          }}
+                                          className={`vbpl-tree-item ${isGateActive ? 'active' : ''}`}
                                         >
-                                          {PROJECT_ARCHETYPE_ICONS[pt.code]}
-                                        </span>
-                                        <span
-                                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-extrabold shrink-0 ${
-                                            isCurrentActiveProj
-                                              ? 'bg-emerald-400 text-slate-950'
-                                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                          }`}
-                                        >
-                                          {pt.code}
-                                        </span>
-                                        <span className="truncate text-xs">
-                                          {pt.name.split('(')[0].trim()}
-                                        </span>
-                                      </div>
-                                      <span
-                                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums shrink-0 transition-all duration-200 ${
-                                          isCurrentActiveProj
-                                            ? 'bg-amber-400 text-slate-950 font-bold'
-                                            : 'bg-slate-950 text-emerald-300 border border-slate-800 group-hover/proj:bg-emerald-500/20 group-hover/proj:border-emerald-400/50'
-                                        }`}
-                                      >
-                                        {projDocs.length} VBPL
-                                      </span>
-                                    </button>
-
-                                    {/* Nội dung Thẻ của Dự án: Chuyển đổi giữa [Thẻ VBPL] và [Thẻ Hồ sơ dự án (HSDA)] */}
-                                    {isProjExpanded && (
-                                      <div className="p-1.5 space-y-1.5 bg-[#07111e]">
-                                        <div className="px-1.5 py-1 rounded bg-[#0c1a2e] border border-slate-800 text-[10px] text-slate-300">
-                                          <div className="font-semibold text-emerald-300 truncate">
-                                            🏛️ {pt.authority}
-                                          </div>
-                                          <div className="text-[9px] text-slate-400 line-clamp-2 mt-0.5">
-                                            {pt.specialNote}
-                                          </div>
-                                        </div>
-
-                                        {/* Sub-tab bên trong Dự án: [⚖️ Thẻ VBPL liên quan] | [📁 Hồ sơ dự án (HSDA)] */}
-                                        <div className="grid grid-cols-2 gap-1 bg-[#050b14] p-0.5 rounded border border-slate-800 text-[10px]">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setProjectCardSubTab(prev => ({
-                                                ...prev,
-                                                [pt.code]: 'VBPL',
-                                              }))
-                                            }
-                                            className={`py-1 px-1.5 rounded font-semibold transition truncate ${
-                                              activeSubMode === 'VBPL'
-                                                ? 'bg-emerald-500 text-slate-950 font-bold'
-                                                : 'text-slate-400 hover:text-white'
-                                            }`}
-                                          >
-                                            ⚖️ VBPL ({projDocs.length})
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setProjectCardSubTab(prev => ({
-                                                ...prev,
-                                                [pt.code]: 'HSDA',
-                                              }))
-                                            }
-                                            className={`py-1 px-1.5 rounded font-semibold transition truncate ${
-                                              activeSubMode === 'HSDA'
-                                                ? 'bg-amber-500 text-slate-950 font-bold'
-                                                : 'text-slate-400 hover:text-white'
-                                            }`}
-                                          >
-                                            📁 Hồ sơ DA ({projDossiers.length})
-                                          </button>
-                                        </div>
-
-                                        {/* Thanh điều khiển chế độ hiển thị: [🧭 Theo Cấp độ Gate] vs [📋 Danh sách phẳng] */}
-                                        <div className="p-1.5 rounded-md bg-[#0a1628] border border-slate-800/90 space-y-1.5">
-                                          <div className="flex items-center justify-between gap-1">
-                                            <div className="grid grid-cols-2 gap-1 flex-1 bg-[#050b14] p-0.5 rounded border border-slate-800/80 text-[9px]">
-                                              <button
-                                                type="button"
-                                                onClick={() => setProjectDocGroupMode('BY_GATE')}
-                                                title="Nhóm các thẻ văn bản theo trình tự Cấp độ Gate (G0 → G15)"
-                                                className={`py-1 px-1.5 rounded font-mono font-semibold transition flex items-center justify-center gap-1 truncate ${
-                                                  projectDocGroupMode === 'BY_GATE'
-                                                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                                                    : 'text-slate-400 hover:text-white'
-                                                }`}
-                                              >
-                                                <span>🧭</span>
-                                                <span className="truncate">Theo Cấp độ Gate</span>
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setProjectDocGroupMode('FLAT');
-                                                  setVbplGateFilter('ALL');
-                                                }}
-                                                title="Hiển thị danh sách phẳng tất cả văn bản của dự án"
-                                                className={`py-1 px-1.5 rounded font-mono font-semibold transition flex items-center justify-center gap-1 truncate ${
-                                                  projectDocGroupMode === 'FLAT'
-                                                    ? 'bg-sky-500 text-slate-950 font-bold shadow-xs'
-                                                    : 'text-slate-400 hover:text-white'
-                                                }`}
-                                              >
-                                                <span>📋</span>
-                                                <span className="truncate">Danh sách phẳng</span>
-                                              </button>
-                                            </div>
-
-                                            {projectDocGroupMode === 'BY_GATE' && (
-                                              <div className="flex items-center gap-0.5 shrink-0">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    const nextMap = { ...expandedProjectGates };
-                                                    gates.forEach(g => {
-                                                      nextMap[`${pt.code}__${g.gate}`] = true;
-                                                    });
-                                                    setExpandedProjectGates(nextMap);
-                                                  }}
-                                                  title="Mở rộng tất cả Cấp độ Gate"
-                                                  className="px-1.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[8px] font-mono text-emerald-300 transition"
-                                                >
-                                                  Mở hết
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    const nextMap = { ...expandedProjectGates };
-                                                    gates.forEach(g => {
-                                                      nextMap[`${pt.code}__${g.gate}`] = false;
-                                                    });
-                                                    setExpandedProjectGates(nextMap);
-                                                  }}
-                                                  title="Thu gọn tất cả Cấp độ Gate"
-                                                  className="px-1.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-[8px] font-mono text-slate-400 hover:text-white transition"
-                                                >
-                                                  Thu gọn
-                                                </button>
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          {vbplGateFilter !== 'ALL' && (
-                                            <div className="px-1.5 py-1 rounded bg-amber-500/15 border border-amber-500/40 flex items-center justify-between gap-1 text-[9px]">
-                                              <span className="font-mono text-amber-300 truncate">
-                                                🎯 Đang lọc Cột 2 theo Gate: <b>{vbplGateFilter}</b>
-                                              </span>
-                                              <button
-                                                type="button"
-                                                onClick={() => setVbplGateFilter('ALL')}
-                                                className="text-rose-300 hover:text-white font-mono font-bold shrink-0"
-                                              >
-                                                Bỏ lọc ✕
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {activeSubMode === 'VBPL' ? (
-                                          projectDocGroupMode === 'BY_GATE' ? (
-                                            <div className="space-y-1.5">
-                                              {gates
-                                                .filter(gateItem => {
-                                                  if (
-                                                    vbplProjectPhaseFilter !== 'ALL' &&
-                                                    !matchesDossierProjectPhase(
-                                                      gateItem.gate,
-                                                      vbplProjectPhaseFilter
-                                                    )
-                                                  ) {
-                                                    return false;
-                                                  }
-                                                  return projDocs.some(d =>
-                                                    d.linkedGates.includes(gateItem.gate)
-                                                  );
-                                                })
-                                                .map((gateItem, gateIdx) => {
-                                                  const gateKey = `${pt.code}__${gateItem.gate}`;
-                                                  const isGateOpen =
-                                                    expandedProjectGates[gateKey] ?? true;
-                                                  const isGateFiltered =
-                                                    vbplGateFilter === gateItem.gate;
-
-                                                  // Các văn bản thuộc Gate này (ưu tiên văn bản có primaryDomain khớp functionalTags của Gate lên đầu)
-                                                  const gateDocs = [...projDocs]
-                                                    .filter(d =>
-                                                      d.linkedGates.includes(gateItem.gate)
-                                                    )
-                                                    .sort((a, b) => {
-                                                      const aPrimary =
-                                                        gateItem.functionalTags.includes(
-                                                          a.primaryDomain
-                                                        )
-                                                          ? 0
-                                                          : 1;
-                                                      const bPrimary =
-                                                        gateItem.functionalTags.includes(
-                                                          b.primaryDomain
-                                                        )
-                                                          ? 0
-                                                          : 1;
-                                                      return aPrimary - bPrimary;
-                                                    });
-
-                                                  const isPrepPhase = [
-                                                    'G0',
-                                                    'G1',
-                                                    'G2',
-                                                    'G3',
-                                                    'G4',
-                                                    'G5',
-                                                    'G6',
-                                                  ].includes(gateItem.gate);
-                                                  const isExecPhase = [
-                                                    'G7',
-                                                    'G8',
-                                                    'G9',
-                                                    'G10',
-                                                    'G11',
-                                                    'G12',
-                                                    'G13',
-                                                  ].includes(gateItem.gate);
-
-                                                  const gateBadgeStyle = isPrepPhase
-                                                    ? 'bg-sky-500 text-slate-950 border-sky-300'
-                                                    : isExecPhase
-                                                    ? 'bg-amber-500 text-slate-950 border-amber-300'
-                                                    : 'bg-emerald-500 text-slate-950 border-emerald-300';
-
-                                                  const gateBorderStyle = isGateFiltered
-                                                    ? 'border-amber-400 bg-[#12243d] shadow-md shadow-amber-500/10'
-                                                    : isPrepPhase
-                                                    ? 'border-sky-500/30 bg-[#0b192c]/90 hover:border-sky-400/60'
-                                                    : isExecPhase
-                                                    ? 'border-amber-500/30 bg-[#0e1b2e]/90 hover:border-amber-400/60'
-                                                    : 'border-emerald-500/30 bg-[#0b1f2e]/90 hover:border-emerald-400/60';
-
-                                                  const phaseShortTag = isPrepPhase
-                                                    ? 'GĐ Chuẩn bị'
-                                                    : isExecPhase
-                                                    ? 'GĐ Thực hiện'
-                                                    : 'GĐ Kết thúc';
-
-                                                  const projectGateNote =
-                                                    gateItem.projectNotes?.[pt.code];
-
-                                                  return (
-                                                    <div
-                                                      key={gateItem.gate}
-                                                      className={`rounded-lg border overflow-hidden transition-all duration-150 ${gateBorderStyle}`}
-                                                    >
-                                                      {/* Header Cấp độ Gate */}
-                                                      <div className="px-2 py-1.5 bg-[#081322]/90 border-b border-slate-800/80 flex flex-col gap-1">
-                                                        <div className="flex items-center justify-between gap-1">
-                                                          <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                              setExpandedProjectGates(prev => ({
-                                                                ...prev,
-                                                                [gateKey]: !isGateOpen,
-                                                              }))
-                                                            }
-                                                            className="flex items-center gap-1.5 min-w-0 flex-1 text-left group/ghdr"
-                                                            title={`Trình tự ${gateIdx + 1} — ${gateItem.gate}: ${gateItem.name}`}
-                                                          >
-                                                            <span className="text-[10px] text-amber-400 shrink-0">
-                                                              {isGateOpen ? '▾' : '▸'}
-                                                            </span>
-                                                            <span
-                                                              className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-extrabold border shrink-0 shadow-xs ${gateBadgeStyle}`}
-                                                            >
-                                                              {gateItem.gate}
-                                                            </span>
-                                                            <span className="text-[11px] font-bold text-white group-hover/ghdr:text-amber-300 truncate transition">
-                                                              {gateItem.name}
-                                                            </span>
-                                                          </button>
-
-                                                          <div className="flex items-center gap-1 shrink-0">
-                                                            <button
-                                                              type="button"
-                                                              onClick={() => {
-                                                                const nextGate = isGateFiltered
-                                                                  ? 'ALL'
-                                                                  : gateItem.gate;
-                                                                setVbplGateFilter(nextGate);
-                                                                setActiveProjectArchetype(pt.code);
-                                                                setVbplProjectFilter(pt.code);
-                                                                setPane2SubTab('DOCS');
-                                                              }}
-                                                              title={`Lọc danh sách văn bản Cột 2 theo cổng ${gateItem.gate}`}
-                                                              className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border transition ${
-                                                                isGateFiltered
-                                                                  ? 'bg-amber-400 text-slate-950 border-white'
-                                                                  : 'bg-slate-900 text-sky-300 border-slate-700 hover:border-amber-400 hover:text-amber-300'
-                                                              }`}
-                                                            >
-                                                              {gateDocs.length} VB
-                                                            </button>
-                                                            <button
-                                                              type="button"
-                                                              onClick={() => {
-                                                                setActiveProjectArchetype(pt.code);
-                                                                setSelectedGateCode(gateItem.gate);
-                                                                setActiveTab('STEP3_PLAN');
-                                                                showToast(
-                                                                  `Đã mở Kế hoạch Stage-Gate ${gateItem.gate} (${pt.code}) tại Bước 3`
-                                                                );
-                                                              }}
-                                                              title={`Mở chi tiết RACI & Chốt chặn Rủi ro của ${gateItem.gate} tại Bước 3`}
-                                                              className="px-1 py-0.5 rounded bg-slate-900 hover:bg-amber-500/20 border border-slate-700 hover:border-amber-500/50 text-[9px] font-mono text-amber-300 transition"
-                                                            >
-                                                              🧭
-                                                            </button>
-                                                          </div>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between gap-1 text-[9px] pl-3.5">
-                                                          <span className="font-mono text-slate-400 truncate">
-                                                            Bước {gateIdx + 1} · {phaseShortTag} ·{' '}
-                                                            <span className="text-sky-300">
-                                                              {gateItem.functionalTags.join(' / ')}
-                                                            </span>
-                                                          </span>
-                                                        </div>
-
-                                                        {projectGateNote && isGateOpen && (
-                                                          <div className="ml-3.5 px-1.5 py-1 rounded bg-slate-950/80 border-l-2 border-emerald-400 text-[9px] text-slate-300 leading-snug">
-                                                            <span className="font-mono font-bold text-emerald-300">
-                                                              [{pt.code}]:{' '}
-                                                            </span>
-                                                            {projectGateNote}
-                                                          </div>
-                                                        )}
-                                                      </div>
-
-                                                      {/* Danh sách thẻ VBPL thuộc Cấp độ Gate này */}
-                                                      {isGateOpen && (
-                                                        <div className="p-1.5 space-y-1 bg-[#07101d]">
-                                                          {gateDocs.map(doc => {
-                                                            const isDocSelected =
-                                                              currentLegalDoc?.id === doc.id;
-                                                            const isGateCoreDoc =
-                                                              gateItem.functionalTags.includes(
-                                                                doc.primaryDomain
-                                                              );
-                                                            return (
-                                                              <button
-                                                                key={`${gateItem.gate}-${doc.id}`}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                  handleSelectDocFromColumn1(doc, {
-                                                                    projectCode: pt.code,
-                                                                  })
-                                                                }
-                                                                title={`${doc.docType} ${doc.docNumber} — ${doc.title} (Áp dụng tại ${gateItem.gate})`}
-                                                                className={`w-full text-left p-2 rounded-md text-[11px] transition-all duration-150 flex flex-col gap-1 border ${
-                                                                  isDocSelected
-                                                                    ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-xs'
-                                                                    : 'bg-[#101e33] border-slate-800/90 text-slate-200 hover:bg-[#152843] hover:border-emerald-400/50 hover:translate-x-0.5'
-                                                                }`}
-                                                              >
-                                                                <div className="flex items-center justify-between gap-1">
-                                                                  <div className="flex items-center gap-1 min-w-0">
-                                                                    <span className="px-1 py-0.1 rounded bg-slate-950 text-amber-300 font-mono text-[9px] font-bold shrink-0">
-                                                                      {doc.docType}
-                                                                    </span>
-                                                                    <span className="font-mono font-bold truncate text-[11px]">
-                                                                      {doc.docNumber}
-                                                                    </span>
-                                                                  </div>
-                                                                  <div className="flex items-center gap-1 shrink-0">
-                                                                    {isGateCoreDoc && (
-                                                                      <span className="px-1 py-0.1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[8px] font-bold">
-                                                                        Trọng tâm {gateItem.gate}
-                                                                      </span>
-                                                                    )}
-                                                                    <span className="px-1 py-0.1 rounded bg-sky-950 text-sky-300 border border-sky-700/40 font-mono text-[9px]">
-                                                                      {doc.primaryDomain}
-                                                                    </span>
-                                                                  </div>
-                                                                </div>
-                                                                <div className="text-[10px] text-slate-300 line-clamp-2 leading-snug">
-                                                                  {doc.shortSummary || doc.title}
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-1 pt-0.5">
-                                                                  <div className="flex flex-wrap items-center gap-0.5">
-                                                                    <span className="text-[8px] font-mono text-slate-400 mr-0.5">
-                                                                      Liên thông:
-                                                                    </span>
-                                                                    {doc.linkedGates
-                                                                      .slice(0, 5)
-                                                                      .map(gCode => (
-                                                                        <span
-                                                                          key={gCode}
-                                                                          className={`px-1 rounded font-mono text-[8px] ${
-                                                                            gCode === gateItem.gate
-                                                                              ? 'bg-emerald-500 text-slate-950 font-bold'
-                                                                              : 'bg-slate-950 text-emerald-300'
-                                                                          }`}
-                                                                        >
-                                                                          {gCode}
-                                                                        </span>
-                                                                      ))}
-                                                                  </div>
-                                                                  <span className="text-[9px] font-mono text-amber-300 shrink-0">
-                                                                    Mở VB ›
-                                                                  </span>
-                                                                </div>
-                                                              </button>
-                                                            );
-                                                          })}
-                                                        </div>
-                                                      )}
-                                                    </div>
-                                                  );
-                                                })}
-                                            </div>
-                                          ) : (
-                                            <div className="space-y-1">
-                                              {projDocs.map(doc => {
-                                                const isDocSelected = currentLegalDoc?.id === doc.id;
-                                                return (
-                                                  <button
-                                                    key={doc.id}
-                                                    type="button"
-                                                    onClick={() =>
-                                                      handleSelectDocFromColumn1(doc, {
-                                                        projectCode: pt.code,
-                                                      })
-                                                    }
-                                                    title={`${doc.docType} ${doc.docNumber} — ${doc.title}`}
-                                                    className={`w-full text-left p-2 rounded-md text-[11px] transition-all duration-150 flex flex-col gap-1 border ${
-                                                      isDocSelected
-                                                        ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-xs'
-                                                        : 'bg-[#101e33] border-slate-800/90 text-slate-200 hover:bg-[#152843] hover:border-emerald-400/50 hover:translate-x-0.5'
-                                                    }`}
-                                                  >
-                                                    <div className="flex items-center justify-between gap-1">
-                                                      <div className="flex items-center gap-1 min-w-0">
-                                                        <span className="px-1 py-0.1 rounded bg-slate-950 text-amber-300 font-mono text-[9px] font-bold shrink-0">
-                                                          {doc.docType}
-                                                        </span>
-                                                        <span className="font-mono font-bold truncate text-[11px]">
-                                                          {doc.docNumber}
-                                                        </span>
-                                                      </div>
-                                                      <span className="px-1 py-0.1 rounded bg-sky-950 text-sky-300 border border-sky-700/40 font-mono text-[9px] shrink-0">
-                                                        {doc.primaryDomain}
-                                                      </span>
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-300 line-clamp-2 leading-snug">
-                                                      {doc.shortSummary || doc.title}
-                                                    </div>
-                                                    <div className="flex items-center justify-between gap-1 pt-0.5">
-                                                      <div className="flex flex-wrap gap-0.5">
-                                                        {doc.linkedGates.slice(0, 4).map(gCode => (
-                                                          <span
-                                                            key={gCode}
-                                                            className="px-1 rounded bg-slate-950 text-emerald-300 font-mono text-[8px]"
-                                                          >
-                                                            {gCode}
-                                                          </span>
-                                                        ))}
-                                                      </div>
-                                                      <span className="text-[9px] font-mono text-amber-300">
-                                                        Mở VB ›
-                                                      </span>
-                                                    </div>
-                                                  </button>
-                                                );
-                                              })}
-                                            </div>
-                                          )
-                                        ) : (
-                                          <div className="space-y-1.5">
-                                            <div className="px-1.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] text-amber-200">
-                                              📌 Các thẻ Hồ sơ pháp lý & tờ trình phê duyệt của dự án <b>[{pt.code}]</b>
-                                              {projectDocGroupMode === 'BY_GATE' ? ' (Nhóm theo Cấp độ Gate):' : ':'}
-                                            </div>
-                                            {projectDocGroupMode === 'BY_GATE'
-                                              ? gates
-                                                  .filter(gItem =>
-                                                    projDossiers.some(wf => wf.gateRef === gItem.gate)
-                                                  )
-                                                  .map(gItem => {
-                                                    const gateDossiers = projDossiers.filter(
-                                                      wf => wf.gateRef === gItem.gate
-                                                    );
-                                                    return (
-                                                      <div
-                                                        key={`hsda-${gItem.gate}`}
-                                                        className="rounded-lg border border-amber-500/30 bg-[#0b1628] overflow-hidden"
-                                                      >
-                                                        <div className="px-2 py-1 bg-[#081120] border-b border-slate-800 flex items-center justify-between text-[10px]">
-                                                          <span className="font-mono font-bold text-amber-300 truncate">
-                                                            {gItem.gate} · {gItem.name}
-                                                          </span>
-                                                          <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] shrink-0">
-                                                            {gateDossiers.length} HS
-                                                          </span>
-                                                        </div>
-                                                        <div className="p-1.5 space-y-1">
-                                                          {gateDossiers.map(wf => (
-                                                            <div
-                                                              key={wf.id}
-                                                              onClick={() => {
-                                                                setActiveProjectArchetype(pt.code);
-                                                                setSelectedGateCode(wf.gateRef);
-                                                                showToast(
-                                                                  `Đang đối chiếu Hồ sơ dự án [${pt.code}]: ${wf.docCode} (${wf.gateRef})`
-                                                                );
-                                                              }}
-                                                              className="p-2 rounded-md bg-[#101e33] border border-slate-800 hover:border-amber-500/50 cursor-pointer space-y-1 transition"
-                                                            >
-                                                              <div className="flex items-center justify-between gap-1">
-                                                                <span className="px-1.5 py-0.1 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] font-bold">
-                                                                  {wf.gateRef} · {wf.domain}
-                                                                </span>
-                                                                <span className="font-mono text-[9px] text-emerald-300">
-                                                                  {wf.docCode}
-                                                                </span>
-                                                              </div>
-                                                              <div className="text-[10px] font-semibold text-white leading-snug">
-                                                                {wf.title}
-                                                              </div>
-                                                              <div className="text-[9px] font-mono text-slate-400 truncate">
-                                                                📎 {wf.ssotFileName}
-                                                              </div>
-                                                            </div>
-                                                          ))}
-                                                        </div>
-                                                      </div>
-                                                    );
-                                                  })
-                                              : projDossiers.map(wf => (
-                                                  <div
-                                                    key={wf.id}
-                                                    onClick={() => {
-                                                      setActiveProjectArchetype(pt.code);
-                                                      setSelectedGateCode(wf.gateRef);
-                                                      showToast(
-                                                        `Đang đối chiếu Hồ sơ dự án [${pt.code}]: ${wf.docCode} (${wf.gateRef})`
-                                                      );
-                                                    }}
-                                                    className="p-2 rounded-md bg-[#101e33] border border-slate-800 hover:border-amber-500/50 cursor-pointer space-y-1 transition"
-                                                  >
-                                                    <div className="flex items-center justify-between gap-1">
-                                                      <span className="px-1.5 py-0.1 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] font-bold">
-                                                        {wf.gateRef} · {wf.domain}
-                                                      </span>
-                                                      <span className="font-mono text-[9px] text-emerald-300">
-                                                        {wf.docCode}
-                                                      </span>
-                                                    </div>
-                                                    <div className="text-[10px] font-semibold text-white leading-snug">
-                                                      {wf.title}
-                                                    </div>
-                                                    <div className="text-[9px] font-mono text-slate-400 truncate">
-                                                      📎 {wf.ssotFileName}
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setActiveProjectArchetype(pt.code);
-                                                setActiveTab('STEP1_INGEST');
-                                              }}
-                                              className="w-full py-1.5 px-2 rounded bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-semibold text-[10px] flex items-center justify-center gap-1 transition"
-                                            >
-                                              <span>＋</span>
-                                              <span>Nạp thêm Hồ sơ dự án [{pt.code}]</span>
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
+                                          <span className="truncate text-xs">
+                                            <b className="font-mono">{gItem.gate}</b> · {gItem.name}
+                                          </span>
+                                          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/10 shrink-0">
+                                            {gCount}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-2 border-t border-slate-800 bg-[#09101d]">
-                        <button
-                          onClick={() => {
-                            setCol1ViewMode('BY_15_INDUSTRIES');
-                            setVbplIndustryGroupFilter('ALL');
-                            setVbplSubSectorFilter('ALL');
-                            setVbplDomainFilter('ALL');
-                            setVbplProjectFilter('ALL');
-                            setVbplProjectPhaseFilter('ALL');
-                            setFilterDocType('ALL');
-                            setFilterValidityPeriod('ALL');
-                            setFilterTreeByActiveProject(false);
-                            setPane2SubTab('DOCS');
-                          }}
-                          className="w-full py-1.5 px-2.5 rounded-md bg-[#16243d] hover:bg-[#1f3254] border border-sky-500/30 text-sky-200 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition"
-                        >
-                          <span>🌐</span>
-                          <span>Tra cứu toàn thư viện</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Thanh kéo co giãn giữa Cột 1 (Ngành) và Cột 2 (Danh sách Văn bản) */}
-                  {renderVerticalSplitter({
-                    id: 'VBPL_SPLIT_1',
-                    onDoubleClickReset: () => {
-                      setIsVbplCol1Collapsed(false);
-                      setVbplCol1Pct(18);
-                      showToast('Đã đặt lại chiều rộng Cột 1: Ngành · Lĩnh vực (18%)');
-                    },
-                    label: `Cột 1: ${Math.round(vbplCol1Pct)}%`,
-                  })}
-
-                  {/* ==========================================================
-                      CỘT 2: 4 SUB-TABS + BỘ LỌC + THẺ VĂN BẢN NỘI TUYẾN (CO GIÃN)
-                     ========================================================== */}
-                  {isVbplCol2Collapsed ? (
-                    <div className="w-8 bg-[#e8e2d5] border-r border-slate-300 flex flex-col items-center py-3 justify-between shrink-0 select-none text-slate-800">
-                      <button
-                        onClick={() => setIsVbplCol2Collapsed(false)}
-                        title="Mở rộng Cột 2: Danh sách Văn bản & Mục lục nội tuyến"
-                        className="h-7 w-6 rounded bg-[#163d5c] hover:bg-[#1e4b7a] text-white font-bold text-xs flex items-center justify-center shadow"
-                      >
-                        ▶
-                      </button>
-                      <div className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-widest text-[#163d5c] uppercase">
-                        CỘT 2 · DANH SÁCH VĂN BẢN ({filteredLegalDocs.length})
-                      </div>
-                      <span className="text-xs">📂</span>
-                    </div>
-                  ) : (
-                    <div
-                      style={{ width: `${vbplCol2Pct}%` }}
-                      className="w-full lg:shrink-0 min-w-[230px] bg-[#f3efe6] text-slate-800 flex flex-col overflow-hidden"
-                    >
-                      {/* 4 Sub-tabs: Văn bản | Kết quả | Đánh dấu | Gần đây */}
-                      <div className="flex items-center bg-[#e8e2d5] border-b border-slate-300 text-[11px] font-semibold select-none shrink-0">
-                        <div className="flex-1 grid grid-cols-4">
-                          <button
-                            onClick={() => setPane2SubTab('DOCS')}
-                            className={`py-2 px-1 flex items-center justify-center gap-1 border-b-2 transition whitespace-nowrap ${
-                              pane2SubTab === 'DOCS'
-                                ? 'bg-[#faf7f0] text-[#b45309] border-[#b45309] font-bold'
-                                : 'text-slate-600 border-transparent hover:text-slate-900'
-                            }`}
-                          >
-                            <span>📂</span>
-                            <span>Văn bản</span>
-                          </button>
-                          <button
-                            onClick={() => setPane2SubTab('RESULTS')}
-                            className={`py-2 px-1 flex items-center justify-center gap-1 border-b-2 transition whitespace-nowrap ${
-                              pane2SubTab === 'RESULTS'
-                                ? 'bg-[#faf7f0] text-[#b45309] border-[#b45309] font-bold'
-                                : 'text-slate-600 border-transparent hover:text-slate-900'
-                            }`}
-                          >
-                            <span>🔍</span>
-                            <span>Kết quả</span>
-                          </button>
-                          <button
-                            onClick={() => setPane2SubTab('BOOKMARKS')}
-                            className={`py-2 px-1 flex items-center justify-center gap-1 border-b-2 transition whitespace-nowrap ${
-                              pane2SubTab === 'BOOKMARKS'
-                                ? 'bg-[#faf7f0] text-[#b45309] border-[#b45309] font-bold'
-                                : 'text-slate-600 border-transparent hover:text-slate-900'
-                            }`}
-                          >
-                            <span>🔖</span>
-                            <span>Đánh dấu</span>
-                          </button>
-                          <button
-                            onClick={() => setPane2SubTab('RECENT')}
-                            className={`py-2 px-1 flex items-center justify-center gap-1 border-b-2 transition whitespace-nowrap ${
-                              pane2SubTab === 'RECENT'
-                                ? 'bg-[#faf7f0] text-[#b45309] border-[#b45309] font-bold'
-                                : 'text-slate-600 border-transparent hover:text-slate-900'
-                            }`}
-                          >
-                            <span>🕒</span>
-                            <span>Gần đây</span>
-                          </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                        <button
-                          onClick={() => setIsVbplCol2Collapsed(true)}
-                          title="Thu gọn Cột 2 (Danh sách Văn bản)"
-                          className="mx-1.5 h-6 w-6 rounded bg-slate-300/80 hover:bg-slate-400/80 text-slate-800 text-[10px] flex items-center justify-center shrink-0"
-                        >
-                          ◀
-                        </button>
-                      </div>
+                      )}
+                    </div>
 
-                    {/* Khớp dấu + Loại + Hiệu lực */}
-                    <div className="p-2.5 bg-[#f7f4ec] border-b border-slate-300 space-y-2 text-xs shrink-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer select-none whitespace-nowrap">
+                    {/* Nút đáy Cột 1 chuẩn mẫu: Viền vàng nét đứt "🌐 Tra cứu toàn thư viện" */}
+                    <div className="p-2.5 border-t border-white/10 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCol1ViewMode('BY_15_INDUSTRIES');
+                          setVbplIndustryGroupFilter('ALL');
+                          setVbplSubSectorFilter('ALL');
+                          setVbplDomainFilter('ALL');
+                          setVbplProjectFilter('ALL');
+                          setVbplGateFilter('ALL');
+                          setFilterDocType('ALL');
+                          setFilterValidityPeriod('ALL');
+                          setTechStandardQuickFilter('ALL');
+                          setFilterTreeByActiveProject(false);
+                          setPane2SubTab('DOCS');
+                          setMobilePane('c2');
+                        }}
+                        className="w-full py-2 px-3 rounded-md border border-dashed border-[#c8a33c] hover:bg-[#c8a33c] text-[#e8c66a] hover:text-[#2c2003] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <span>🌐</span>
+                        <span>Tra cứu toàn thư viện ({legalDocs.length})</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Thanh kéo co giãn giữa Cột 1 và Cột 2 */}
+                {renderVerticalSplitter({
+                  id: 'VBPL_SPLIT_1',
+                  onDoubleClickReset: () => {
+                    setIsVbplCol1Collapsed(false);
+                    setVbplCol1Pct(19);
+                  },
+                  label: `Cột 1: ${Math.round(vbplCol1Pct)}%`,
+                })}
+
+                {/* ==========================================================
+                    CỘT 2 (.vbpl-c2): DANH SÁCH VĂN BẢN NỀN GIẤY KEM (#ebe4d6)
+                   ========================================================== */}
+                {isVbplCol2Collapsed ? (
+                  <div
+                    className="hidden lg:flex w-8 vbpl-c2 border-r flex-col items-center py-3 justify-between shrink-0 select-none"
+                    style={{ borderColor: 'var(--line)' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsVbplCol2Collapsed(false)}
+                      title="Mở rộng Cột 2: Danh sách Văn bản"
+                      className="h-7 w-6 rounded text-white font-bold text-xs flex items-center justify-center cursor-pointer"
+                      style={{ backgroundColor: 'var(--navy)' }}
+                    >
+                      ▶
+                    </button>
+                    <div
+                      className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-widest uppercase"
+                      style={{ color: 'var(--navy-ink)' }}
+                    >
+                      DANH MỤC ({filteredLegalDocs.length})
+                    </div>
+                    <span className="text-xs">📂</span>
+                  </div>
+                ) : (
+                  <div
+                    className={`${
+                      mobilePane === 'c2' ? 'flex' : 'hidden'
+                    } lg:flex w-full lg:shrink-0 min-w-[250px] vbpl-c2 flex-col overflow-hidden border-r lg:[width:var(--c2-w)]`}
+                    style={{ borderColor: 'var(--line)' }}
+                    ref={el => {
+                      if (el) el.style.setProperty('--c2-w', `${vbplCol2Pct}%`);
+                    }}
+                  >
+                    {/* Hàng 1: 4 Sub-tabs (📂 Văn bản | 🔍 Kết quả | 🔖 Đánh dấu | 🕘 Gần đây) gạch chân Đỏ son */}
+                    <div
+                      className="flex items-center border-b text-xs font-semibold select-none shrink-0"
+                      style={{ backgroundColor: 'var(--giay)', borderColor: 'var(--line)' }}
+                    >
+                      <div className="flex-1 flex items-center justify-around text-[11.5px] min-w-0">
+                        {[
+                          { id: 'DOCS' as const, icon: '📂', label: 'Văn bản', count: 0 },
+                          {
+                            id: 'RESULTS' as const,
+                            icon: '🔍',
+                            label: 'Kết quả',
+                            count: globalSearch.trim() ? filteredLegalDocs.length : 0,
+                          },
+                          {
+                            id: 'BOOKMARKS' as const,
+                            icon: '🔖',
+                            label: 'Đánh dấu',
+                            count: bookmarkedDocIds.length,
+                          },
+                          { id: 'RECENT' as const, icon: '🕘', label: 'Gần đây', count: 0 },
+                        ].map(t => {
+                          const isAct = pane2SubTab === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setPane2SubTab(t.id)}
+                              className="py-2 px-1 flex items-center justify-center gap-1 transition whitespace-nowrap cursor-pointer"
+                              style={{
+                                borderBottom: isAct ? '2.5px solid var(--son)' : '2.5px solid transparent',
+                                color: isAct ? 'var(--son)' : 'var(--chu-m)',
+                                fontWeight: isAct ? 700 : 600,
+                                backgroundColor: isAct ? 'var(--panel)' : 'transparent',
+                              }}
+                            >
+                              <span>{t.icon}</span>
+                              <span>{t.label}</span>
+                              {t.count > 0 && (
+                                <span
+                                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold text-white"
+                                  style={{ backgroundColor: 'var(--son)' }}
+                                >
+                                  {t.count}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsVbplCol2Collapsed(true)}
+                        title="Thu gọn Cột 2"
+                        className="hidden lg:flex mx-1 h-6 w-6 rounded items-center justify-center text-[10px] cursor-pointer"
+                        style={{ backgroundColor: 'var(--giay-d)', color: 'var(--chu)' }}
+                      >
+                        ◀
+                      </button>
+                    </div>
+
+                    {/* Hàng 2: Thanh lọc tinh gọn 1 dòng chuẩn thuvien-vbpl-26 + Nút ⚙ Lọc PMO */}
+                    <div
+                      className="px-2.5 py-2 border-b space-y-2 text-xs shrink-0"
+                      style={{ backgroundColor: 'var(--giay)', borderColor: 'var(--line)' }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <label className="flex items-center gap-1 text-[11.5px] cursor-pointer select-none whitespace-nowrap">
                           <input
                             type="checkbox"
                             checked={exactMatchAccent}
                             onChange={e => setExactMatchAccent(e.target.checked)}
-                            className="rounded border-slate-400 accent-[#163d5c]"
+                            className="rounded accent-[#1b3a5c]"
                           />
                           <span>Khớp dấu</span>
                         </label>
 
-                        <div className="flex items-center gap-1.5 flex-1 justify-end">
-                          <span className="text-xs text-slate-600 whitespace-nowrap">Loại:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px]" style={{ color: 'var(--chu-m)' }}>
+                            Loại:
+                          </span>
                           <select
                             value={filterDocType}
                             onChange={e => setFilterDocType(e.target.value)}
-                            className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-[#163d5c]"
+                            className="rounded border px-1.5 py-1 text-[11.5px] max-w-[105px] focus:outline-none"
+                            style={{
+                              backgroundColor: 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: 'var(--chu)',
+                            }}
                           >
                             <option value="ALL">Tất cả</option>
                             {TAXONOMY_3D.legalGroups.map(dt => (
                               <option key={dt.code} value={dt.code}>
-                                {dt.name} ({dt.code})
+                                {dt.name.split(' ')[0]} ({dt.code})
                               </option>
                             ))}
                           </select>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 whitespace-nowrap">Hiệu lực:</span>
-                        <select
-                          value={filterValidityPeriod}
-                          disabled={legalCutoffMode === 'PROJECT_TRANSITION'}
-                          onChange={e =>
-                            setFilterValidityPeriod(e.target.value as 'ALL' | 'EFFECTIVE' | 'UPCOMING')
-                          }
-                          className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-[#163d5c] disabled:opacity-60"
-                        >
-                          <option value="ALL">Mọi kỳ</option>
-                          <option value="EFFECTIVE">Đang có hiệu lực</option>
-                          <option value="UPCOMING">Sắp có hiệu lực (từ 01/07/2026)</option>
-                        </select>
-                      </div>
-
-                      {/* Bộ chuyển đổi Chế độ Điều khoản Chuyển tiếp (Legal Cut-off Engine) */}
-                      <div className="pt-1.5 border-t border-slate-200/90 space-y-1.5">
-                        <div className="grid grid-cols-2 gap-1 bg-[#e8e2d5] p-0.5 rounded-lg border border-slate-300 text-[10px] font-mono">
-                          <button
-                            type="button"
-                            onClick={() => setLegalCutoffMode('CURRENT_VALID_ONLY')}
-                            className={`py-1 px-1.5 rounded-md font-bold transition truncate ${
-                              legalCutoffMode === 'CURRENT_VALID_ONLY'
-                                ? 'bg-emerald-600 text-white shadow-2xs'
-                                : 'text-slate-700 hover:text-slate-950'
-                            }`}
-                            title="Chỉ giữ lại các văn bản đang còn hiệu lực hiện tại"
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px]" style={{ color: 'var(--chu-m)' }}>
+                            Hiệu lực:
+                          </span>
+                          <select
+                            value={filterValidityPeriod}
+                            disabled={legalCutoffMode === 'PROJECT_TRANSITION'}
+                            onChange={e =>
+                              setFilterValidityPeriod(
+                                e.target.value as 'ALL' | 'EFFECTIVE' | 'UPCOMING'
+                              )
+                            }
+                            className="rounded border px-1.5 py-1 text-[11.5px] max-w-[98px] focus:outline-none disabled:opacity-60"
+                            style={{
+                              backgroundColor: 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: 'var(--chu)',
+                            }}
                           >
-                            🟢 Còn hiệu lực hiện tại
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setLegalCutoffMode('PROJECT_TRANSITION')}
-                            className={`py-1 px-1.5 rounded-md font-bold transition truncate ${
-                              legalCutoffMode === 'PROJECT_TRANSITION'
-                                ? 'bg-amber-500 text-slate-950 shadow-2xs'
-                                : 'text-amber-900 hover:bg-amber-100'
-                            }`}
-                            title="Đối chiếu 3 mốc thời gian Dự án để bảo lưu VB chuyển tiếp cũ & cảnh báo quy định bắt buộc mới/hồi tố"
-                          >
-                            ⚖️ Theo Mốc chuyển tiếp DA
-                          </button>
+                            <option value="ALL">Mọi kỳ</option>
+                            <option value="EFFECTIVE">Còn hiệu lực</option>
+                            <option value="UPCOMING">Từ 01/07/2026</option>
+                          </select>
                         </div>
 
-                        {legalCutoffMode === 'PROJECT_TRANSITION' && (
-                          <div className="px-2 py-1 rounded bg-amber-50 border border-amber-400 text-[10px] font-mono text-amber-950 flex items-center justify-between gap-1">
-                            <span className="truncate font-bold">
-                              {activeProjectCutoffRegime.label}
-                            </span>
-                            <span className="shrink-0 text-[9px] text-amber-800">
-                              [{activeProjectArchetype}]
-                            </span>
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsPmoFilterOpen(prev => !prev)}
+                          title="Mở bộ lọc chuyên sâu PMO: Mốc chuyển tiếp DA, QCVN/TCVN, Thu gọn & NotebookLM"
+                          className="px-2 py-1 rounded border text-[11px] font-bold cursor-pointer transition"
+                          style={{
+                            backgroundColor:
+                              isPmoFilterOpen ||
+                              legalCutoffMode === 'PROJECT_TRANSITION' ||
+                              techStandardQuickFilter !== 'ALL'
+                                ? 'var(--gold-xl)'
+                                : 'var(--panel)',
+                            borderColor: 'var(--line-d)',
+                            color: 'var(--navy-ink)',
+                          }}
+                        >
+                          ⚙
+                        </button>
                       </div>
 
-                      {/* Bộ lọc tùy chọn Lọc nhanh Tài liệu Kỹ thuật (QCVN / TCVN) */}
-                      <div className="pt-1.5 border-t border-slate-200/90 space-y-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-mono font-bold text-[#163d5c] uppercase flex items-center gap-1">
-                            <span>📐</span>
-                            <span>Lọc nhanh Tài liệu Kỹ thuật:</span>
-                          </span>
-                          {techStandardQuickFilter !== 'ALL' && (
+                      {/* Ngăn bộ lọc chuyên sâu PMO (chỉ bung khi bấm ⚙ để giữ Cột 2 thoáng sạch như mẫu) */}
+                      {isPmoFilterOpen && (
+                        <div
+                          className="pt-2 border-t space-y-2 text-[11px]"
+                          style={{ borderColor: 'var(--line)' }}
+                        >
+                          <div className="grid grid-cols-2 gap-1 p-0.5 rounded border" style={{ backgroundColor: 'var(--giay-d)', borderColor: 'var(--line-d)' }}>
                             <button
                               type="button"
-                              onClick={() => {
-                                setTechStandardQuickFilter('ALL');
-                                showToast('Đã tắt bộ lọc nhanh QCVN / TCVN, hiển thị lại danh sách đầy đủ.');
+                              onClick={() => setLegalCutoffMode('CURRENT_VALID_ONLY')}
+                              className="py-1 px-1.5 rounded font-bold cursor-pointer truncate"
+                              style={{
+                                backgroundColor: legalCutoffMode === 'CURRENT_VALID_ONLY' ? 'var(--navy)' : 'transparent',
+                                color: legalCutoffMode === 'CURRENT_VALID_ONLY' ? '#fff' : 'var(--chu)',
                               }}
-                              className="text-[10px] font-mono text-rose-700 hover:underline font-bold"
                             >
-                              ✕ Bỏ lọc
+                              🟢 Hiệu lực hiện hành
                             </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-4 gap-1 bg-[#e8e2d5] p-0.5 rounded-lg border border-slate-300 text-[10px] font-mono">
-                          <button
-                            type="button"
-                            onClick={() => setTechStandardQuickFilter('ALL')}
-                            className={`py-1 px-1 rounded font-bold transition truncate ${
-                              techStandardQuickFilter === 'ALL'
-                                ? 'bg-[#163d5c] text-white shadow-2xs'
-                                : 'text-slate-700 hover:text-slate-950'
-                            }`}
-                            title="Hiển thị tất cả loại văn bản theo phạm vi đang chọn"
-                          >
-                            Tất cả
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next =
-                                techStandardQuickFilter === 'QCVN_TCVN' ? 'ALL' : 'QCVN_TCVN';
-                              setTechStandardQuickFilter(next);
-                              if (next !== 'ALL') {
-                                setFilterDocType('ALL');
-                                showToast(
-                                  `Đang lọc nhanh toàn bộ tài liệu kỹ thuật QCVN & TCVN (${qcvnTcvnCounts.both} văn bản)`
-                                );
-                              }
-                            }}
-                            className={`py-1 px-1 rounded font-bold transition truncate ${
-                              techStandardQuickFilter === 'QCVN_TCVN'
-                                ? 'bg-teal-700 text-white shadow-2xs'
-                                : 'text-teal-900 hover:bg-teal-100/70'
-                            }`}
-                            title="Chỉ hiển thị các văn bản thuộc nhóm QCVN hoặc TCVN trong danh sách"
-                          >
-                            QCVN+TCVN ({qcvnTcvnCounts.both})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next =
-                                techStandardQuickFilter === 'QCVN_ONLY' ? 'ALL' : 'QCVN_ONLY';
-                              setTechStandardQuickFilter(next);
-                              if (next !== 'ALL') {
-                                setFilterDocType('ALL');
-                                showToast(`Đang lọc nhóm Quy chuẩn Quốc gia QCVN (${qcvnTcvnCounts.qcvn} văn bản)`);
-                              }
-                            }}
-                            className={`py-1 px-1 rounded font-bold transition truncate ${
-                              techStandardQuickFilter === 'QCVN_ONLY'
-                                ? 'bg-amber-500 text-slate-950 shadow-2xs'
-                                : 'text-amber-900 hover:bg-amber-100/70'
-                            }`}
-                            title="Chỉ hiển thị nhóm Quy chuẩn kỹ thuật quốc gia (QCVN)"
-                          >
-                            QCVN ({qcvnTcvnCounts.qcvn})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next =
-                                techStandardQuickFilter === 'TCVN_ONLY' ? 'ALL' : 'TCVN_ONLY';
-                              setTechStandardQuickFilter(next);
-                              if (next !== 'ALL') {
-                                setFilterDocType('ALL');
-                                showToast(`Đang lọc nhóm Tiêu chuẩn Quốc gia TCVN (${qcvnTcvnCounts.tcvn} văn bản)`);
-                              }
-                            }}
-                            className={`py-1 px-1 rounded font-bold transition truncate ${
-                              techStandardQuickFilter === 'TCVN_ONLY'
-                                ? 'bg-cyan-700 text-white shadow-2xs'
-                                : 'text-cyan-900 hover:bg-cyan-100/70'
-                            }`}
-                            title="Chỉ hiển thị nhóm Tiêu chuẩn quốc gia (TCVN)"
-                          >
-                            TCVN ({qcvnTcvnCounts.tcvn})
-                          </button>
-                        </div>
-                      </div>
+                            <button
+                              type="button"
+                              onClick={() => setLegalCutoffMode('PROJECT_TRANSITION')}
+                              className="py-1 px-1.5 rounded font-bold cursor-pointer truncate"
+                              style={{
+                                backgroundColor: legalCutoffMode === 'PROJECT_TRANSITION' ? 'var(--gold)' : 'transparent',
+                                color: legalCutoffMode === 'PROJECT_TRANSITION' ? '#2c2003' : 'var(--chu)',
+                              }}
+                            >
+                              ⚖️ Chuyển tiếp [{activeProjectArchetype}]
+                            </button>
+                          </div>
 
-                      {/* Thanh công cụ bật/tắt 'Chế độ thu gọn danh sách' & Đối chiếu NotebookLM (LEGAL) ngay phía trên bảng thẻ văn bản */}
-                      {(() => {
-                        const activeNotebook = resolveLegalNotebookForContext({
-                          doc: currentLegalDoc,
-                          domainCode: vbplDomainFilter,
-                          gateCode: vbplGateFilter,
-                          projectCode: activeProjectArchetype,
-                        });
-                        const notebookUrl = getResolvedNotebookUrl(activeNotebook.id);
-                        const activeNodeObj =
-                          currentLegalDoc?.nodes.find(n => n.id === activeNodeId) ||
-                          currentLegalDoc?.nodes[0] ||
-                          null;
-
-                        return (
-                          <div className="pt-1.5 border-t border-slate-200/90 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] font-mono text-slate-600">
-                                Hiển thị: <b className="text-[#163d5c]">{filteredLegalDocs.length}</b> văn bản
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setIsCol2CompactMode(prev => !prev)}
-                                title="Khi bật chỉ hiển thị số hiệu văn bản và trích yếu ngắn gọn, ẩn loại hình dự án, liên kết Gate và mục lục nội tuyến"
-                                className={`px-2.5 py-1 rounded-md border text-[11px] font-semibold flex items-center gap-1.5 transition ${
-                                  isCol2CompactMode
-                                    ? 'bg-[#163d5c] text-white border-[#163d5c] shadow-2xs'
-                                    : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-[#163d5c] border-slate-300'
-                                }`}
-                              >
-                                <span>{isCol2CompactMode ? '≣' : '▤'}</span>
-                                <span>Chế độ thu gọn danh sách</span>
-                              </button>
-                            </div>
-
-                            {/* Cụm nút NotebookLM Deep-RAG (14 sổ LEGAL) */}
-                            <div className="p-1.5 rounded-lg bg-indigo-50/90 border border-indigo-200 flex flex-wrap items-center justify-between gap-1.5">
-                              <div className="min-w-0 flex items-center gap-1.5">
-                                <span className="px-1.5 py-0.5 rounded bg-indigo-700 text-white font-mono font-bold text-[9px] shrink-0">
-                                  {activeNotebook.code}
-                                </span>
-                                <span
-                                  className="text-[10px] font-semibold text-indigo-950 truncate"
-                                  title={activeNotebook.title}
+                          <div className="flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1">
+                              {(['ALL', 'QCVN_ONLY', 'TCVN_ONLY'] as const).map(mode => (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  onClick={() => setTechStandardQuickFilter(mode)}
+                                  className="px-2 py-0.5 rounded border font-mono text-[10px] font-bold cursor-pointer"
+                                  style={{
+                                    backgroundColor: techStandardQuickFilter === mode ? 'var(--navy)' : 'var(--panel)',
+                                    borderColor: 'var(--line-d)',
+                                    color: techStandardQuickFilter === mode ? '#fff' : 'var(--chu)',
+                                  }}
                                 >
-                                  {activeNotebook.shortTitle}
+                                  {mode === 'ALL' ? 'Mọi loại' : mode === 'QCVN_ONLY' ? `QCVN (${qcvnTcvnCounts.qcvn})` : `TCVN (${qcvnTcvnCounts.tcvn})`}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsCol2CompactMode(prev => !prev)}
+                              className="px-2 py-0.5 rounded border text-[10px] font-semibold cursor-pointer"
+                              style={{ backgroundColor: 'var(--panel)', borderColor: 'var(--line-d)' }}
+                            >
+                              {isCol2CompactMode ? '≣ Đang thu gọn' : '▤ Đầy đủ'}
+                            </button>
+                          </div>
+
+                          {(() => {
+                            const activeNotebook = resolveLegalNotebookForContext({
+                              doc: currentLegalDoc,
+                              domainCode: vbplDomainFilter,
+                              gateCode: vbplGateFilter,
+                              projectCode: activeProjectArchetype,
+                            });
+                            const notebookUrl = getResolvedNotebookUrl(activeNotebook.id);
+                            return (
+                              <div className="flex items-center justify-between gap-1.5 pt-1">
+                                <span className="truncate font-mono text-[10px]" style={{ color: 'var(--chu-m)' }}>
+                                  📓 {activeNotebook.code}: {activeNotebook.shortTitle}
                                 </span>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
                                 <a
                                   href={notebookUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  onClick={() =>
-                                    showToast(`Đang mở Sổ NotebookLM: ${activeNotebook.title}`)
-                                  }
-                                  title={`Mở trực tiếp ${activeNotebook.title} trên Google NotebookLM (${notebookUrl})`}
-                                  className="px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-[10px] transition flex items-center gap-1 shadow-2xs whitespace-nowrap"
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold text-white shrink-0"
+                                  style={{ backgroundColor: 'var(--tim)' }}
                                 >
-                                  <span>📓</span>
-                                  <span>Đối chiếu NotebookLM (LEGAL)</span>
+                                  Mở NotebookLM ↗
                                 </a>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const promptText = buildNotebookLmCitationPrompt({
-                                      notebook: activeNotebook,
-                                      doc: currentLegalDoc,
-                                      node: activeNodeObj,
-                                      projectCode: activeProjectArchetype,
-                                      projectName: currentArchetypeMeta.name,
-                                      authority: currentArchetypeMeta.authority,
-                                    });
-                                    navigator.clipboard.writeText(promptText);
-                                    showToast(
-                                      `📋 Đã copy Prompt truy vấn trích dẫn toàn văn cho ${
-                                        currentLegalDoc?.docNumber || activeNotebook.code
-                                      }! Dán ngay vào NotebookLM.`
-                                    );
-                                  }}
-                                  title="Copy nhanh Prompt truy vấn trích dẫn toàn văn (Số hiệu VB + Điều khoản + Loại hình dự án) để dán vào NotebookLM"
-                                  className="px-2 py-1 rounded bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-semibold text-[10px] transition whitespace-nowrap"
-                                >
-                                  📋 Copy Prompt Toàn văn
-                                </button>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Danh sách thẻ văn bản + Mục lục nội tuyến */}
-                    <div className={`flex-1 overflow-y-auto p-2 ${isCol2CompactMode ? 'space-y-1.5' : 'space-y-2'}`}>
-                      {filteredLegalDocs.length === 0 ? (
-                        <div className="p-5 text-center text-xs text-slate-600 bg-white rounded-lg border border-slate-300 space-y-2.5">
-                          <p className="font-semibold text-slate-800">
-                            Chưa có văn bản trong chuyên mục đang lọc.
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            Bạn có thể chuyển về chuyên ngành <b>Xây dựng (15)</b>, <b>Đấu thầu (10)</b> hoặc nạp thêm văn bản mới ở Bước 1.
-                          </p>
-                          <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-                            <button
-                              onClick={() => {
-                                setVbplIndustryGroupFilter('IND-XAYDUNG-DAUTHAU');
-                                setVbplSubSectorFilter('XD_XAYDUNG');
-                                setVbplDomainFilter('ALL');
-                                setVbplProjectFilter('ALL');
-                                setFilterDocType('ALL');
-                                setTechStandardQuickFilter('ALL');
-                                setFilterValidityPeriod('ALL');
-                                setPane2SubTab('DOCS');
-                                setGlobalSearch('');
-                              }}
-                              className="px-2.5 py-1.5 rounded bg-[#163d5c] text-white font-semibold text-xs"
-                            >
-                              Về ngành Xây dựng (15 VB)
-                            </button>
-                            <button
-                              onClick={() => {
-                                setVbplIndustryGroupFilter('ALL');
-                                setVbplSubSectorFilter('ALL');
-                                setVbplDomainFilter('ALL');
-                                setVbplProjectFilter('ALL');
-                                setFilterDocType('ALL');
-                                setTechStandardQuickFilter('ALL');
-                                setFilterValidityPeriod('ALL');
-                                setPane2SubTab('DOCS');
-                                setGlobalSearch('');
-                              }}
-                              className="px-2.5 py-1.5 rounded bg-amber-500 text-slate-950 font-semibold text-xs"
-                            >
-                              Xem toàn thư viện
-                            </button>
+                    {/* Danh sách Thẻ Văn bản Accordion chuẩn .vb-node của thuvien-vbpl-26 */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                      {pane2SubTab === 'RESULTS' && !globalSearch.trim() ? (
+                        <div className="py-12 px-5 text-center space-y-2">
+                          <div className="text-sm font-bold flex items-center justify-center gap-1.5" style={{ color: 'var(--navy-ink)' }}>
+                            <span>🌐</span>
+                            <span>Chế độ tra cứu toàn thư viện</span>
                           </div>
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--chu-m)' }}>
+                            Gõ cụm từ (≥ 2 ký tự) ở ô tìm kiếm phía trên rồi bấm{' '}
+                            <b style={{ color: 'var(--navy-ink)' }}>Enter</b>.
+                            <br />
+                            Kết quả tự động lọc trên toàn bộ {legalDocs.length} văn bản.
+                          </p>
+                        </div>
+                      ) : filteredLegalDocs.length === 0 ? (
+                        <div className="vbpl-card p-5 text-center text-xs space-y-2.5">
+                          <p className="font-bold" style={{ color: 'var(--chu)' }}>
+                            Không tìm thấy văn bản khớp bộ lọc hiện tại.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVbplIndustryGroupFilter('ALL');
+                              setVbplSubSectorFilter('ALL');
+                              setVbplDomainFilter('ALL');
+                              setVbplProjectFilter('ALL');
+                              setVbplGateFilter('ALL');
+                              setFilterDocType('ALL');
+                              setTechStandardQuickFilter('ALL');
+                              setFilterValidityPeriod('ALL');
+                              setPane2SubTab('DOCS');
+                              setGlobalSearch('');
+                            }}
+                            className="px-3 py-1.5 rounded text-white font-bold text-xs cursor-pointer"
+                            style={{ backgroundColor: 'var(--navy)' }}
+                          >
+                            🌐 Xem toàn bộ thư viện ({legalDocs.length} VB)
+                          </button>
                         </div>
                       ) : (
                         filteredLegalDocs.map(doc => {
                           const isSelected = doc.id === currentLegalDoc?.id;
                           const isExpandedToc = !isCol2CompactMode && doc.id === expandedInlineDocId;
-                          const isBookmarked = bookmarkedDocIds.includes(doc.id);
-                          const badgeLabel =
-                            doc.docType === 'LUAT'
-                              ? 'LUẬT'
-                              : doc.docType === 'ND'
-                              ? 'NGHỊ ĐỊNH'
-                              : doc.docType === 'TT'
-                              ? 'THÔNG TƯ'
-                              : doc.docType === 'QCVN'
-                              ? 'QUY CHUẨN QCVN'
-                              : doc.docType === 'TCVN'
-                              ? 'TIÊU CHUẨN TCVN'
-                              : doc.docType;
-                          const badgeColor =
-                            doc.docType === 'LUAT'
-                              ? 'bg-[#c81e1e] text-white'
-                              : doc.docType === 'ND'
-                              ? 'bg-[#1e4b7a] text-white'
-                              : doc.docType === 'QCVN'
-                              ? 'bg-amber-500 text-slate-950'
-                              : doc.docType === 'TCVN'
-                              ? 'bg-cyan-700 text-white'
-                              : 'bg-teal-700 text-white';
+                          const isExpired =
+                            doc.validityPeriod === 'AMENDED' || /hết hiệu lực/i.test(doc.status);
+                          const hasPdfSource = Boolean(
+                            (doc.rawFileName || doc.ssotFileName || '').toLowerCase().endsWith('.pdf')
+                          );
+                          const docNotesCount = doc.nodes.filter(
+                            n =>
+                              n.level !== 'Chương' &&
+                              n.level !== 'Mục' &&
+                              Boolean(articlePersonalNotes[getArticleNoteKey(doc.id, n.id)])
+                          ).length;
 
                           return (
                             <div
                               key={doc.id}
                               id={`col2-doc-card-${doc.id}`}
-                              className={`rounded-lg border overflow-hidden transition-all shadow-xs ${
-                                isSelected
-                                  ? 'border-[#163d5c] bg-[#faf7f0] ring-1 ring-[#163d5c]/30'
-                                  : 'border-slate-300 bg-white hover:border-slate-400'
-                              }`}
+                              className="vbpl-card overflow-hidden"
+                              style={{
+                                borderColor: isSelected ? 'var(--navy)' : undefined,
+                              }}
                             >
-                              {/* Header thẻ văn bản */}
+                              {/* Đầu thẻ văn bản */}
                               <div
-                                onClick={() => handleSelectDoc(doc.id, !isCol2CompactMode)}
-                                className={`${
-                                  isCol2CompactMode ? 'px-2.5 py-1.5' : 'p-2.5'
-                                } cursor-pointer transition ${
-                                  isSelected
-                                    ? 'bg-[#163d5c] text-white'
-                                    : 'bg-white text-slate-800 hover:bg-slate-50'
+                                onClick={() => {
+                                  handleSelectDoc(doc.id, !isCol2CompactMode);
+                                  setMobilePane('c3');
+                                }}
+                                className={`px-2.5 py-2 cursor-pointer transition ${
+                                  isSelected ? 'vbpl-card-open-header' : ''
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-1.5">
                                   <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                                    {!isCol2CompactMode && (
-                                      <span
-                                        className={`text-[10px] ${
-                                          isSelected ? 'text-sky-200' : 'text-slate-400'
-                                        }`}
-                                      >
-                                        {isExpandedToc ? '▾' : '▸'}
+                                    <span
+                                      className={`text-[10px] shrink-0 ${
+                                        isSelected ? 'text-[#e8c66a]' : 'opacity-55'
+                                      }`}
+                                    >
+                                      {isExpandedToc ? '▾' : '▸'}
+                                    </span>
+
+                                    <span className={getVbplBadgeClass(doc.docType)}>
+                                      {getVbplBadgeLabel(doc.docType)}
+                                    </span>
+
+                                    <span
+                                      className={`font-mono font-bold text-[12.5px] truncate ${
+                                        isExpired ? 'line-through opacity-75' : ''
+                                      }`}
+                                      style={{ color: isSelected ? '#ffffff' : 'var(--chu)' }}
+                                    >
+                                      {renderHighlightedSpan(doc.docNumber, globalSearch)}
+                                    </span>
+
+                                    {isExpired && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-[#98a2ac] text-white">
+                                        hết hiệu lực
                                       </span>
                                     )}
-                                    <span
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shrink-0 ${badgeColor}`}
-                                    >
-                                      {badgeLabel}
-                                    </span>
-                                    <span
-                                      className={`font-bold text-xs truncate ${
-                                        isSelected ? 'text-white' : 'text-slate-900'
-                                      }`}
-                                    >
-                                      {doc.docNumber}
-                                    </span>
 
-                                    {!isCol2CompactMode && doc.amendBadge && (
-                                      <>
-                                        <span className="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-bold text-[10px]">
-                                          {doc.amendBadge}
-                                        </span>
-                                        <span className="px-1.5 py-0.2 rounded bg-[#1e4b7a] text-white font-bold text-[10px]">
-                                          SĐ
-                                        </span>
-                                      </>
+                                    {docNotesCount > 0 && (
+                                      <span
+                                        className="px-1.5 py-0.2 rounded text-[9.5px] font-bold"
+                                        style={{ backgroundColor: 'var(--gold)', color: '#3a2c05' }}
+                                        title={`${docNotesCount} ghi chú riêng`}
+                                      >
+                                        🖊 {docNotesCount}
+                                      </span>
                                     )}
 
-                                    {legalCutoffMode === 'PROJECT_TRANSITION' && (() => {
-                                      const docCutoff = evaluateLegalDocumentCutoff(
-                                        doc,
-                                        activeProjectMilestones,
-                                        'PROJECT_TRANSITION'
-                                      );
-                                      if (docCutoff.badgeType === 'TRANSITIONAL_OLD') {
-                                        return (
-                                          <span
-                                            title={`${docCutoff.reason} (${docCutoff.basisLaw})`}
-                                            className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-950 border border-amber-500 font-mono text-[9px] font-bold"
-                                          >
-                                            {docCutoff.badgeLabel}
-                                          </span>
-                                        );
-                                      }
-                                      if (docCutoff.badgeType === 'MANDATORY_NEW_RETROACTIVE') {
-                                        return (
-                                          <span
-                                            title={`${docCutoff.reason} (${docCutoff.basisLaw})`}
-                                            className="px-1.5 py-0.2 rounded bg-rose-600 text-white border border-rose-400 font-mono text-[9px] font-bold"
-                                          >
-                                            {docCutoff.badgeLabel}
-                                          </span>
-                                        );
-                                      }
-                                      if (docCutoff.badgeType === 'DIRECT_NEW_2026') {
-                                        return (
-                                          <span
-                                            title={`${docCutoff.reason} (${docCutoff.basisLaw})`}
-                                            className="px-1.5 py-0.2 rounded bg-emerald-600 text-white border border-emerald-400 font-mono text-[9px] font-bold"
-                                          >
-                                            {docCutoff.badgeLabel}
-                                          </span>
-                                        );
-                                      }
-                                      return null;
-                                    })()}
+                                    {doc.isAmended && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-[#2f5a86] text-white border border-white/25">
+                                        SĐ
+                                      </span>
+                                    )}
 
-                                    {!isCol2CompactMode && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            showToast(`Đã sao chép liên kết SSOT: ${doc.docNumber} (${doc.ssotFileName})`);
-                                          }}
-                                          title="Sao chép liên kết văn bản"
-                                          className={`px-1 py-0.5 rounded border text-[10px] transition ${
-                                            isSelected
-                                              ? 'border-sky-300/40 bg-sky-900/50 text-sky-200 hover:bg-sky-800'
-                                              : 'border-emerald-500/50 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                                          }`}
-                                        >
-                                          🔗
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            openLawRoadmapForDoc(doc, false);
-                                          }}
-                                          title="Xem Road_map Phả hệ của Bộ luật (Luật gốc, Luật sửa đổi, VBHN, Nghị định, Thông tư)"
-                                          className={`px-1.5 py-0.5 rounded border text-[9px] font-mono font-bold transition flex items-center gap-0.5 ${
-                                            isSelected
-                                              ? 'border-amber-400 bg-amber-400 text-slate-950 hover:bg-amber-300'
-                                              : 'border-amber-500/60 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                                          }`}
-                                        >
-                                          <span>🗺️</span>
-                                          <span>Road_map</span>
-                                        </button>
-                                      </>
+                                    {hasPdfSource && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setSecurePdfTarget({
+                                            fileName: doc.rawFileName || doc.ssotFileName,
+                                            docTitle: doc.title,
+                                            docNumber: doc.docNumber,
+                                          });
+                                          setIsSecurePdfOpen(true);
+                                        }}
+                                        title="Mở bản PDF scan gốc có dấu đỏ (Zero-Trust Proxy)"
+                                        className={`px-1.5 py-0.2 rounded text-[10px] border cursor-pointer transition ${
+                                          isSelected
+                                            ? 'bg-emerald-500/25 border-emerald-300/50 text-emerald-100'
+                                            : 'bg-emerald-50 border-emerald-500/40 text-emerald-700 hover:bg-emerald-100'
+                                        }`}
+                                      >
+                                        🔗
+                                      </button>
                                     )}
                                   </div>
-
-                                  {!isCol2CompactMode && (
-                                    <button
-                                      type="button"
-                                      onClick={e => toggleBookmarkDoc(doc.id, e)}
-                                      title="Đánh dấu văn bản"
-                                      className={`text-xs shrink-0 ${
-                                        isBookmarked
-                                          ? 'text-amber-400'
-                                          : isSelected
-                                          ? 'text-slate-300 hover:text-white'
-                                          : 'text-slate-400 hover:text-amber-500'
-                                      }`}
-                                    >
-                                      ★
-                                    </button>
-                                  )}
                                 </div>
 
                                 <div
-                                  className={`mt-1 text-[11px] leading-snug truncate ${
-                                    isSelected ? 'text-sky-100 font-medium' : 'text-slate-500'
-                                  }`}
+                                  className="mt-1 text-[11.5px] leading-snug line-clamp-2"
+                                  style={{
+                                    color: isSelected ? 'rgba(255,255,255,0.86)' : 'var(--chu-m)',
+                                  }}
                                 >
-                                  {isCol2CompactMode
-                                    ? doc.shortSummary || doc.title
-                                    : isSelected
-                                    ? doc.subSectorLabel
-                                    : doc.shortSummary || doc.title}
+                                  {renderHighlightedSpan(doc.shortSummary || doc.title, globalSearch)}
                                 </div>
-
-                                {/* Khi tắt Chế độ thu gọn: Hiển thị đầy đủ Loại hình Dự án & Liên kết Gate */}
-                                {!isCol2CompactMode && (
-                                  <div className="mt-1.5 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      {(doc.projectAxes || []).map(pCode => {
-                                        const isProjActive =
-                                          activeProjectArchetype === pCode || vbplProjectFilter === pCode;
-                                        return (
-                                          <span
-                                            key={pCode}
-                                            className={`px-1.5 py-0.2 rounded text-[9px] font-mono ${
-                                              isSelected
-                                                ? isProjActive
-                                                  ? 'bg-amber-400 text-slate-950 font-bold'
-                                                  : 'bg-sky-900/80 text-sky-200'
-                                                : isProjActive
-                                                ? 'bg-amber-100 text-amber-900 font-bold border border-amber-300'
-                                                : 'bg-slate-100 text-slate-600'
-                                            }`}
-                                          >
-                                            {pCode}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {doc.linkedGates && doc.linkedGates.length > 0 && (
-                                      <div className="flex flex-wrap items-center gap-1">
-                                        <span
-                                          className={`text-[9px] font-mono ${
-                                            isSelected ? 'text-sky-200/80' : 'text-slate-400'
-                                          }`}
-                                        >
-                                          Gate:
-                                        </span>
-                                        {doc.linkedGates.slice(0, 5).map(gCode => (
-                                          <span
-                                            key={gCode}
-                                            className={`px-1 py-0.1 rounded text-[9px] font-mono font-semibold ${
-                                              isSelected
-                                                ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40'
-                                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                            }`}
-                                          >
-                                            {gCode}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                               </div>
 
-                              {/* Cây Mục lục bung nội tuyến ngay tại Cột 2 giống hệt hình mẫu */}
+                              {/* Mục lục bung nội tuyến ngay tại Cột 2 giống hệt step_23_shot_1.png */}
                               {isExpandedToc && (
-                                <div className="bg-[#faf7f0] border-t border-slate-300 max-h-80 overflow-y-auto divide-y divide-[#ede6d6] text-slate-800">
+                                <div
+                                  className="border-t max-h-[330px] overflow-y-auto divide-y"
+                                  style={{
+                                    backgroundColor: 'var(--giay-soft)',
+                                    borderColor: 'var(--line)',
+                                  }}
+                                >
                                   {doc.nodes.map(node => {
                                     const isChapter = node.level === 'Chương';
                                     const isSection = node.level === 'Mục';
@@ -2705,27 +1299,44 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                     return (
                                       <div
                                         key={node.id}
-                                        onClick={() => jumpToArticleNode(doc.id, node.id, false)}
-                                        className={`px-3 py-2 text-xs cursor-pointer transition ${
-                                          isChapter
-                                            ? 'bg-[#efe6d5] text-[#8b261d] font-bold uppercase tracking-wide text-[11px]'
-                                            : isSection
-                                            ? 'bg-[#f5efe2] text-[#8b261d] italic font-semibold pl-4 text-[11px]'
-                                            : isBasis
-                                            ? 'text-[#164e63] font-bold hover:bg-[#efe8d8]'
+                                        onClick={() => {
+                                          jumpToArticleNode(doc.id, node.id, true);
+                                          setMobilePane('c3');
+                                        }}
+                                        className="px-3 py-1.5 text-xs cursor-pointer transition"
+                                        style={{
+                                          borderColor: 'var(--line)',
+                                          backgroundColor: isChapter
+                                            ? 'var(--giay-d)'
                                             : isNodeActive
-                                            ? 'bg-amber-200/70 text-slate-950 font-semibold border-l-2 border-amber-600'
-                                            : 'text-slate-700 hover:bg-[#f2ece0]'
-                                        }`}
+                                            ? 'var(--gold-xl)'
+                                            : 'transparent',
+                                          borderLeft: isNodeActive
+                                            ? '3px solid var(--gold)'
+                                            : '3px solid transparent',
+                                          color: isChapter || isSection
+                                            ? 'var(--son)'
+                                            : isBasis
+                                            ? 'var(--navy)'
+                                            : 'var(--chu)',
+                                          fontWeight: isChapter || isBasis || isNodeActive ? 700 : 400,
+                                        }}
                                       >
-                                        {isChapter || isSection || isBasis ? (
-                                          <span>
-                                            {node.code}
+                                        {isChapter ? (
+                                          <span className="uppercase tracking-wide text-[11px]">
+                                            {node.code.replace(/\.+$/, '')}
                                             {node.title ? `. ${node.title}` : ''}
                                           </span>
+                                        ) : isSection ? (
+                                          <span className="italic pl-2 text-[11px]">
+                                            {node.code.replace(/\.+$/, '')}. {node.title}
+                                          </span>
+                                        ) : isBasis ? (
+                                          <span>Căn cứ ban hành · Lời mở đầu</span>
                                         ) : (
                                           <span>
-                                            <b className="text-[#163d5c]">{node.code}.</b> {node.title}
+                                            <b style={{ color: 'var(--navy-ink)' }}>{node.code.replace(/\.+$/, '')}.</b>{' '}
+                                            {node.title}
                                           </span>
                                         )}
                                       </div>
@@ -2739,230 +1350,549 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                       )}
                     </div>
                   </div>
-                  )}
+                )}
 
-                  {/* Thanh kéo co giãn giữa Cột 2 (Danh sách VB) và Cột 3 (Mục lục / Nội dung) */}
-                  {renderVerticalSplitter({
-                    id: 'VBPL_SPLIT_2',
-                    lightTheme: true,
-                    onDoubleClickReset: () => {
-                      setIsVbplCol2Collapsed(false);
-                      setVbplCol2Pct(26);
-                      showToast('Đã đặt lại chiều rộng Cột 2: Danh sách Văn bản (26%)');
-                    },
-                    label: `Cột 2: ${Math.round(vbplCol2Pct)}%`,
-                  })}
+                {/* Thanh kéo co giãn giữa Cột 2 và Cột 3 */}
+                {renderVerticalSplitter({
+                  id: 'VBPL_SPLIT_2',
+                  lightTheme: true,
+                  onDoubleClickReset: () => {
+                    setIsVbplCol2Collapsed(false);
+                    setVbplCol2Pct(25);
+                  },
+                  label: `Cột 2: ${Math.round(vbplCol2Pct)}%`,
+                })}
 
-                  {/* ==========================================================
-                      CỘT 3 (LINH HOẠT): MỤC LỤC CHẤM KẺ NGANG & NỘI DUNG CHI TIẾT
-                     ========================================================== */}
-                  <div className="flex-1 min-w-[300px] bg-white text-slate-900 flex flex-col overflow-hidden">
-                    {currentLegalDoc && (
-                      <>
-                        {/* Thanh tiêu đề trên cùng của Cột 3 */}
-                        <div className="h-10 px-4 border-b border-slate-300 bg-[#f6f2e9] flex items-center justify-between gap-2 shrink-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <button
-                              onClick={() => setRightReaderMode('TOC_INDEX')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap ${
-                                rightReaderMode === 'TOC_INDEX'
-                                  ? 'bg-[#a61b1b] text-white shadow-xs'
-                                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                              }`}
-                            >
-                              <span>📕</span>
-                              <span>Mục lục</span>
-                            </button>
-                            <button
-                              onClick={() => setRightReaderMode('FULL_CONTENT')}
-                              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap ${
-                                rightReaderMode === 'FULL_CONTENT'
-                                  ? 'bg-[#163d5c] text-white shadow-xs'
-                                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                              }`}
-                            >
-                              <span>📄</span>
-                              <span>Nội dung chi tiết & Stage-Gate</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (currentLegalDoc) {
-                                  setSelectedRoadmapPillarId(resolveRoadmapPillarIdForDoc(currentLegalDoc));
-                                }
-                                setRightReaderMode('LAW_ROADMAP');
-                              }}
-                              title="Xem Road_map Phả hệ cho từng Bộ luật: Luật gốc, Luật sửa đổi bổ sung, Văn bản hợp nhất, Nghị định & Thông tư"
-                              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap ${
-                                rightReaderMode === 'LAW_ROADMAP'
-                                  ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-600'
-                                  : 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                              }`}
-                            >
-                              <span>🗺️</span>
-                              <span>Road_map Bộ luật</span>
-                            </button>
-                            <button
-                              onClick={() => setRightReaderMode('COMPARE_MODE')}
-                              title="Mở Chế độ so sánh song song hai điều khoản bất kỳ từ hai văn bản khác nhau để phân tích sự khác biệt về pháp lý"
-                              className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap ${
-                                rightReaderMode === 'COMPARE_MODE'
-                                  ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-400'
-                                  : 'bg-indigo-50 text-indigo-900 border border-indigo-300 hover:bg-indigo-100'
-                              }`}
-                            >
-                              <span>⚖️</span>
-                              <span>Chế độ so sánh</span>
-                            </button>
+                {/* ==========================================================
+                    CỘT 3 (.vbpl-c3): TRÌNH ĐỌC GIẤY PHÁP LÝ + DRAWER ĐỐI CHIẾU (#ref)
+                   ========================================================== */}
+                <div
+                  className={`${
+                    mobilePane === 'c3' ? 'flex' : 'hidden'
+                  } lg:flex flex-1 min-w-[300px] vbpl-c3 flex-col overflow-hidden`}
+                >
+                  {currentLegalDoc && (
+                    <>
+                      {/* Thanh công cụ phụ Cột 3 (.vbpl-c3-bar, 38px) chuẩn mẫu */}
+                      <div className="vbpl-c3-bar px-3.5 h-[38px] flex items-center justify-between gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRightReaderMode(prev =>
+                                prev === 'TOC_INDEX' ? 'FULL_CONTENT' : 'TOC_INDEX'
+                              )
+                            }
+                            title="Chuyển nhanh giữa Mục lục và Nội dung toàn văn (Phím M)"
+                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border"
+                            style={{
+                              backgroundColor:
+                                rightReaderMode === 'TOC_INDEX' ? 'var(--son)' : 'var(--panel)',
+                              borderColor:
+                                rightReaderMode === 'TOC_INDEX' ? 'var(--son)' : 'var(--line-d)',
+                              color: rightReaderMode === 'TOC_INDEX' ? '#ffffff' : 'var(--chu)',
+                            }}
+                          >
+                            <span>📑</span>
+                            <span>Mục lục</span>
+                          </button>
 
-                            {/* Nút Xem Bản PDF Gốc Bảo Mật (Zero-Trust Stream Proxy - Không mở Drive) */}
-                            {currentLegalDoc?.ssotFileName && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSecurePdfTarget({
-                                    fileName: currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName,
-                                    docTitle: currentLegalDoc.title,
-                                    docNumber: currentLegalDoc.docNumber,
-                                  });
-                                  setIsSecurePdfOpen(true);
-                                }}
-                                title="Xem trực tiếp bản scan PDF gốc có dấu đỏ an toàn (Zero-Trust Stream Proxy, không mở Drive)"
-                                className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition whitespace-nowrap bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs border border-emerald-600"
-                              >
-                                <span>🔒</span>
-                                <span>Xem PDF Gốc</span>
-                              </button>
-                            )}
-                            <span className="font-bold text-xs text-[#163d5c] truncate ml-1">
-                              {rightReaderMode === 'COMPARE_MODE'
-                                ? 'SO SÁNH PHÁP LÝ SONG SONG (2 VĂN BẢN)'
-                                : `${
-                                    currentLegalDoc.docType === 'LUAT'
-                                      ? 'LUẬT'
-                                      : currentLegalDoc.docType === 'ND'
-                                      ? 'NGHỊ ĐỊNH'
-                                      : currentLegalDoc.docType
-                                  } ${currentLegalDoc.docNumber} - ${
-                                    rightReaderMode === 'TOC_INDEX'
-                                      ? 'Mục lục'
-                                      : rightReaderMode === 'FULL_CONTENT'
-                                      ? 'Toàn văn & Chốt chặn'
-                                      : 'Road_map Phả hệ Bộ luật'
-                                  }`}
-                            </span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setRightReaderMode('FULL_CONTENT')}
+                            className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer border"
+                            style={{
+                              backgroundColor:
+                                rightReaderMode === 'FULL_CONTENT' ? 'var(--navy)' : 'var(--panel)',
+                              borderColor:
+                                rightReaderMode === 'FULL_CONTENT' ? 'var(--navy)' : 'var(--line-d)',
+                              color: rightReaderMode === 'FULL_CONTENT' ? '#ffffff' : 'var(--chu)',
+                            }}
+                          >
+                            <span>📄</span>
+                            <span className="hidden sm:inline">Toàn văn</span>
+                          </button>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              onClick={() => setReaderFontSize(s => Math.max(12, s - 1))}
-                              className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-mono text-[11px]"
-                            >
-                              A-
-                            </button>
-                            <button
-                              onClick={() => setReaderFontSize(s => Math.min(18, s + 1))}
-                              className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-mono text-[11px]"
-                            >
-                              A+
-                            </button>
-                            <button
-                              onClick={e => toggleBookmarkDoc(currentLegalDoc.id, e)}
-                              title="Đánh dấu văn bản này"
-                              className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 text-xs"
-                            >
-                              🖊️
-                            </button>
-                          </div>
+                          <span
+                            className="font-bold text-xs truncate mx-1"
+                            style={{ color: 'var(--navy-ink)' }}
+                          >
+                            {getVbplBadgeLabel(currentLegalDoc.docType)} {currentLegalDoc.docNumber}
+                            {' — '}
+                            {rightReaderMode === 'TOC_INDEX'
+                              ? 'Mục lục'
+                              : rightReaderMode === 'FULL_CONTENT'
+                              ? currentLegalDoc.primaryDomain
+                              : rightReaderMode === 'COMPARE_MODE'
+                              ? 'So sánh song song'
+                              : 'Phả hệ'}
+                          </span>
                         </div>
 
-                        {/* Khu vực nội dung cuộn của Cột 3 */}
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                          {/* Hàng huy hiệu Metadata căn giữa giống hình mẫu */}
-                          <div className="flex flex-wrap items-center justify-center gap-2 pb-3 border-b-2 border-[#163d5c]">
-                            <span className="px-3 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-xs text-slate-700">
-                              Ban hành <b className="text-slate-900">{currentLegalDoc.issueDate}</b>
-                            </span>
-                            <span className="px-3 py-0.5 rounded-full bg-amber-50 border border-amber-400 text-xs text-amber-900">
-                              Hiệu lực từ <b className="text-slate-950">{currentLegalDoc.effectiveDate}</b>
-                            </span>
-                            <span className="px-3 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-xs text-slate-700 tabular-nums">
-                              <b className="text-slate-900">{currentLegalDoc.articleCount}</b> điều
-                            </span>
-                            <span className="px-3 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-xs text-slate-700 tabular-nums">
-                              <b className="text-slate-900">{currentLegalDoc.chapterCount}</b> chương
-                            </span>
-                            <span className="px-3 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-xs text-slate-700 tabular-nums">
-                              <b className="text-slate-900">{currentLegalDoc.clauseTotalCount}</b> khoản/điểm
-                            </span>
-                            {(() => {
-                              const docNoteCount = currentLegalDoc.nodes.filter(
-                                n =>
-                                  n.level !== 'Chương' &&
-                                  n.level !== 'Mục' &&
-                                  Boolean(articlePersonalNotes[getArticleNoteKey(currentLegalDoc.id, n.id)])
-                              ).length;
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => setFilterOnlyNotedNodes(prev => !prev)}
-                                  title="Bấm để lọc riêng các điều khoản có ghi chú cá nhân trong văn bản này"
-                                  className={`px-3 py-0.5 rounded-full border text-xs font-semibold flex items-center gap-1 transition tabular-nums ${
-                                    filterOnlyNotedNodes
-                                      ? 'bg-amber-500 text-slate-950 border-amber-600 font-bold shadow-xs'
-                                      : docNoteCount > 0
-                                      ? 'bg-amber-50 hover:bg-amber-100 border-amber-400 text-amber-900'
-                                      : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
-                                  }`}
-                                >
-                                  <span>📝</span>
-                                  <span>
-                                    <b>{docNoteCount}</b> ghi chú cá nhân
-                                    {filterOnlyNotedNodes ? ' (Đang lọc)' : ''}
-                                  </span>
-                                </button>
-                              );
-                            })()}
-                            <button
-                              onClick={() =>
-                                showToast(
-                                  `Đã kết nối CSDL Quốc gia về VBPL cho: ${currentLegalDoc.docNumber} (${currentLegalDoc.ssotFileName})`
-                                )
-                              }
-                              className="px-3 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-500 text-xs font-semibold text-emerald-800 flex items-center gap-1 transition"
-                            >
-                              <span>🔗</span>
-                              <span>CSDL quốc gia</span>
-                            </button>
-                          </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedRoadmapPillarId(resolveRoadmapPillarIdForDoc(currentLegalDoc));
+                              setRightReaderMode('LAW_ROADMAP');
+                            }}
+                            title="Xem Cây Phả hệ Bộ luật"
+                            className="px-2 py-1 rounded text-[11px] font-bold border cursor-pointer transition"
+                            style={{
+                              backgroundColor:
+                                rightReaderMode === 'LAW_ROADMAP' ? 'var(--gold)' : 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: rightReaderMode === 'LAW_ROADMAP' ? '#2c2003' : 'var(--chu)',
+                            }}
+                          >
+                            🗺️ <span className="hidden xl:inline">Phả hệ</span>
+                          </button>
 
-                          {/* Chế độ 1: MỤC LỤC CÓ DÒNG CHẤM KẺ NGANG (CHUẨN HÌNH MẪU) */}
+                          <button
+                            type="button"
+                            onClick={() => setRightReaderMode('COMPARE_MODE')}
+                            title="So sánh song song 2 điều khoản (AI Diff)"
+                            className="px-2 py-1 rounded text-[11px] font-bold border cursor-pointer transition"
+                            style={{
+                              backgroundColor:
+                                rightReaderMode === 'COMPARE_MODE' ? 'var(--tim)' : 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: rightReaderMode === 'COMPARE_MODE' ? '#ffffff' : 'var(--chu)',
+                            }}
+                          >
+                            ⚖️ <span className="hidden xl:inline">So sánh</span>
+                          </button>
+
+                          {Boolean(
+                            (currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName || '')
+                              .toLowerCase()
+                              .endsWith('.pdf')
+                          ) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSecurePdfTarget({
+                                  fileName: currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName,
+                                  docTitle: currentLegalDoc.title,
+                                  docNumber: currentLegalDoc.docNumber,
+                                });
+                                setIsSecurePdfOpen(true);
+                              }}
+                              title="Xem trực tiếp bản scan PDF gốc có dấu đỏ (Zero-Trust Proxy, không mở Drive)"
+                              className="px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 bg-[#1e7e34] hover:opacity-90 text-white cursor-pointer"
+                            >
+                              <span>🔒</span>
+                              <span className="hidden sm:inline">PDF gốc</span>
+                            </button>
+                          )}
+
+                          {/* 3 Nút biểu tượng góc phải chuẩn mẫu: Đánh dấu (D) · Sao chép (C) · In */}
+                          <button
+                            type="button"
+                            onClick={e => toggleBookmarkDoc(currentLegalDoc.id, e)}
+                            title="Đánh dấu văn bản (Phím D)"
+                            className="h-7 w-7 rounded border flex items-center justify-center text-xs cursor-pointer transition"
+                            style={{
+                              backgroundColor: bookmarkedDocIds.includes(currentLegalDoc.id)
+                                ? 'var(--son)'
+                                : 'var(--panel)',
+                              borderColor: bookmarkedDocIds.includes(currentLegalDoc.id)
+                                ? 'var(--son)'
+                                : 'var(--line-d)',
+                              color: bookmarkedDocIds.includes(currentLegalDoc.id)
+                                ? '#ffffff'
+                                : 'var(--chu)',
+                            }}
+                          >
+                            🖊️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cite = `${getVbplBadgeLabel(currentLegalDoc.docType)} ${currentLegalDoc.docNumber} — ${currentLegalDoc.title} (Ban hành: ${currentLegalDoc.issueDate}, Hiệu lực: ${currentLegalDoc.effectiveDate})`;
+                              navigator.clipboard?.writeText(cite);
+                              showToast(`📋 Đã sao chép trích dẫn: ${currentLegalDoc.docNumber}`);
+                            }}
+                            title="Sao chép trích dẫn văn bản (Phím C)"
+                            className="h-7 w-7 rounded border flex items-center justify-center text-xs cursor-pointer"
+                            style={{
+                              backgroundColor: 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: 'var(--chu)',
+                            }}
+                          >
+                            📋
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => window.print()}
+                            title="In nội dung văn bản (Ctrl + P)"
+                            className="h-7 w-7 rounded border flex items-center justify-center text-xs cursor-pointer"
+                            style={{
+                              backgroundColor: 'var(--panel)',
+                              borderColor: 'var(--line-d)',
+                              color: 'var(--chu)',
+                            }}
+                          >
+                            🖨️
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Khung chính Cột 3 + Ngăn kéo Đối chiếu Trượt ngang (#ref) */}
+                      <div className="flex-1 flex overflow-hidden">
+                        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 vbpl-doc-reader">
                           {rightReaderMode === 'TOC_INDEX' ? (
-                            <div className="space-y-2" style={{ fontSize: `${readerFontSize}px` }}>
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pb-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span>
-                                    📖 <b className="text-[#a61b1b] text-sm">Mục lục</b>{' '}
-                                    <span>
-                                      bấm vào từng dòng để xem nội dung · bấm icon <b>📝</b> cạnh số điều để thêm/sửa ghi chú cá nhân
-                                    </span>
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-300 text-[10px] font-mono text-amber-900">
-                                    <span className="w-2.5 h-2.5 rounded-xs bg-amber-200 border-l-2 border-amber-500 inline-block" />
-                                    <span>Nền vàng = Có ghi chú cá nhân</span>
-                                  </span>
+                            /* ======================================================
+                               CHẾ ĐỘ 1: BÌA VĂN BẢN + PHẢ HỆ + MỤC LỤC CHẤM NGANG
+                               (Khớp chính xác bố cục step_23_shot_1.png)
+                               ====================================================== */
+                            <div
+                              className="max-w-[860px] mx-auto space-y-5"
+                              style={{ fontSize: `${readerFontSize}px` }}
+                            >
+                              {/* 1. Bìa Quốc hiệu / Loại VB / Số hiệu / Tên Văn bản căn giữa */}
+                              <div
+                                className="text-center pb-5 border-b-[3px] border-double space-y-2"
+                                style={{ borderColor: 'var(--line-d)' }}
+                              >
+                                <div
+                                  className="text-xs font-extrabold uppercase tracking-[0.22em]"
+                                  style={{ color: 'var(--son)' }}
+                                >
+                                  {spacedDocTypeHeader(currentLegalDoc.docType)}
                                 </div>
-                                <span className="font-mono text-[11px] text-slate-400">
-                                  Ghi chú / Số khoản
-                                </span>
+                                <div
+                                  className="font-mono text-[13px]"
+                                  style={{ color: 'var(--chu-m)' }}
+                                >
+                                  Số {currentLegalDoc.docNumber}
+                                </div>
+                                <h1
+                                  className="text-lg md:text-[20px] font-bold leading-snug max-w-[740px] mx-auto pt-0.5"
+                                  style={{ color: 'var(--navy-ink)' }}
+                                >
+                                  {currentLegalDoc.title}
+                                </h1>
+
+                                {/* Hàng huy hiệu Metadata căn giữa chuẩn .chip */}
+                                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                                  <span className="vbpl-chip">
+                                    Ban hành <b>{currentLegalDoc.issueDate}</b>
+                                  </span>
+                                  <span className="vbpl-chip">
+                                    Hiệu lực từ <b>{currentLegalDoc.effectiveDate}</b>
+                                  </span>
+                                  <span className="vbpl-chip tabular-nums">
+                                    <b>{currentLegalDoc.articleCount}</b> điều
+                                  </span>
+                                  <span className="vbpl-chip tabular-nums">
+                                    <b>{currentLegalDoc.chapterCount}</b> chương
+                                  </span>
+                                  <span className="vbpl-chip tabular-nums">
+                                    <b>{currentLegalDoc.clauseTotalCount}</b> khoản/điểm
+                                  </span>
+
+                                  {(() => {
+                                    const docNoteCount = currentLegalDoc.nodes.filter(
+                                      n =>
+                                        n.level !== 'Chương' &&
+                                        n.level !== 'Mục' &&
+                                        Boolean(
+                                          articlePersonalNotes[
+                                            getArticleNoteKey(currentLegalDoc.id, n.id)
+                                          ]
+                                        )
+                                    ).length;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setFilterOnlyNotedNodes(prev => !prev)}
+                                        className="vbpl-chip cursor-pointer transition"
+                                        style={{
+                                          backgroundColor:
+                                            filterOnlyNotedNodes || docNoteCount > 0
+                                              ? 'var(--gold-xl)'
+                                              : undefined,
+                                          borderColor:
+                                            filterOnlyNotedNodes || docNoteCount > 0
+                                              ? 'var(--gold)'
+                                              : undefined,
+                                        }}
+                                      >
+                                        <span>🖊</span>
+                                        <span>
+                                          <b>{docNoteCount}</b> ghi chú riêng
+                                          {filterOnlyNotedNodes ? ' (Đang lọc)' : ''}
+                                        </span>
+                                      </button>
+                                    );
+                                  })()}
+
+                                  {currentLegalDoc.linkedGates?.slice(0, 4).map(g => (
+                                    <button
+                                      key={g}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedGateCode(g);
+                                        setActiveTab('STEP3_PLAN');
+                                      }}
+                                      title={`Mở chốt chặn Stage-Gate ${g} tại Bước 3`}
+                                      className="vbpl-chip cursor-pointer font-mono text-[11px] font-bold hover:opacity-85"
+                                      style={{ color: 'var(--navy-ink)' }}
+                                    >
+                                      🧭 Gate {g}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
 
-                              <div className="space-y-1">
+                              {/* Cảnh báo hiệu lực nếu hết hiệu lực / sắp có hiệu lực */}
+                              {(currentLegalDoc.validityPeriod === 'AMENDED' ||
+                                /hết hiệu lực/i.test(currentLegalDoc.status)) && (
+                                <div
+                                  className="px-4 py-2.5 rounded-lg border text-xs font-medium"
+                                  style={{
+                                    backgroundColor: 'rgba(161, 52, 44, 0.08)',
+                                    borderColor: 'var(--son)',
+                                    color: 'var(--son)',
+                                  }}
+                                >
+                                  ⚠ Văn bản thuộc diện <b>{currentLegalDoc.status}</b> — chỉ dùng đối chiếu hồ sơ chuyển tiếp kỳ cũ.
+                                </div>
+                              )}
+
+                              {/* 2. Hộp Phả hệ & Văn bản Liên quan (Bấm mở Ngăn kéo đối chiếu #ref bên phải) */}
+                              {relatedLineageDocs.length > 0 && (
+                                <div
+                                  className="p-4 rounded-xl border space-y-2.5"
+                                  style={{
+                                    backgroundColor: 'var(--giay-soft)',
+                                    borderColor: 'var(--gold)',
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: 'var(--navy-ink)' }}>
+                                      <span>📌</span>
+                                      <span>Văn bản cùng lĩnh vực & hướng dẫn đối chiếu ({currentLegalDoc.primaryDomain})</span>
+                                    </span>
+                                    <span className="text-[11px]" style={{ color: 'var(--chu-m)' }}>
+                                      Bấm để mở ngăn đối chiếu song song bên phải
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    {relatedLineageDocs.map(rel => (
+                                      <div
+                                        key={rel.id}
+                                        onClick={() =>
+                                          setSlideRefTarget({
+                                            doc: rel,
+                                            reasonLabel: `Đối chiếu cùng chuyên ngành ${currentLegalDoc.primaryDomain} với ${currentLegalDoc.docNumber}`,
+                                          })
+                                        }
+                                        className="px-3 py-2 rounded-lg border flex items-center justify-between gap-2 cursor-pointer transition hover:shadow-xs"
+                                        style={{
+                                          backgroundColor: 'var(--panel)',
+                                          borderColor: 'var(--line)',
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                          <span className={getVbplBadgeClass(rel.docType)}>
+                                            {getVbplBadgeLabel(rel.docType)}
+                                          </span>
+                                          <span className="font-mono font-bold text-xs" style={{ color: 'var(--chu)' }}>
+                                            {rel.docNumber}
+                                          </span>
+                                          <span className="text-[11px]" style={{ color: 'var(--chu-nhat)' }}>
+                                            {rel.effectiveDate}
+                                          </span>
+                                          <span className="text-xs truncate" style={{ color: 'var(--chu-m)' }}>
+                                            — {rel.shortSummary || rel.title}
+                                          </span>
+                                        </div>
+                                        <span
+                                          className="text-xs font-semibold shrink-0"
+                                          style={{ color: 'var(--navy-l)' }}
+                                        >
+                                          mở ›
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 3. Mục lục Chấm Kẻ Ngang chuẩn thuvien-vbpl-26 */}
+                              <div className="space-y-2 pt-1">
+                                <div className="flex items-center justify-between text-xs pb-1">
+                                  <span style={{ color: 'var(--chu-m)' }}>
+                                    📑 <b style={{ color: 'var(--son)' }} className="text-sm">Mục lục</b>{' '}
+                                    bấm vào từng dòng để tới thẳng nội dung điều khoản
+                                  </span>
+                                  <span className="font-mono text-[11px]" style={{ color: 'var(--chu-nhat)' }}>
+                                    Số khoản
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  {currentLegalDoc.nodes
+                                    .filter(node => {
+                                      if (!filterOnlyNotedNodes) return true;
+                                      if (node.level === 'Chương' || node.level === 'Mục') return false;
+                                      return Boolean(
+                                        articlePersonalNotes[
+                                          getArticleNoteKey(currentLegalDoc.id, node.id)
+                                        ]
+                                      );
+                                    })
+                                    .map(node => {
+                                      if (node.level === 'Chương') {
+                                        return (
+                                          <div
+                                            key={node.id}
+                                            id={`reader-node-${node.id}`}
+                                            className="mt-4 mb-2 vbpl-chapter-bar text-sm"
+                                          >
+                                            {node.code.replace(/\.+$/, '')}. {node.title}
+                                          </div>
+                                        );
+                                      }
+
+                                      if (node.level === 'Mục') {
+                                        return (
+                                          <div
+                                            key={node.id}
+                                            id={`reader-node-${node.id}`}
+                                            className="pt-2 pb-1 pl-3 italic font-bold text-xs"
+                                            style={{ color: 'var(--son)' }}
+                                          >
+                                            {node.code.replace(/\.+$/, '')}. {node.title}
+                                          </div>
+                                        );
+                                      }
+
+                                      const noteKey = getArticleNoteKey(currentLegalDoc.id, node.id);
+                                      const existingNote = articlePersonalNotes[noteKey];
+
+                                      return (
+                                        <div
+                                          key={node.id}
+                                          id={`reader-node-${node.id}`}
+                                          onClick={() =>
+                                            jumpToArticleNode(currentLegalDoc.id, node.id, true)
+                                          }
+                                          className="group flex items-baseline justify-between gap-2 py-1.5 px-2.5 rounded cursor-pointer transition"
+                                          style={{
+                                            backgroundColor: existingNote
+                                              ? 'var(--gold-xl)'
+                                              : 'transparent',
+                                          }}
+                                        >
+                                          <span
+                                            className="leading-relaxed group-hover:underline"
+                                            style={{ color: 'var(--navy-ink)' }}
+                                          >
+                                            <b className="font-bold">
+                                              {node.level === 'Căn cứ' || node.level === 'Mở đầu'
+                                                ? 'Căn cứ ban hành · Lời mở đầu'
+                                                : `${node.code.replace(/\.+$/, '')}.`}
+                                            </b>{' '}
+                                            {node.level !== 'Căn cứ' && node.level !== 'Mở đầu' && (
+                                              <span style={{ color: 'var(--chu)' }}>
+                                                {node.title}
+                                              </span>
+                                            )}
+                                          </span>
+
+                                          <span
+                                            className="flex-1 border-b border-dotted mx-1.5 min-w-[24px]"
+                                            style={{ borderColor: 'var(--line-d)' }}
+                                          />
+
+                                          <span className="flex items-center gap-2 shrink-0">
+                                            {existingNote && (
+                                              <span
+                                                title={existingNote.text}
+                                                className="text-xs"
+                                                style={{ color: 'var(--cam)' }}
+                                              >
+                                                🖊
+                                              </span>
+                                            )}
+                                            <span
+                                              className="text-xs font-mono tabular-nums"
+                                              style={{ color: 'var(--chu-nhat)' }}
+                                            >
+                                              {node.clauseCount ?? 1}
+                                            </span>
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              </div>
+                            </div>
+                          ) : rightReaderMode === 'FULL_CONTENT' ? (
+                            /* ======================================================
+                               CHẾ ĐỘ 2: ĐỌC TOÀN VĂN ĐIỀU KHOẢN CHUẨN SÁCH LUẬT
+                               (Số khoản Đỏ son · Hộp Ghi chú riêng viền vàng nét đứt)
+                               ====================================================== */
+                            <div
+                              className="max-w-[860px] mx-auto space-y-6"
+                              style={{ fontSize: `${readerFontSize}px` }}
+                            >
+                              {/* Hộp tóm tắt & Nguồn gốc văn bản ở đầu trang đọc */}
+                              <div
+                                className="p-4 rounded-lg border space-y-2"
+                                style={{
+                                  backgroundColor: 'var(--giay-soft)',
+                                  borderColor: 'var(--gold)',
+                                }}
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={getVbplBadgeClass(currentLegalDoc.docType)}>
+                                      {getVbplBadgeLabel(currentLegalDoc.docType)}
+                                    </span>
+                                    <span className="font-mono font-bold text-sm" style={{ color: 'var(--navy-ink)' }}>
+                                      {currentLegalDoc.docNumber}
+                                    </span>
+                                    <span className="text-xs" style={{ color: 'var(--chu-m)' }}>
+                                      · Hiệu lực: <b>{currentLegalDoc.effectiveDate}</b>
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRightReaderMode('TOC_INDEX')}
+                                    className="text-xs font-bold underline cursor-pointer"
+                                    style={{ color: 'var(--son)' }}
+                                  >
+                                    ← Quay về Mục lục
+                                  </button>
+                                </div>
+                                <div className="font-bold text-base" style={{ color: 'var(--chu)' }}>
+                                  {currentLegalDoc.title}
+                                </div>
+                                {currentLegalDoc.lineage && (
+                                  <div className="text-xs" style={{ color: 'var(--chu-m)' }}>
+                                    {currentLegalDoc.lineage}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Chuỗi các Điều khoản nối tiếp chuẩn step_25_shot_1.png */}
+                              <div className="space-y-7">
                                 {currentLegalDoc.nodes
                                   .filter(node => {
                                     if (!filterOnlyNotedNodes) return true;
                                     if (node.level === 'Chương' || node.level === 'Mục') return false;
                                     return Boolean(
-                                      articlePersonalNotes[getArticleNoteKey(currentLegalDoc.id, node.id)]
+                                      articlePersonalNotes[
+                                        getArticleNoteKey(currentLegalDoc.id, node.id)
+                                      ]
                                     );
                                   })
                                   .map(node => {
@@ -2971,9 +1901,9 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         <div
                                           key={node.id}
                                           id={`reader-node-${node.id}`}
-                                          className="mt-4 mb-2 px-3 py-1.5 rounded-sm bg-gradient-to-r from-[#163554] via-[#2b4c6f] to-slate-200 text-white font-bold text-sm shadow-xs"
+                                          className="vbpl-chapter-bar text-sm mt-6"
                                         >
-                                          {node.code}. {node.title}
+                                          {node.code.replace(/\.+$/, '')}. {node.title}
                                         </div>
                                       );
                                     }
@@ -2983,811 +1913,326 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                         <div
                                           key={node.id}
                                           id={`reader-node-${node.id}`}
-                                          className="pt-2 pb-1 pl-3 text-[#991b1b] italic font-bold text-xs"
+                                          className="italic font-bold text-sm pt-2"
+                                          style={{ color: 'var(--son)' }}
                                         >
-                                          {node.code}. {node.title}
+                                          {node.code.replace(/\.+$/, '')}. {node.title}
                                         </div>
                                       );
                                     }
 
-                                    const isSelectedNode = activeNodeId === node.id;
                                     const noteKey = getArticleNoteKey(currentLegalDoc.id, node.id);
                                     const existingNote = articlePersonalNotes[noteKey];
                                     const isEditingThisNote = editingNoteKey === noteKey;
+                                    const isActiveArticle = activeNodeId === node.id;
 
                                     return (
-                                      <div key={node.id} id={`reader-node-${node.id}`} className="space-y-1">
-                                        <div
-                                          onClick={() => setActiveNodeId(node.id)}
-                                          onDoubleClick={() => jumpToArticleNode(currentLegalDoc.id, node.id, true)}
-                                          className={`group flex items-baseline justify-between gap-2 py-1.5 px-2.5 rounded cursor-pointer transition ${
-                                            existingNote && isSelectedNode
-                                              ? 'bg-amber-100/95 border-l-4 border-amber-500 text-slate-950 font-semibold ring-1 ring-amber-300/80 shadow-2xs'
-                                              : existingNote
-                                              ? 'bg-amber-50/90 hover:bg-amber-100/80 border-l-4 border-amber-400 text-slate-900'
-                                              : isSelectedNode
-                                              ? 'bg-sky-50/90 border-l-4 border-[#163d5c] text-slate-950 font-semibold'
-                                              : 'hover:bg-slate-50 text-slate-800 border-l-4 border-transparent'
-                                          }`}
-                                        >
-                                          <span className="text-[#164e63] group-hover:text-[#b45309] leading-relaxed">
-                                            <b className="font-bold">
-                                              {node.level === 'Căn cứ' || node.level === 'Mở đầu'
-                                                ? node.code
-                                                : `${node.code}.`}
-                                            </b>
-                                            {/* Icon ghi chú cá nhân hiển thị ngay bên cạnh số hiệu điều khoản */}
-                                            {existingNote ? (
+                                      <article
+                                        key={node.id}
+                                        id={`reader-node-${node.id}`}
+                                        className={`scroll-mt-4 space-y-3 transition ${
+                                          isActiveArticle
+                                            ? 'pl-3.5 border-l-[3px]'
+                                            : ''
+                                        }`}
+                                        style={{
+                                          borderColor: isActiveArticle ? 'var(--gold)' : undefined,
+                                        }}
+                                      >
+                                        {/* Tiêu đề Điều màu Xanh Navy + Cụm nút đối chiếu nhanh */}
+                                        <div className="flex flex-wrap items-baseline justify-between gap-2 group">
+                                          <h3
+                                            className="text-[16.5px] font-bold leading-snug"
+                                            style={{ color: 'var(--navy-ink)' }}
+                                          >
+                                            {node.code.replace(/\.+$/, '')}. {renderHighlightedSpan(node.title, globalSearch)}
+                                          </h3>
+
+                                          <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition text-[11px]">
+                                            {relatedLineageDocs[0] && (
                                               <button
                                                 type="button"
-                                                onClick={e =>
-                                                  openArticleNoteEditor(currentLegalDoc.id, node.id, e)
+                                                onClick={() =>
+                                                  setSlideRefTarget({
+                                                    doc: relatedLineageDocs[0],
+                                                    reasonLabel: `Đối chiếu với ${node.code} (${currentLegalDoc.docNumber})`,
+                                                  })
                                                 }
-                                                title={`Ghi chú cá nhân (${existingNote.author} · ${existingNote.updatedAt}):\n${existingNote.text}`}
-                                                className="inline-flex items-center gap-0.5 ml-1.5 mr-1 px-1.5 py-0.2 rounded bg-amber-100 hover:bg-amber-200 border border-amber-400 text-amber-900 text-[10px] font-mono font-bold align-baseline shadow-2xs transition"
+                                                className="px-2 py-0.5 rounded border cursor-pointer font-semibold"
+                                                style={{
+                                                  backgroundColor: 'var(--giay)',
+                                                  borderColor: 'var(--line-d)',
+                                                  color: 'var(--navy-ink)',
+                                                }}
+                                                title="Mở ngăn đối chiếu văn bản liên quan bên phải"
                                               >
-                                                <span>📝</span>
-                                                <span className="max-w-[140px] truncate hidden sm:inline">
-                                                  {existingNote.text}
-                                                </span>
+                                                🔗 Đối chiếu
                                               </button>
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                }
-                                                title={`Thêm ghi chú cá nhân cho ${node.code}`}
-                                                className="inline-flex items-center ml-1 mr-1 px-1 py-0.2 rounded opacity-0 group-hover:opacity-100 hover:bg-amber-100 text-slate-400 hover:text-amber-800 border border-transparent hover:border-amber-300 text-[10px] font-mono transition align-baseline"
-                                              >
-                                                +📝
-                                              </button>
-                                            )}{' '}
-                                            {node.title}
-                                          </span>
-                                          <span className="flex-1 border-b border-dotted border-slate-300 mx-1 min-w-[24px]" />
-                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            )}
                                             <button
                                               type="button"
                                               onClick={e =>
-                                                openArticleNoteEditor(currentLegalDoc.id, node.id, e)
+                                                sendArticleToCompare(
+                                                  'LEFT',
+                                                  currentLegalDoc.id,
+                                                  node.id,
+                                                  false,
+                                                  e
+                                                )
                                               }
-                                              title={
-                                                existingNote
-                                                  ? `Sửa ghi chú cá nhân: ${existingNote.text}`
-                                                  : `Thêm ghi chú cá nhân vào ${node.code}`
-                                              }
-                                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
-                                                existingNote
-                                                  ? 'bg-amber-100 text-amber-900 border border-amber-400 font-bold hover:bg-amber-200'
-                                                  : 'opacity-0 group-hover:opacity-100 bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-800 border border-slate-200'
-                                              }`}
+                                              className="px-2 py-0.5 rounded border cursor-pointer font-mono font-semibold"
+                                              style={{
+                                                backgroundColor:
+                                                  compareLeftDocId === currentLegalDoc.id &&
+                                                  compareLeftNodeId === node.id
+                                                    ? 'var(--navy)'
+                                                    : 'var(--giay)',
+                                                borderColor: 'var(--line-d)',
+                                                color:
+                                                  compareLeftDocId === currentLegalDoc.id &&
+                                                  compareLeftNodeId === node.id
+                                                    ? '#ffffff'
+                                                    : 'var(--chu)',
+                                              }}
+                                              title="Chọn làm Điều khoản A"
                                             >
-                                              {existingNote ? '📝 Có ghi chú' : '+ Ghi chú'}
+                                              ⚖️ A
                                             </button>
-                                            <span className="text-xs font-mono text-slate-500 tabular-nums">
-                                              {node.clauseCount ?? 4}
-                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={e =>
+                                                sendArticleToCompare(
+                                                  'RIGHT',
+                                                  currentLegalDoc.id,
+                                                  node.id,
+                                                  true,
+                                                  e
+                                                )
+                                              }
+                                              className="px-2 py-0.5 rounded border cursor-pointer font-mono font-semibold"
+                                              style={{
+                                                backgroundColor: 'var(--giay)',
+                                                borderColor: 'var(--line-d)',
+                                                color: 'var(--tim)',
+                                              }}
+                                              title="Đưa vào Điều khoản B và mở bảng So sánh AI"
+                                            >
+                                              ⚖️ So sánh B
+                                            </button>
                                           </div>
                                         </div>
 
-                                        {/* Khung nhập / chỉnh sửa Ghi chú cá nhân trực tiếp cho Điều khoản */}
-                                        {isEditingThisNote && (
+                                        {/* Hộp cảnh báo sửa đổi nếu văn bản có cờ sửa đổi */}
+                                        {currentLegalDoc.isAmended && relatedLineageDocs[0] && (
+                                          <div className="vbpl-canhbao-sua p-3 text-xs space-y-1">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-[#d97706] text-white">
+                                                ĐÃ SỬA ĐỔI / HỢP NHẤT
+                                              </span>
+                                              <span style={{ color: 'var(--chu)' }}>
+                                                Đối chiếu quy định liên quan tại{' '}
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setSlideRefTarget({
+                                                      doc: relatedLineageDocs[0],
+                                                      reasonLabel: `Kiểm tra sửa đổi / hướng dẫn liên quan tới ${node.code}`,
+                                                    })
+                                                  }
+                                                  className="font-bold underline cursor-pointer"
+                                                  style={{ color: 'var(--son)' }}
+                                                >
+                                                  {relatedLineageDocs[0].docNumber} ›
+                                                </button>
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Nội dung Điều khoản với số khoản Đỏ son */}
+                                        {node.content && renderFormattedArticleBody(node.content)}
+
+                                        {/* Hộp GHI CHÚ RIÊNG viền vàng nét đứt chuẩn mẫu (.vbpl-ghichu) */}
+                                        <div className="pt-1 space-y-1">
                                           <div
-                                            onClick={e => e.stopPropagation()}
-                                            className="ml-4 mr-2 my-1.5 p-3 rounded-lg bg-amber-50/95 border-2 border-amber-400 text-slate-800 space-y-2 shadow-sm"
+                                            className="text-[10.5px] font-bold uppercase tracking-wider flex items-center justify-between"
+                                            style={{ color: 'var(--chu-m)' }}
                                           >
-                                            <div className="flex items-center justify-between gap-2">
-                                              <span className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
-                                                <span>📝</span>
-                                                <span>
-                                                  Ghi chú cá nhân tại {node.code} ({currentLegalDoc.docNumber})
-                                                </span>
+                                            <span>✎ GHI CHÚ RIÊNG (BẤM ĐỂ VIẾT)</span>
+                                            {existingNote?.isSharedToGate && (
+                                              <span className="px-1.5 py-0.2 rounded bg-[#a1342c] text-white text-[9.5px] font-mono">
+                                                📢 Đã gắn Gate [{(existingNote.targetGates || []).join(', ')}]
                                               </span>
-                                              <span className="text-[10px] font-mono text-amber-800">
-                                                Người tạo: {currentActor.fullName}
-                                              </span>
-                                            </div>
+                                            )}
+                                          </div>
 
-                                            <div className="flex flex-wrap items-center gap-1">
-                                              {[
-                                                `Áp dụng dự án ${activeProjectArchetype}`,
-                                                'Kiểm soát chặt tại Gate G12/G14',
-                                                'Lưu ý tránh xuất toán KTNN',
-                                                'Đối chiếu điều khoản HĐ FIDIC',
-                                              ].map(tag => (
-                                                <button
-                                                  key={tag}
-                                                  type="button"
-                                                  onClick={() =>
-                                                    setNoteDraftText(prev =>
-                                                      prev.trim() ? `${prev.trim()} · ${tag}` : tag
-                                                    )
-                                                  }
-                                                  className="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-mono text-amber-900 transition"
-                                                >
-                                                  + {tag}
-                                                </button>
-                                              ))}
-                                            </div>
-
-                                            <textarea
-                                              rows={2}
-                                              value={noteDraftText}
-                                              onChange={e => setNoteDraftText(e.target.value)}
-                                              placeholder={`Nhập ghi chú cá nhân, lưu ý áp dụng hoặc rủi ro pháp lý cho ${node.code}...`}
-                                              className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                              autoFocus
-                                            />
-
-                                            {/* Nâng cấp: Chia sẻ thành Chỉ thị Pháp lý Dùng chung của Dự án & Gắn vào Gate Bước 3 */}
-                                            <div className="p-2 rounded-lg bg-white border border-amber-300 space-y-2">
-                                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    setNoteDraftSharedToGate(prev => !prev)
-                                                  }
-                                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition ${
-                                                    noteDraftSharedToGate
-                                                      ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                                                      : 'bg-slate-100 hover:bg-rose-50 text-slate-700 border-slate-300'
-                                                  }`}
-                                                >
-                                                  <span>{noteDraftSharedToGate ? '✅' : '📢'}</span>
-                                                  <span>
-                                                    Chia sẻ thành Cảnh báo Dự án & Gắn vào Gate
-                                                  </span>
-                                                </button>
-
-                                                {noteDraftSharedToGate && (
-                                                  <select
-                                                    value={noteDraftProjectScope}
-                                                    onChange={e =>
-                                                      setNoteDraftProjectScope(
-                                                        e.target.value as
-                                                          | ProjectArchetypeCode
-                                                          | 'ALL'
-                                                      )
-                                                    }
-                                                    className="px-2 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] font-mono text-slate-800"
-                                                  >
-                                                    <option value="ALL">
-                                                      Áp dụng: Tất cả 6 loại hình DA
-                                                    </option>
-                                                    <option value={activeProjectArchetype}>
-                                                      Chỉ dự án [{activeProjectArchetype}]
-                                                    </option>
-                                                  </select>
-                                                )}
-                                              </div>
-
-                                              {noteDraftSharedToGate && (
-                                                <div className="space-y-1">
-                                                  <div className="text-[10px] font-mono text-slate-600">
-                                                    Chọn Cấp độ Gate hiển thị thẻ{' '}
-                                                    <b className="text-rose-700">
-                                                      "📌 Lưu ý Pháp lý từ Ban QLDA"
-                                                    </b>{' '}
-                                                    tại Bước 3:
+                                          {!isEditingThisNote ? (
+                                            <div
+                                              onClick={e =>
+                                                openArticleNoteEditor(currentLegalDoc.id, node.id, e)
+                                              }
+                                              className="vbpl-ghichu px-3.5 py-2.5 text-xs cursor-pointer transition hover:opacity-95 min-h-[48px] flex items-start justify-between gap-2"
+                                            >
+                                              {existingNote ? (
+                                                <div className="space-y-0.5">
+                                                  <div className="font-medium" style={{ color: 'var(--chu)' }}>
+                                                    {existingNote.text}
                                                   </div>
-                                                  <div className="flex flex-wrap gap-1">
-                                                    {gates.map(gItem => {
-                                                      const isSelectedGate =
-                                                        noteDraftTargetGates.includes(gItem.gate);
+                                                  <div className="text-[10.5px]" style={{ color: 'var(--chu-m)' }}>
+                                                    {existingNote.author} · {existingNote.updatedAt}
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <span className="italic" style={{ color: 'var(--chu-m)' }}>
+                                                  Ghi chú nghiệp vụ, rủi ro kiểm toán, ví dụ áp dụng…
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div
+                                              onClick={e => e.stopPropagation()}
+                                              className="vbpl-ghichu p-3 space-y-2.5 text-xs"
+                                            >
+                                              <textarea
+                                                rows={2}
+                                                autoFocus
+                                                value={noteDraftText}
+                                                onChange={e => setNoteDraftText(e.target.value)}
+                                                placeholder={`Nhập ghi chú nghiệp vụ, rủi ro hoặc lưu ý áp dụng cho ${node.code}…`}
+                                                className="w-full rounded border px-2.5 py-1.5 text-xs focus:outline-none"
+                                                style={{
+                                                  backgroundColor: 'var(--panel)',
+                                                  borderColor: 'var(--gold)',
+                                                  color: 'var(--chu)',
+                                                }}
+                                              />
+
+                                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      setNoteDraftSharedToGate(prev => !prev)
+                                                    }
+                                                    className="px-2.5 py-1 rounded border text-[11px] font-bold cursor-pointer"
+                                                    style={{
+                                                      backgroundColor: noteDraftSharedToGate
+                                                        ? 'var(--son)'
+                                                        : 'var(--panel)',
+                                                      borderColor: 'var(--gold)',
+                                                      color: noteDraftSharedToGate
+                                                        ? '#ffffff'
+                                                        : 'var(--chu)',
+                                                    }}
+                                                  >
+                                                    {noteDraftSharedToGate
+                                                      ? '✅ Đang gắn vào Stage-Gate'
+                                                      : '📢 Gắn cảnh báo vào Gate'}
+                                                  </button>
+
+                                                  {noteDraftSharedToGate &&
+                                                    gates.slice(0, 8).map(gItem => {
+                                                      const sel = noteDraftTargetGates.includes(gItem.gate);
                                                       return (
                                                         <button
                                                           key={gItem.gate}
                                                           type="button"
-                                                          onClick={() =>
-                                                            toggleDraftTargetGate(gItem.gate)
-                                                          }
-                                                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold border transition ${
-                                                            isSelectedGate
-                                                              ? 'bg-amber-500 text-slate-950 border-amber-700'
-                                                              : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-amber-100'
-                                                          }`}
+                                                          onClick={() => toggleDraftTargetGate(gItem.gate)}
+                                                          className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold border cursor-pointer"
+                                                          style={{
+                                                            backgroundColor: sel ? 'var(--navy)' : 'var(--panel)',
+                                                            borderColor: 'var(--line-d)',
+                                                            color: sel ? '#fff' : 'var(--chu)',
+                                                          }}
                                                         >
-                                                          {isSelectedGate ? '✓ ' : ''}
                                                           {gItem.gate}
                                                         </button>
                                                       );
                                                     })}
-                                                  </div>
                                                 </div>
-                                              )}
-                                            </div>
 
-                                            <div className="flex items-center justify-between gap-2">
-                                              <div className="flex items-center gap-1.5">
-                                                <button
-                                                  type="button"
-                                                  onClick={e =>
-                                                    saveArticlePersonalNote(
-                                                      currentLegalDoc.id,
-                                                      node.id,
-                                                      node.code,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-2xs transition"
-                                                >
-                                                  💾 Lưu ghi chú
-                                                </button>
-                                                {existingNote && (
+                                                <div className="flex items-center gap-1.5">
                                                   <button
                                                     type="button"
                                                     onClick={e =>
-                                                      deleteArticlePersonalNote(
+                                                      saveArticlePersonalNote(
                                                         currentLegalDoc.id,
                                                         node.id,
                                                         node.code,
                                                         e
                                                       )
                                                     }
-                                                    className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 font-semibold text-xs transition"
+                                                    className="px-3 py-1 rounded text-white font-bold cursor-pointer"
+                                                    style={{ backgroundColor: 'var(--navy)' }}
                                                   >
-                                                    🗑️ Xóa
+                                                    💾 Lưu
                                                   </button>
-                                                )}
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => setEditingNoteKey(null)}
-                                                className="px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition"
-                                              >
-                                                Đóng
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {/* Khi click vào dòng Điều khoản trong Mục lục, hiển thị ngay hộp trích xuất nội dung + Ghi chú cá nhân + liên kết Bước 3/Bước 4 */}
-                                        {isSelectedNode && node.content && (
-                                          <div className="ml-4 mr-2 my-1.5 p-3.5 rounded-lg bg-[#faf7f0] border border-amber-400/80 text-slate-800 space-y-2 shadow-xs">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                              <span className="text-xs font-bold text-[#163d5c]">
-                                                Nội dung trích xuất — {node.code}: {node.title}
-                                              </span>
-                                              <div className="flex flex-wrap items-center gap-1.5">
-                                                <button
-                                                  type="button"
-                                                  onClick={e =>
-                                                    sendArticleToCompare(
-                                                      'LEFT',
-                                                      currentLegalDoc.id,
-                                                      node.id,
-                                                      false,
-                                                      e
-                                                    )
-                                                  }
-                                                  title="Đặt điều khoản này làm Điều khoản A để đối chiếu"
-                                                  className={`px-2 py-0.5 rounded text-[11px] font-bold border transition ${
-                                                    compareLeftDocId === currentLegalDoc.id &&
-                                                    compareLeftNodeId === node.id
-                                                      ? 'bg-sky-600 text-white border-sky-700'
-                                                      : 'bg-sky-50 hover:bg-sky-100 text-sky-900 border-sky-300'
-                                                  }`}
-                                                >
-                                                  ⚖️ Đặt làm A
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={e =>
-                                                    sendArticleToCompare(
-                                                      'RIGHT',
-                                                      currentLegalDoc.id,
-                                                      node.id,
-                                                      true,
-                                                      e
-                                                    )
-                                                  }
-                                                  title="Đưa vào Điều khoản B và mở ngay Bảng so sánh song song"
-                                                  className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition"
-                                                >
-                                                  ⚖️ So sánh (B) →
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={e =>
-                                                    openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                  }
-                                                  className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 text-[11px] font-bold transition"
-                                                >
-                                                  📝 {existingNote ? 'Sửa ghi chú cá nhân' : 'Thêm ghi chú cá nhân'}
-                                                </button>
-                                                <button
-                                                  onClick={() => setRightReaderMode('FULL_CONTENT')}
-                                                  className="px-2 py-0.5 rounded bg-[#163d5c] text-white text-[11px] font-semibold hover:bg-[#1e4b7a]"
-                                                >
-                                                  Mở toàn văn & Stage-Gate →
-                                                </button>
-                                              </div>
-                                            </div>
-                                            <p className="text-xs leading-relaxed whitespace-pre-line text-slate-700">
-                                              {node.content}
-                                            </p>
-
-                                            {/* Hiển thị hộp Ghi chú cá nhân đã lưu ngay trong phần xem nhanh điều khoản */}
-                                            {existingNote && !isEditingThisNote && (
-                                              <div className="p-2.5 rounded-lg bg-amber-100/80 border border-amber-400 text-xs text-amber-950 flex items-start justify-between gap-2">
-                                                <div className="space-y-1">
-                                                  <div className="font-mono text-[10px] font-bold text-amber-900 flex flex-wrap items-center gap-1.5">
-                                                    <span>
-                                                      📝 GHI CHÚ CÁ NHÂN ({existingNote.author} ·{' '}
-                                                      {existingNote.updatedAt}):
-                                                    </span>
-                                                    {existingNote.isSharedToGate && (
-                                                      <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-bold">
-                                                        📢 Đã gắn vào Gate [
-                                                        {(existingNote.targetGates || []).join(', ')}]
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                  <div className="text-slate-900 font-medium leading-snug">
-                                                    {existingNote.text}
-                                                  </div>
-                                                </div>
-                                                <div className="flex items-center gap-1 shrink-0">
+                                                  {existingNote && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={e =>
+                                                        deleteArticlePersonalNote(
+                                                          currentLegalDoc.id,
+                                                          node.id,
+                                                          node.code,
+                                                          e
+                                                        )
+                                                      }
+                                                      className="px-2.5 py-1 rounded bg-rose-600 text-white font-semibold cursor-pointer"
+                                                    >
+                                                      Xóa
+                                                    </button>
+                                                  )}
                                                   <button
                                                     type="button"
-                                                    onClick={e =>
-                                                      toggleShareNoteToGate(
-                                                        currentLegalDoc.id,
-                                                        node.id,
-                                                        node.code,
-                                                        e
-                                                      )
-                                                    }
-                                                    title="Bật/tắt chia sẻ thành Chỉ thị Pháp lý Ban QLDA tại Bước 3"
-                                                    className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold transition ${
-                                                      existingNote.isSharedToGate
-                                                        ? 'bg-rose-600 text-white border-rose-700'
-                                                        : 'bg-white hover:bg-rose-50 text-rose-800 border-rose-300'
-                                                    }`}
+                                                    onClick={() => setEditingNoteKey(null)}
+                                                    className="px-2.5 py-1 rounded border cursor-pointer"
+                                                    style={{
+                                                      backgroundColor: 'var(--panel)',
+                                                      borderColor: 'var(--line-d)',
+                                                    }}
                                                   >
-                                                    {existingNote.isSharedToGate
-                                                      ? '📢 Đã gắn Gate'
-                                                      : '📢 Gắn Gate'}
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    onClick={e =>
-                                                      openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                    }
-                                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-200 border border-amber-400 text-[10px] font-mono font-bold text-amber-900"
-                                                  >
-                                                    ✏️ Sửa
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    onClick={e =>
-                                                      deleteArticlePersonalNote(
-                                                        currentLegalDoc.id,
-                                                        node.id,
-                                                        node.code,
-                                                        e
-                                                      )
-                                                    }
-                                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-rose-100 border border-rose-300 text-[10px] font-mono text-rose-700"
-                                                  >
-                                                    🗑️
+                                                    Đóng
                                                   </button>
                                                 </div>
                                               </div>
-                                            )}
-
-                                            <div className="pt-1.5 border-t border-amber-300/60 flex flex-wrap items-center gap-1.5">
-                                              <span className="text-[11px] font-semibold text-slate-500">
-                                                Liên kết Nhân quả:
-                                              </span>
-                                              {currentLegalDoc.linkedGates.map(g => (
-                                                <button
-                                                  key={g}
-                                                  onClick={() => {
-                                                    setSelectedGateCode(g);
-                                                    setActiveTab('STEP3_PLAN');
-                                                  }}
-                                                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold hover:bg-amber-400"
-                                                >
-                                                  Bước 3: Gate {g} →
-                                                </button>
-                                              ))}
-                                              {currentLegalDoc.linkedQAQC.map(qt => (
-                                                <button
-                                                  key={qt}
-                                                  onClick={() => {
-                                                    setSelectedProcessId(qt);
-                                                    setActiveTab('STEP4_EXECUTE');
-                                                  }}
-                                                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#163d5c] text-white font-semibold hover:bg-[#1e4b7a]"
-                                                >
-                                                  Bước 4: Quy trình {qt} →
-                                                </button>
-                                              ))}
                                             </div>
-                                          </div>
-                                        )}
-                                      </div>
+                                          )}
+                                        </div>
+                                      </article>
                                     );
                                   })}
                               </div>
-                            </div>
-                          ) : rightReaderMode === 'FULL_CONTENT' ? (
-                            /* Chế độ 2: TOÀN VĂN ĐIỀU KHOẢN & LIÊN KẾT STAGE-GATE */
-                            <div className="space-y-4" style={{ fontSize: `${readerFontSize}px` }}>
-                              <div className="bg-[#faf7f0] border border-slate-300 rounded-xl p-4 space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-mono font-bold text-[#163d5c]">
-                                    [{currentLegalDoc.docType}] Số {currentLegalDoc.docNumber} · Ngành:{' '}
-                                    {currentLegalDoc.subSectorLabel} · Chức năng: {currentLegalDoc.primaryDomain}
-                                  </span>
-                                  <span className="text-[11px] font-mono font-semibold text-emerald-700">
-                                    {currentLegalDoc.status}
-                                  </span>
-                                </div>
-                                <h2 className="text-base font-bold text-slate-900 leading-snug">
-                                  {currentLegalDoc.title}
-                                </h2>
-                                <div className="text-xs text-slate-600">{currentLegalDoc.lineage}</div>
 
-                                <div className="pt-2 border-t border-slate-300 flex flex-wrap items-center gap-1.5">
-                                  <span className="text-[11px] font-semibold text-slate-600">
-                                    Chuyển sang Lập kế hoạch & Thực thi:
-                                  </span>
+                              {/* Thanh điều hướng cuối văn bản */}
+                              <div
+                                className="pt-4 border-t flex flex-wrap items-center justify-between gap-2 text-xs"
+                                style={{ borderColor: 'var(--line)' }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setRightReaderMode('TOC_INDEX')}
+                                  className="px-3 py-1.5 rounded border font-bold cursor-pointer"
+                                  style={{ backgroundColor: 'var(--giay)', borderColor: 'var(--line-d)' }}
+                                >
+                                  📑 Lên đầu Mục lục
+                                </button>
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   {currentLegalDoc.linkedGates.map(g => (
                                     <button
                                       key={g}
+                                      type="button"
                                       onClick={() => {
                                         setSelectedGateCode(g);
                                         setActiveTab('STEP3_PLAN');
                                       }}
-                                      className="text-[11px] font-mono px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 whitespace-nowrap"
+                                      className="px-2.5 py-1.5 rounded font-mono font-bold text-white cursor-pointer"
+                                      style={{ backgroundColor: 'var(--navy)' }}
                                     >
                                       Bước 3: Gate {g} →
                                     </button>
                                   ))}
-                                  {currentLegalDoc.linkedQAQC.map(qt => (
-                                    <button
-                                      key={qt}
-                                      onClick={() => {
-                                        setSelectedProcessId(qt);
-                                        setActiveTab('STEP4_EXECUTE');
-                                      }}
-                                      className="text-[11px] font-mono px-2.5 py-1 rounded bg-[#163d5c] text-white font-semibold hover:bg-[#1e4b7a] whitespace-nowrap"
-                                    >
-                                      Bước 4: Quy trình {qt} →
-                                    </button>
-                                  ))}
                                 </div>
-                              </div>
-
-                              <div className="space-y-3">
-                                {currentLegalDoc.nodes
-                                  .filter(node => {
-                                    if (!filterOnlyNotedNodes) return true;
-                                    if (node.level === 'Chương' || node.level === 'Mục') return false;
-                                    return Boolean(
-                                      articlePersonalNotes[getArticleNoteKey(currentLegalDoc.id, node.id)]
-                                    );
-                                  })
-                                  .map(node => {
-                                    const noteKey = getArticleNoteKey(currentLegalDoc.id, node.id);
-                                    const existingNote = articlePersonalNotes[noteKey];
-                                    const isEditingThisNote = editingNoteKey === noteKey;
-                                    const isChapterOrSection =
-                                      node.level === 'Chương' || node.level === 'Mục';
-
-                                    return (
-                                      <div
-                                        id={`reader-node-${node.id}`}
-                                        key={node.id}
-                                        className={`p-4 rounded-xl border space-y-2 transition ${
-                                          node.level === 'Chương'
-                                            ? 'bg-[#163554] text-white border-[#163554]'
-                                            : !isChapterOrSection && existingNote && activeNodeId === node.id
-                                            ? 'bg-amber-100/85 border-amber-500 border-l-4 ring-1 ring-amber-300 shadow-xs'
-                                            : !isChapterOrSection && existingNote
-                                            ? 'bg-amber-50/85 border-amber-300 border-l-4 hover:bg-amber-100/60'
-                                            : activeNodeId === node.id
-                                            ? 'bg-sky-50/90 border-[#163d5c] border-l-4'
-                                            : 'bg-white border-slate-200'
-                                        }`}
-                                      >
-                                        <div className="flex items-start justify-between gap-2">
-                                          <div
-                                            className={`font-bold ${
-                                              node.level === 'Chương'
-                                                ? 'text-amber-300'
-                                                : 'text-[#163d5c]'
-                                            }`}
-                                          >
-                                            <span>{node.code}.</span>
-                                            {!isChapterOrSection && existingNote && (
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                }
-                                                title={`Ghi chú cá nhân (${existingNote.author} · ${existingNote.updatedAt}):\n${existingNote.text}`}
-                                                className="inline-flex items-center gap-1 ml-1.5 mr-1 px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 border border-amber-400 text-amber-900 text-[10px] font-mono font-bold align-middle shadow-2xs transition"
-                                              >
-                                                <span>📝</span>
-                                                <span>Ghi chú cá nhân</span>
-                                              </button>
-                                            )}{' '}
-                                            <span>{node.title}</span>
-                                          </div>
-
-                                          {!isChapterOrSection && (
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  sendArticleToCompare(
-                                                    'LEFT',
-                                                    currentLegalDoc.id,
-                                                    node.id,
-                                                    false,
-                                                    e
-                                                  )
-                                                }
-                                                title="Chọn làm Điều khoản A để đối chiếu"
-                                                className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold border transition ${
-                                                  compareLeftDocId === currentLegalDoc.id &&
-                                                  compareLeftNodeId === node.id
-                                                    ? 'bg-sky-600 text-white border-sky-700'
-                                                    : 'bg-sky-50 hover:bg-sky-100 text-sky-900 border-sky-300'
-                                                }`}
-                                              >
-                                                ⚖️ A
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  sendArticleToCompare(
-                                                    'RIGHT',
-                                                    currentLegalDoc.id,
-                                                    node.id,
-                                                    true,
-                                                    e
-                                                  )
-                                                }
-                                                title="Đặt làm Điều khoản B và mở ngay Bảng so sánh song song"
-                                                className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-600 text-indigo-900 hover:text-white border border-indigo-300 text-[11px] font-mono font-semibold transition"
-                                              >
-                                                ⚖️ So sánh B
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                }
-                                                className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold shrink-0 transition ${
-                                                  existingNote
-                                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400'
-                                                    : 'bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-900 border border-slate-300'
-                                                }`}
-                                              >
-                                                {existingNote ? '📝 Sửa ghi chú' : '+ 📝 Ghi chú'}
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {node.content && (
-                                          <p
-                                            className={`leading-relaxed whitespace-pre-line ${
-                                              node.level === 'Chương'
-                                                ? 'text-slate-100'
-                                                : 'text-slate-700'
-                                            }`}
-                                          >
-                                            {node.content}
-                                          </p>
-                                        )}
-
-                                        {/* Hiển thị Ghi chú cá nhân đã lưu tại chế độ Toàn văn */}
-                                        {!isChapterOrSection && existingNote && !isEditingThisNote && (
-                                          <div className="p-2.5 rounded-lg bg-amber-100/85 border border-amber-400 text-xs text-amber-950 flex items-start justify-between gap-2">
-                                            <div className="space-y-1">
-                                              <div className="font-mono text-[10px] font-bold text-amber-900 flex flex-wrap items-center gap-1.5">
-                                                <span>
-                                                  📝 GHI CHÚ CÁ NHÂN ({existingNote.author} ·{' '}
-                                                  {existingNote.updatedAt}):
-                                                </span>
-                                                {existingNote.isSharedToGate && (
-                                                  <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-bold">
-                                                    📢 Đã gắn vào Gate [
-                                                    {(existingNote.targetGates || []).join(', ')}]
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="text-slate-900 font-medium leading-snug">
-                                                {existingNote.text}
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-1 shrink-0">
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  toggleShareNoteToGate(
-                                                    currentLegalDoc.id,
-                                                    node.id,
-                                                    node.code,
-                                                    e
-                                                  )
-                                                }
-                                                className={`px-2 py-0.5 rounded border text-[10px] font-mono font-bold transition ${
-                                                  existingNote.isSharedToGate
-                                                    ? 'bg-rose-600 text-white border-rose-700'
-                                                    : 'bg-white hover:bg-rose-50 text-rose-800 border-rose-300'
-                                                }`}
-                                              >
-                                                {existingNote.isSharedToGate
-                                                  ? '📢 Đã gắn Gate'
-                                                  : '📢 Gắn Gate'}
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  openArticleNoteEditor(currentLegalDoc.id, node.id, e)
-                                                }
-                                                className="px-2 py-0.5 rounded bg-white hover:bg-amber-200 border border-amber-400 text-[10px] font-mono font-bold text-amber-900"
-                                              >
-                                                ✏️ Sửa
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={e =>
-                                                  deleteArticlePersonalNote(
-                                                    currentLegalDoc.id,
-                                                    node.id,
-                                                    node.code,
-                                                    e
-                                                  )
-                                                }
-                                                className="px-1.5 py-0.5 rounded bg-white hover:bg-rose-100 border border-rose-300 text-[10px] font-mono text-rose-700"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {/* Khung nhập/chỉnh sửa ghi chú cá nhân tại chế độ Toàn văn */}
-                                        {!isChapterOrSection && isEditingThisNote && (
-                                          <div
-                                            onClick={e => e.stopPropagation()}
-                                            className="p-3 rounded-lg bg-amber-50 border-2 border-amber-400 text-slate-800 space-y-2"
-                                          >
-                                            <div className="flex items-center justify-between gap-2">
-                                              <span className="text-xs font-extrabold text-amber-950">
-                                                📝 Ghi chú cá nhân tại {node.code} ({currentLegalDoc.docNumber})
-                                              </span>
-                                              <span className="text-[10px] font-mono text-amber-800">
-                                                {currentActor.fullName}
-                                              </span>
-                                            </div>
-                                            <textarea
-                                              rows={2}
-                                              value={noteDraftText}
-                                              onChange={e => setNoteDraftText(e.target.value)}
-                                              placeholder={`Nhập ghi chú cá nhân cho ${node.code}...`}
-                                              className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                              autoFocus
-                                            />
-                                            <div className="p-2 rounded-lg bg-white border border-amber-300 space-y-2">
-                                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    setNoteDraftSharedToGate(prev => !prev)
-                                                  }
-                                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition ${
-                                                    noteDraftSharedToGate
-                                                      ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                                                      : 'bg-slate-100 hover:bg-rose-50 text-slate-700 border-slate-300'
-                                                  }`}
-                                                >
-                                                  <span>{noteDraftSharedToGate ? '✅' : '📢'}</span>
-                                                  <span>
-                                                    Chia sẻ thành Cảnh báo Dự án & Gắn vào Gate
-                                                  </span>
-                                                </button>
-                                                {noteDraftSharedToGate && (
-                                                  <select
-                                                    value={noteDraftProjectScope}
-                                                    onChange={e =>
-                                                      setNoteDraftProjectScope(
-                                                        e.target.value as
-                                                          | ProjectArchetypeCode
-                                                          | 'ALL'
-                                                      )
-                                                    }
-                                                    className="px-2 py-0.5 rounded border border-slate-300 bg-slate-50 text-[10px] font-mono text-slate-800"
-                                                  >
-                                                    <option value="ALL">
-                                                      Áp dụng: Tất cả 6 loại hình DA
-                                                    </option>
-                                                    <option value={activeProjectArchetype}>
-                                                      Chỉ dự án [{activeProjectArchetype}]
-                                                    </option>
-                                                  </select>
-                                                )}
-                                              </div>
-                                              {noteDraftSharedToGate && (
-                                                <div className="flex flex-wrap gap-1">
-                                                  {gates.map(gItem => {
-                                                    const isSelectedGate =
-                                                      noteDraftTargetGates.includes(gItem.gate);
-                                                    return (
-                                                      <button
-                                                        key={gItem.gate}
-                                                        type="button"
-                                                        onClick={() =>
-                                                          toggleDraftTargetGate(gItem.gate)
-                                                        }
-                                                        className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold border transition ${
-                                                          isSelectedGate
-                                                            ? 'bg-amber-500 text-slate-950 border-amber-700'
-                                                            : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-amber-100'
-                                                        }`}
-                                                      >
-                                                        {isSelectedGate ? '✓ ' : ''}
-                                                        {gItem.gate}
-                                                      </button>
-                                                    );
-                                                  })}
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2">
-                                              <div className="flex items-center gap-1.5">
-                                                <button
-                                                  type="button"
-                                                  onClick={e =>
-                                                    saveArticlePersonalNote(
-                                                      currentLegalDoc.id,
-                                                      node.id,
-                                                      node.code,
-                                                      e
-                                                    )
-                                                  }
-                                                  className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-                                                >
-                                                  💾 Lưu ghi chú
-                                                </button>
-                                                {existingNote && (
-                                                  <button
-                                                    type="button"
-                                                    onClick={e =>
-                                                      deleteArticlePersonalNote(
-                                                        currentLegalDoc.id,
-                                                        node.id,
-                                                        node.code,
-                                                        e
-                                                      )
-                                                    }
-                                                    className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 font-semibold text-xs transition"
-                                                  >
-                                                    🗑️ Xóa
-                                                  </button>
-                                                )}
-                                              </div>
-                                              <button
-                                                type="button"
-                                                onClick={() => setEditingNoteKey(null)}
-                                                className="px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold transition"
-                                              >
-                                                Đóng
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
                               </div>
                             </div>
                           ) : rightReaderMode === 'COMPARE_MODE' ? (
@@ -5526,11 +3971,77 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                             })()
                           )}
                         </div>
-                      </>
-                    )}
-                  </div>
+
+                        {/* NGĂN KÉO ĐỐI CHIẾU TRƯỢT NGANG (#ref 430px viền Vàng đồng) */}
+                        <SlideOverRefDrawer
+                          target={slideRefTarget}
+                          onClose={() => setSlideRefTarget(null)}
+                          onPromoteToMainReader={(docId, nodeId) => {
+                            handleSelectDoc(docId, false);
+                            if (nodeId) {
+                              jumpToArticleNode(docId, nodeId, true);
+                            } else {
+                              setRightReaderMode('TOC_INDEX');
+                            }
+                          }}
+                          onCompareWithCurrent={(docId, nodeId) => {
+                            if (currentLegalDoc) {
+                              const curFirst =
+                                currentLegalDoc.nodes.find(
+                                  n => n.level !== 'Chương' && n.level !== 'Mục'
+                                )?.id || currentLegalDoc.nodes[0]?.id;
+                              if (curFirst) {
+                                sendArticleToCompare('LEFT', currentLegalDoc.id, activeNodeId || curFirst, false);
+                              }
+                            }
+                            sendArticleToCompare('RIGHT', docId, nodeId, true);
+                          }}
+                          onOpenSecurePdf={doc => {
+                            setSecurePdfTarget({
+                              fileName: doc.rawFileName || doc.ssotFileName,
+                              docTitle: doc.title,
+                              docNumber: doc.docNumber,
+                            });
+                            setIsSecurePdfOpen(true);
+                          }}
+                          onOpenGate={gCode => {
+                            setSelectedGateCode(gCode);
+                            setActiveTab('STEP3_PLAN');
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
-              ) : vbplSubMode === 'LAW_ROADMAP' ? (
+              </div>
+
+              {/* THANH ĐIỀU HƯỚNG ĐÁY TRÊN MOBILE (.mnav <= 1024px chuẩn mẫu) */}
+              <nav
+                className="lg:hidden grid grid-cols-3 border-t-2 shrink-0 text-xs font-bold select-none"
+                style={{ backgroundColor: 'var(--navy-d)', borderColor: 'var(--gold)' }}
+              >
+                {[
+                  { id: 'c1' as const, icon: '📚', label: 'Lĩnh vực' },
+                  { id: 'c2' as const, icon: '📂', label: `Danh mục (${filteredLegalDocs.length})` },
+                  { id: 'c3' as const, icon: '📄', label: 'Nội dung' },
+                ].map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMobilePane(m.id)}
+                    className="py-2.5 flex items-center justify-center gap-1.5 cursor-pointer"
+                    style={{
+                      color: mobilePane === m.id ? '#2c2003' : '#e2e8f0',
+                      backgroundColor: mobilePane === m.id ? 'var(--gold)' : 'transparent',
+                    }}
+                  >
+                    <span>{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+          ) : vbplSubMode === 'LAW_ROADMAP' ? (
                 /* CHẾ ĐỘ 2C: BẢN ĐỒ ROAD_MAP PHẢ HỆ CHO TỪNG BỘ LUẬT TOÀN MÀN HÌNH */
                 (() => {
                   const activePillar: LawRoadmapPillar =

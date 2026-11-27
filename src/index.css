@@ -1,14 +1,106 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *, .toi, .toi *));
+
+/* ============================================================================
+   DESIGN SYSTEM CHUẨN MẪU THƯ VIỆN VBPL (thuvien-vbpl-26.web.app)
+   Triết lý: "Giấy Pháp Lý & Ấn Chương" (Warm Legal Paper · Royal Navy · Gold · Son)
+   ============================================================================ */
+:root {
+  --navy: #1b3a5c;
+  --navy-ink: #1b3a5c;
+  --navy-d: #12293f;
+  --navy-l: #2f5a86;
+  --navy-xl: #4a7bab;
+
+  --son: #a1342c;
+  --son-l: #c4483d;
+
+  --gold: #c8a33c;
+  --gold-l: #e8c66a;
+  --gold-xl: #f7e9bf;
+
+  --xanh: #1e7e34;
+  --cam: #d97706;
+  --tim: #6d4aa8;
+
+  --giay: #f5f1e8;
+  --giay-d: #ebe4d6;
+  --giay-soft: #faf7f0;
+  --panel: #ffffff;
+
+  --line: #d8d2c4;
+  --line-d: #bdb5a3;
+
+  --chu: #22303c;
+  --chu-m: #6b7680;
+  --chu-nhat: #98a2ac;
+
+  --mark: #ffe89a;
+  --mark-2: #ffd24d;
+
+  --r: 7px;
+  --sh: 0 1px 3px rgba(27, 58, 92, 0.1), 0 6px 18px rgba(27, 58, 92, 0.07);
+  --sh-lg: 0 8px 34px rgba(18, 41, 63, 0.24);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "Roboto", "Inter", "Plus Jakarta Sans", "Noto Sans", Arial, sans-serif;
+  --serif: "Cambria", "Charter", "Palatino Linotype", "Book Antiqua", "Times New Roman", "Noto Serif", serif;
+  --mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", "SF Mono", "DejaVu Sans Mono", Menlo, Monaco, monospace;
+}
+
+/* Chế độ Tối (Dark Mode chuẩn body.toi) */
+body.toi {
+  --navy: #244366;
+  --navy-ink: #e8c66a;
+  --navy-d: #0e1a28;
+  --navy-l: #6ba3dc;
+  --navy-xl: #5889ba;
+
+  --son: #b83d34;
+  --son-l: #e4756a;
+
+  --gold: #c8a33c;
+  --gold-l: #e8c66a;
+  --gold-xl: #3a3320;
+
+  --giay: #161c23;
+  --giay-d: #111820;
+  --giay-soft: #19212b;
+  --panel: #1c242e;
+
+  --line: #2e3a47;
+  --line-d: #3d4b5a;
+
+  --chu: #dde5ec;
+  --chu-m: #95a3b2;
+  --chu-nhat: #6b7987;
+
+  --mark: #6b5518;
+  --mark-2: #8a6d1c;
+
+  --sh: 0 1px 3px rgba(0, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.25);
+  --sh-lg: 0 10px 38px rgba(0, 0, 0, 0.55);
+}
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  html,
+  body,
+  #root {
+    height: 100%;
   }
 
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+  body {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    background-color: var(--giay);
+    color: var(--chu);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--mono);
     font-variant-numeric: tabular-nums;
   }
 }
@@ -17,20 +109,326 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Chế độ đọc sách Luật chữ có chân (Book Serif Mode) */
+body.doc-serif .vbpl-doc-reader {
+  font-family: var(--serif);
+  line-height: 1.82;
+}
+
+body.doc-serif .vbpl-doc-reader .vbpl-article-prose {
+  text-align: justify;
+}
+
+/* ============================================================================
+   TOPBAR NAVY-GOLD (50px)
+   ============================================================================ */
+.vbpl-topbar {
+  min-height: 50px;
+  background: linear-gradient(180deg, #2f5a86 0%, #1b3a5c 100%);
+  border-bottom: 2px solid var(--gold);
+  color: #ffffff;
+}
+
+body.toi .vbpl-topbar {
+  background: linear-gradient(180deg, #1f3752 0%, #112030 100%);
+}
+
+.vbpl-search-pill {
+  height: 32px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transition: all 0.16s ease;
+}
+
+.vbpl-search-pill::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.vbpl-search-pill:focus {
+  background: #ffffff;
+  color: #22303c;
+  border-color: var(--gold-l);
+  box-shadow: 0 0 0 2px rgba(200, 163, 60, 0.35);
+  outline: none;
+}
+
+.vbpl-search-pill:focus::placeholder {
+  color: #6b7680;
+}
+
+.vbpl-tbtn {
+  height: 29px;
+  padding: 0 7.5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vbpl-tbtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(232, 198, 106, 0.65);
+  color: #ffffff;
+}
+
+.vbpl-tbtn.active {
+  background: var(--gold);
+  border-color: var(--gold-l);
+  color: #2c2003;
+  font-weight: 700;
+}
+
+/* ============================================================================
+   HUY HIỆU LOẠI VĂN BẢN (.vbpl-badge) CHUẨN MÀU MẪU
+   ============================================================================ */
+.vbpl-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  line-height: 1.15;
+  padding: 2.5px 5.5px;
+  border-radius: 3px;
+  color: #ffffff;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.vbpl-b-LUAT {
+  background-color: #a1342c;
+}
+.vbpl-b-ND {
+  background-color: #2f5a86;
+}
+.vbpl-b-TT {
+  background-color: #1e7e34;
+}
+.vbpl-b-CV {
+  background-color: #d97706;
+}
+.vbpl-b-QD {
+  background-color: #0e7490;
+}
+.vbpl-b-NQ {
+  background-color: #be185d;
+}
+.vbpl-b-VBHN {
+  background-color: #475569;
+}
+.vbpl-b-QCVN,
+.vbpl-b-CM {
+  background-color: #6d4aa8;
+}
+.vbpl-b-TCVN {
+  background-color: #0f766e;
+}
+.vbpl-b-HD,
+.vbpl-b-PLHD {
+  background-color: #b45309;
+}
+.vbpl-b-KHAC {
+  background-color: #64748b;
+}
+
+/* ============================================================================
+   CỘT 1: CÂY LĨNH VỰC (.vbpl-c1) VỚI ĐƯỜNG KẺ NHÁNH
+   ============================================================================ */
+.vbpl-c1 {
+  background-color: var(--navy-d);
+  color: #dce6f0;
+}
+
+.vbpl-tree-children {
+  position: relative;
+  margin-left: 13px;
+  padding-left: 11px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.vbpl-tree-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: #cbd8e6;
+  transition: all 0.12s ease;
+  cursor: pointer;
+  text-align: left;
+}
+
+.vbpl-tree-item::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 9px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.vbpl-tree-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.vbpl-tree-item.active {
+  background: var(--gold);
+  color: #3a2c05;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================================
+   CỘT 2 & CỘT 3: GIẤY PHÁP LÝ, THẺ VĂN BẢN, GHI CHÚ & MODAL (.vbpl-mdw)
+   ============================================================================ */
+.vbpl-c2 {
+  background-color: var(--giay-d);
+  color: var(--chu);
+}
+
+.vbpl-c3 {
+  background-color: var(--panel);
+  color: var(--chu);
+}
+
+.vbpl-c3-bar {
+  min-height: 38px;
+  background-color: var(--giay-d);
+  border-bottom: 1px solid var(--line);
+}
+
+.vbpl-card {
+  background-color: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: 0 1px 2px rgba(27, 58, 92, 0.05);
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.vbpl-card:hover {
+  border-color: var(--line-d);
+  box-shadow: var(--sh);
+}
+
+.vbpl-card-open-header {
+  background: linear-gradient(90deg, #1b3a5c 0%, #2f5a86 100%);
+  color: #ffffff;
+}
+
+.vbpl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background-color: var(--giay-d);
+  border: 1px solid var(--line);
+  color: var(--chu);
+  font-size: 12px;
+}
+
+.vbpl-chapter-bar {
+  background: linear-gradient(90deg, #1b3a5c 0%, #2f5a86 62%, rgba(235, 228, 214, 0.25) 100%);
+  color: #ffffff;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+
+body.toi .vbpl-chapter-bar {
+  background: linear-gradient(90deg, #203d5e 0%, #284b70 65%, rgba(28, 36, 46, 0.3) 100%);
+}
+
+.vbpl-ghichu {
+  background-color: var(--gold-xl);
+  border: 1px dashed var(--gold);
+  border-radius: 6px;
+  color: var(--chu);
+}
+
+.vbpl-canhbao-sua {
+  background-color: rgba(247, 233, 191, 0.55);
+  border: 1px solid var(--gold);
+  border-radius: 7px;
+}
+
+body.toi .vbpl-canhbao-sua {
+  background-color: rgba(58, 51, 32, 0.6);
+}
+
+.vbpl-nd-suadoi {
+  border-left: 3px solid var(--cam);
+  background-color: rgba(247, 233, 191, 0.4);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+}
+
+body.toi .vbpl-nd-suadoi {
+  background-color: rgba(58, 51, 32, 0.45);
+}
+
+.vbpl-md-backdrop {
+  background: rgba(12, 24, 38, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.vbpl-mdw {
+  background-color: var(--panel);
+  color: var(--chu);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--gold);
+  border-radius: 11px;
+  box-shadow: var(--sh-lg);
+}
+
+.vbpl-toast {
+  background-color: var(--navy-d);
+  color: #ffffff;
+  border: 1px solid var(--gold);
+  border-radius: 22px;
+  box-shadow: var(--sh-lg);
+}
+
+mark.vbpl-hit {
+  background-color: var(--mark);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Scrollbar tinh gọn đồng bộ giao diện */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: rgba(107, 118, 128, 0.38);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--navy-xl);
 }

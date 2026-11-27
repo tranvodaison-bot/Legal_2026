@@ -17,6 +17,10 @@ import {
   DATA_LEGAL_2026_CORE_OVERRIDES,
   DATA_LEGAL_2026_NEW_DOCS,
 } from './dataLegal2026Catalog';
+import {
+  buildExtraDataLegal2026Docs,
+  extractRawFileNameFromLineage,
+} from './realDataLegal2026Batch';
 
 export const TAXONOMY_3D: Taxonomy3D = {
   legalGroups: [
@@ -2213,20 +2217,35 @@ const BASE_INITIAL_LEGAL_DOCS: LegalDocument[] = [
   },
 ];
 
-export const INITIAL_LEGAL_DOCS: LegalDocument[] = [
+const CORE_AND_CURATED_LEGAL_DOCS: LegalDocument[] = [
   ...BASE_INITIAL_LEGAL_DOCS.map(doc => {
     const ov = DATA_LEGAL_2026_CORE_OVERRIDES[doc.id];
-    if (!ov) return doc;
+    if (!ov) {
+      return {
+        ...doc,
+        rawFileName: doc.rawFileName || extractRawFileNameFromLineage(doc.lineage),
+      };
+    }
+    const mergedLineage = `${doc.lineage} · ${ov.lineage}`;
     return {
       ...doc,
       ssotFileName: ov.ssotFileName,
+      rawFileName: extractRawFileNameFromLineage(ov.lineage) || doc.rawFileName,
       issueDate: ov.issueDate,
       effectiveDate: ov.effectiveDate,
       tags: Array.from(new Set([...(doc.tags || []), ...(ov.tags || [])])),
-      lineage: `${doc.lineage} · ${ov.lineage}`,
+      lineage: mergedLineage,
     };
   }),
-  ...DATA_LEGAL_2026_NEW_DOCS,
+  ...DATA_LEGAL_2026_NEW_DOCS.map(doc => ({
+    ...doc,
+    rawFileName: doc.rawFileName || extractRawFileNameFromLineage(doc.lineage),
+  })),
+];
+
+export const INITIAL_LEGAL_DOCS: LegalDocument[] = [
+  ...CORE_AND_CURATED_LEGAL_DOCS,
+  ...buildExtraDataLegal2026Docs(CORE_AND_CURATED_LEGAL_DOCS),
 ];
 
 

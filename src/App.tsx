@@ -93,6 +93,7 @@ import {
 } from './utils/legalCompareHighlighter';
 import { DigitalSignoffModal } from './components/layout/DigitalSignoffModal';
 import { TopRoleSwitcherHeader } from './components/layout/TopRoleSwitcherHeader';
+import { VbplGuideModal, VbplStatsModal } from './components/modals/VbplLibraryModals';
 import { Step1CdeIngestion } from './components/steps/Step1CdeIngestion';
 import { Step2LegalMatrix } from './components/steps/Step2LegalMatrix';
 import { Step3StageGate } from './components/steps/Step3StageGate';
@@ -305,10 +306,10 @@ export function useLexPmoOrchestrator() {
   const [activeDragSplitter, setActiveDragSplitter] = useState<DragSplitterId | null>(null);
   const workspaceMainRef = useRef<HTMLElement | null>(null);
 
-  // Tỷ lệ % các cột cho từng Bước
+  // Tỷ lệ % các cột cho từng Bước (Chuẩn 3 cột thuvien-vbpl-26: ~19% / ~25% / ~56%)
   const [step1LeftPct, setStep1LeftPct] = useState<number>(56);
-  const [vbplCol1Pct, setVbplCol1Pct] = useState<number>(18);
-  const [vbplCol2Pct, setVbplCol2Pct] = useState<number>(26);
+  const [vbplCol1Pct, setVbplCol1Pct] = useState<number>(19);
+  const [vbplCol2Pct, setVbplCol2Pct] = useState<number>(25);
   const [isVbplCol1Collapsed, setIsVbplCol1Collapsed] = useState<boolean>(false);
   const [isVbplCol2Collapsed, setIsVbplCol2Collapsed] = useState<boolean>(false);
 
@@ -404,25 +405,23 @@ export function useLexPmoOrchestrator() {
         onMouseDown={e => startResizeSplitter(params.id, e)}
         onDoubleClick={params.onDoubleClickReset}
         title="Kéo trái/phải để co giãn cột · Nhấp đúp (Double-click) để đặt lại kích thước chuẩn"
-        className={`group relative w-1.5 shrink-0 cursor-col-resize flex items-center justify-center select-none transition-colors z-20 ${
-          isDraggingThis
-            ? 'bg-amber-500'
+        className="hidden lg:flex group relative w-[4px] shrink-0 cursor-col-resize items-center justify-center select-none transition-colors z-20"
+        style={{
+          backgroundColor: isDraggingThis
+            ? 'var(--gold)'
             : params.lightTheme
-            ? 'bg-slate-300/90 hover:bg-amber-500'
-            : 'bg-slate-800/90 hover:bg-amber-500'
-        }`}
+            ? 'var(--line)'
+            : 'rgba(18, 41, 63, 0.85)',
+        }}
       >
         <div
-          className={`h-10 w-1 rounded-full transition-all flex items-center justify-center ${
-            isDraggingThis
-              ? 'bg-slate-950 scale-y-125'
-              : params.lightTheme
-              ? 'bg-slate-500/60 group-hover:bg-slate-950'
-              : 'bg-slate-600 group-hover:bg-slate-950'
-          }`}
+          className="h-9 w-[2px] rounded-full transition-all group-hover:bg-[#c8a33c]"
+          style={{
+            backgroundColor: isDraggingThis ? '#2c2003' : 'rgba(152, 162, 172, 0.55)',
+          }}
         />
         {isDraggingThis && params.label && (
-          <div className="absolute top-3 left-2.5 px-2 py-0.5 rounded bg-slate-950 text-amber-400 border border-amber-500/50 font-mono text-[10px] font-bold whitespace-nowrap shadow-xl pointer-events-none">
+          <div className="absolute top-3 left-2.5 px-2 py-0.5 rounded bg-[#12293f] text-[#e8c66a] border border-[#c8a33c] font-mono text-[10px] font-bold whitespace-nowrap shadow-xl pointer-events-none">
             {params.label}
           </div>
         )}
@@ -4048,17 +4047,10 @@ export default function App() {
   const stepContext = useLexPmoOrchestrator();
   const {
     activeTab,
-     setActiveTab,
-    isSidebarCollapsed,
-    setIsSidebarCollapsed,
-    isStep2SidebarExpanded,
-    setIsStep2SidebarExpanded,
-    sidebarWidthPx,
-    setSidebarWidthPx,
+    setActiveTab,
     globalSearch,
     setGlobalSearch,
     workspaceMainRef,
-    renderVerticalSplitter,
     activeProjectArchetype,
     setActiveProjectArchetype,
     activeProjectName,
@@ -4081,223 +4073,265 @@ export default function App() {
     setSelectedRoadmapPillarId,
     resolveRoadmapPillarIdForDoc,
     currentLegalDoc,
+    legalDocs,
+    filteredLegalDocs,
+    droppedFilesQueue,
+    articlePersonalNotes,
+    pane2SubTab,
+    setPane2SubTab,
+    rightReaderMode,
+    setRightReaderMode,
+    readerFontSize,
+    setReaderFontSize,
+    setBookmarkedDocIds,
+    activeNodeId,
+    jumpToArticleNode,
+    setVbplIndustryGroupFilter,
+    setVbplSubSectorFilter,
+    setFilterDocType,
     showFormPreviewModal,
     setShowFormPreviewModal,
     currentProcess,
     currentFlowStep,
-    SIDEBAR_CHAIN,
     currentChainMeta,
   } = stepContext;
 
+  // Theme Sáng (Giấy Pháp Lý mặc định) / Tối (body.toi) & Chế độ chữ Serif (body.doc-serif)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('vbpl_dark_mode_v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [isSerifFont, setIsSerifFont] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('vbpl_serif_font_v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.classList.toggle('toi', isDarkMode);
+      document.body.classList.toggle('dark', isDarkMode);
+    }
+    try {
+      localStorage.setItem('vbpl_dark_mode_v1', isDarkMode ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.classList.toggle('doc-serif', isSerifFont);
+    }
+    try {
+      localStorage.setItem('vbpl_serif_font_v1', isSerifFont ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [isSerifFont]);
+
+  // Tổ hợp phím tắt nhanh chuẩn thuvien-vbpl-26 (M, D, C, J, K)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (activeTab !== 'STEP2_VBPL' || vbplSubMode !== 'READER_3PANE' || !currentLegalDoc) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'm') {
+        e.preventDefault();
+        setRightReaderMode(prev => (prev === 'TOC_INDEX' ? 'FULL_CONTENT' : 'TOC_INDEX'));
+      } else if (key === 'd') {
+        e.preventDefault();
+        setBookmarkedDocIds(prev =>
+          prev.includes(currentLegalDoc.id)
+            ? prev.filter(id => id !== currentLegalDoc.id)
+            : [...prev, currentLegalDoc.id]
+        );
+        showToast(`Đã cập nhật đánh dấu cho ${currentLegalDoc.docNumber}`);
+      } else if (key === 'c') {
+        e.preventDefault();
+        const cite = `${currentLegalDoc.docType} ${currentLegalDoc.docNumber} — ${currentLegalDoc.title} (Ban hành: ${currentLegalDoc.issueDate}, Hiệu lực: ${currentLegalDoc.effectiveDate})`;
+        navigator.clipboard?.writeText(cite);
+        showToast(`📋 Đã sao chép trích dẫn: ${currentLegalDoc.docNumber}`);
+      } else if (key === 'j' || key === 'k') {
+        const articles = currentLegalDoc.nodes.filter(
+          n => n.level !== 'Chương' && n.level !== 'Mục'
+        );
+        if (articles.length === 0) return;
+        e.preventDefault();
+        const curIdx = Math.max(
+          0,
+          articles.findIndex(n => n.id === activeNodeId)
+        );
+        const nextIdx =
+          key === 'j'
+            ? Math.min(articles.length - 1, curIdx + 1)
+            : Math.max(0, curIdx - 1);
+        jumpToArticleNode(currentLegalDoc.id, articles[nextIdx].id, true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    activeTab,
+    vbplSubMode,
+    currentLegalDoc,
+    activeNodeId,
+    jumpToArticleNode,
+    setBookmarkedDocIds,
+    setRightReaderMode,
+    showToast,
+  ]);
+
+  const handleExportLibraryCsv = () => {
+    const header = ['ID', 'LoaiVB', 'SoHieu', 'Nam', 'LinhVuc', 'HieuLuc', 'TrichYeu', 'TenTepSSOT'];
+    const rows = filteredLegalDocs.map(d => [
+      d.id,
+      d.docType,
+      d.docNumber,
+      d.year,
+      d.primaryDomain,
+      d.effectiveDate,
+      `"${(d.title || '').replace(/"/g, '""')}"`,
+      d.ssotFileName,
+    ]);
+    const csv = '\uFEFF' + [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ThuVien_VBPL_2026_${filteredLegalDocs.length}VB.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`📤 Đã xuất danh mục ${filteredLegalDocs.length} văn bản ra CSV (UTF-8 BOM)!`);
+  };
+
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden">
-      {/* ====================================================================
-          LEFT SIDEBAR NAVIGATION (CHUỖI 5 BƯỚC + BỘ LỌC TRỤC CHỨC NĂNG)
-         ==================================================================== */}
-      <aside
-        style={{ width: isSidebarCollapsed ? 64 : sidebarWidthPx }}
-        className="bg-slate-900/95 border-r border-slate-800 flex flex-col justify-between shrink-0 z-30 select-none"
-      >
-        <div>
-          {/* Brand Header */}
-          <div className="h-14 px-3 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-bold text-slate-950 shadow-lg shrink-0">
-                LX
-              </div>
-              {!isSidebarCollapsed && (
-                <div className="leading-tight truncate">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-white whitespace-nowrap">LEX-PMO OS v3.0</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 truncate">3-Axis Legal & Enterprise PMO</p>
-                </div>
-              )}
-            </div>
+    <div
+      className="flex flex-col h-screen w-screen overflow-hidden"
+      style={{ backgroundColor: 'var(--giay)', color: 'var(--chu)' }}
+    >
+      {/* THANH TOPBAR NAVY-GOLD CHUẨN MẪU thuvien-vbpl-26.web.app */}
+      <TopRoleSwitcherHeader
+        activeTab={activeTab}
+        vbplSubMode={vbplSubMode}
+        onNavigateTab={(tab, subMode) => {
+          setActiveTab(tab);
+          if (tab === 'STEP2_VBPL' && subMode) {
+            if (subMode === 'LAW_ROADMAP' && currentLegalDoc) {
+              setSelectedRoadmapPillarId(resolveRoadmapPillarIdForDoc(currentLegalDoc));
+            }
+            setVbplSubMode(subMode);
+          }
+        }}
+        currentChainMeta={currentChainMeta}
+        activeProjectArchetype={activeProjectArchetype}
+        currentArchetypeMeta={currentArchetypeMeta}
+        currentActor={currentActor}
+        employees={employees}
+        raciPerms={raciPerms}
+        globalSearch={globalSearch}
+        roleGuardStatus={roleGuardStatus}
+        unlockedRoles={unlockedRoles}
+        onUnlockRole={handleUnlockRole}
+        onLockAllRoles={handleLockAllRoles}
+        onSelectActorId={handleSelectActorId}
+        onChangeProjectArchetype={code => setActiveProjectArchetype(code)}
+        onChangeGlobalSearch={val => {
+          setGlobalSearch(val);
+          if (val.trim() && activeTab === 'STEP2_VBPL' && pane2SubTab !== 'RESULTS') {
+            setPane2SubTab('RESULTS');
+          } else if (!val.trim() && pane2SubTab === 'RESULTS') {
+            setPane2SubTab('DOCS');
+          }
+        }}
+        onSearchSubmit={() => {
+          if (activeTab !== 'STEP2_VBPL') {
+            setActiveTab('STEP2_VBPL');
+            setVbplSubMode('READER_3PANE');
+          }
+          if (globalSearch.trim()) {
+            setPane2SubTab('RESULTS');
+          }
+        }}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+        isSerifFont={isSerifFont}
+        onToggleSerifFont={() => setIsSerifFont(prev => !prev)}
+        readerFontSize={readerFontSize}
+        onDecreaseFontSize={() => setReaderFontSize(s => Math.max(12, s - 1))}
+        onIncreaseFontSize={() => setReaderFontSize(s => Math.min(20, s + 1))}
+        onOpenGuideModal={() => setIsGuideModalOpen(true)}
+        onOpenStatsModal={() => setIsStatsModalOpen(true)}
+        onExportLibraryCsv={handleExportLibraryCsv}
+        totalDocsCount={legalDocs.length}
+        batchCount={droppedFilesQueue.length}
+        showToast={showToast}
+      />
 
-            <button
-              onClick={() => setIsSidebarCollapsed(prev => !prev)}
-              title="Thu gọn / Mở rộng Sidebar"
-              className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs border border-slate-700 shrink-0"
-            >
-              {isSidebarCollapsed ? '▶' : '◀'}
-            </button>
-          </div>
-
-          {/* Chuỗi 5 Bước Điều hướng (Kèm Drill-Down Sub-module cho Bước 2) */}
-          <div className="p-2 space-y-3 overflow-y-auto max-h-[calc(100vh-70px)]">
-            {SIDEBAR_CHAIN.map((group, gIdx) => (
-              <div key={gIdx} className="space-y-1.5">
-                {group.items.map(item => {
-                  const isActive = activeTab === item.id;
-                  const isStep2 = item.id === 'STEP2_VBPL';
-                  return (
-                    <div key={item.id} className="space-y-1">
-                      <button
-                        onClick={() => {
-                          if (isStep2) {
-                            if (activeTab === 'STEP2_VBPL' && vbplSubMode === 'READER_3PANE') {
-                              setIsStep2SidebarExpanded(prev => !prev);
-                            } else {
-                              setActiveTab('STEP2_VBPL');
-                              setVbplSubMode('READER_3PANE');
-                              setIsStep2SidebarExpanded(true);
-                            }
-                          } else {
-                            setActiveTab(item.id);
-                          }
-                        }}
-                        title={`${item.stepNum}: ${item.title} — ${item.subtitle}`}
-                        className={`w-full text-left rounded-xl p-2 transition-all flex items-center justify-between gap-2 border ${
-                          isActive && (!isStep2 || vbplSubMode === 'READER_3PANE')
-                            ? 'bg-gradient-to-r from-amber-500/20 to-amber-500/5 border-amber-500 text-white shadow-md'
-                            : 'bg-transparent border-transparent text-slate-300 hover:bg-slate-800/70'
-                        }`}
-                      >
-                        <div
-                          className={`h-8 w-8 rounded-lg flex items-center justify-center text-sm shrink-0 border ${
-                            isActive && (!isStep2 || vbplSubMode === 'READER_3PANE')
-                              ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                              : 'bg-slate-950 border-slate-800 text-slate-300'
-                          }`}
-                        >
-                          {item.icon}
-                        </div>
-                        {!isSidebarCollapsed && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className={`text-[10px] font-mono tabular-nums ${item.badgeColor}`}>
-                              {item.badge}
-                            </span>
-                            {isStep2 && (
-                              <span className="text-[10px] text-amber-400 font-mono">
-                                {isStep2SidebarExpanded ? '▾' : '▸'}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Sub-modules Drill-Down dưới Bước 2: Road_map Bộ luật & Đối soát chéo */}
-                      {isStep2 && isStep2SidebarExpanded && (
-                        <div
-                          className={`${
-                            isSidebarCollapsed ? 'px-0.5' : 'pl-2.5 pr-0.5'
-                          } pt-0.5 space-y-1`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('STEP2_VBPL');
-                              if (currentLegalDoc) {
-                                setSelectedRoadmapPillarId(resolveRoadmapPillarIdForDoc(currentLegalDoc));
-                              }
-                              setVbplSubMode('LAW_ROADMAP');
-                            }}
-                            title="Road_map Phả hệ cho từng Bộ luật (Luật gốc, Luật sửa đổi, VBHN, Nghị định, Thông tư, QCVN)"
-                            className={`w-full text-left rounded-lg px-2 py-1.5 text-[10px] font-mono transition flex items-center justify-between gap-1 border ${
-                              activeTab === 'STEP2_VBPL' && vbplSubMode === 'LAW_ROADMAP'
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-xs'
-                                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-                            }`}
-                          >
-                            <span className="truncate">
-                              {isSidebarCollapsed ? '🗺️' : '🗺️ Road_map Bộ luật'}
-                            </span>
-                            {!isSidebarCollapsed && (
-                              <span className="text-[9px] text-amber-300 shrink-0">
-                                {LAW_ROADMAPS.length}
-                              </span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('STEP2_VBPL');
-                              setVbplSubMode('CROSS_EXAM');
-                            }}
-                            title="Bảng Đối soát chéo Đa Văn bản (Cross-Reference Matrix)"
-                            className={`w-full text-left rounded-lg px-2 py-1.5 text-[10px] font-mono transition flex items-center justify-between gap-1 border ${
-                              activeTab === 'STEP2_VBPL' && vbplSubMode === 'CROSS_EXAM'
-                                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold shadow-xs'
-                                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-                            }`}
-                          >
-                            <span className="truncate">
-                              {isSidebarCollapsed ? '🔀' : '🔀 Đối soát chéo'}
-                            </span>
-                            {!isSidebarCollapsed && (
-                              <span className="text-[9px] text-emerald-300 shrink-0">
-                                {CROSS_EXAM_TOPICS.length}
-                              </span>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+      {/* TOAST PILL CĂN GIỮA ĐÁY CHUẨN MẪU thuvien-vbpl-26 */}
+      {toastMsg && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 vbpl-toast font-semibold text-xs px-4 py-2.5 flex items-center gap-2 max-w-[92vw]">
+          <span className="text-emerald-400 font-bold">✔</span>
+          <span className="truncate">{toastMsg}</span>
         </div>
-      </aside>
+      )}
 
-      {/* Thanh kéo co giãn độ rộng Left Sidebar */}
-      {renderVerticalSplitter({
-        id: 'SIDEBAR',
-        onDoubleClickReset: () => {
-          setIsSidebarCollapsed(false);
-          setSidebarWidthPx(145);
-          showToast('Đã đặt lại chiều rộng Sidebar chuẩn (145px)');
-        },
-        label: `${sidebarWidthPx}px`,
-      })}
-
-      {/* ====================================================================
-          RIGHT MAIN WORKSPACE (TOP PIPELINE BAR + ACTIVE STEP VIEW)
-         ==================================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* TOP CONTEXT, PROJECT ARCHETYPE & 4-PARTY RBAC/RACI ROLE SWITCHER BAR */}
-        <TopRoleSwitcherHeader
-          currentChainMeta={currentChainMeta}
-          activeProjectArchetype={activeProjectArchetype}
-          currentArchetypeMeta={currentArchetypeMeta}
-          currentActor={currentActor}
-          employees={employees}
-          raciPerms={raciPerms}
-          globalSearch={globalSearch}
-          roleGuardStatus={roleGuardStatus}
-          unlockedRoles={unlockedRoles}
-          onUnlockRole={handleUnlockRole}
-          onLockAllRoles={handleLockAllRoles}
-          onSelectActorId={handleSelectActorId}
-          onChangeProjectArchetype={code => setActiveProjectArchetype(code)}
-          onChangeGlobalSearch={val => setGlobalSearch(val)}
-          showToast={showToast}
-        />
-
-        {toastMsg && (
-          <div className="fixed bottom-5 right-5 z-50 bg-emerald-500 text-slate-950 font-semibold text-xs px-4 py-3 rounded-lg shadow-2xl border border-emerald-300 flex items-center gap-2">
-            <span>✓</span>
-            <span>{toastMsg}</span>
-          </div>
+      {/* KHUNG LÀM VIỆC CHÍNH TOÀN MÀN HÌNH (KHÔNG DƯ SIDEBAR BÊN NGOÀI) */}
+      <main
+        ref={workspaceMainRef}
+        className={`flex-1 flex flex-col overflow-hidden ${
+          activeTab !== 'STEP2_VBPL' ? 'bg-slate-950 text-slate-100' : ''
+        }`}
+      >
+        {activeTab === 'STEP1_INGEST' && <Step1CdeIngestion ctx={stepContext} />}
+        {activeTab === 'STEP2_VBPL' && <Step2LegalMatrix ctx={stepContext} />}
+        {activeTab === 'STEP3_PLAN' && <Step3StageGate ctx={stepContext} />}
+        {activeTab === 'STEP4_EXECUTE' && <Step4RaciHr ctx={stepContext} />}
+        {(activeTab === 'STEP5_AUDIT' || activeTab === 'STEP6_AI') && (
+          <Step5CommandCenter ctx={stepContext} />
         )}
+        {activeTab === 'STEP6_DATA_BI' && <Step6DataFoundationBi ctx={stepContext} />}
+      </main>
 
-        {/* ==================================================================
-            MAIN CONTENT AREA THEO TỪNG BƯỚC TRONG CHUỖI 5 BƯỚC + AI (CLEAN ARCHITECTURE)
-           ================================================================== */}
-        <main ref={workspaceMainRef} className="flex-1 overflow-hidden">
-          {activeTab === "STEP1_INGEST" && <Step1CdeIngestion ctx={stepContext} />}
-          {activeTab === "STEP2_VBPL" && <Step2LegalMatrix ctx={stepContext} />}
-          {activeTab === "STEP3_PLAN" && <Step3StageGate ctx={stepContext} />}
-          {activeTab === "STEP4_EXECUTE" && <Step4RaciHr ctx={stepContext} />}
-          {(activeTab === "STEP5_AUDIT" || activeTab === "STEP6_AI") && (
-            <Step5CommandCenter ctx={stepContext} />
-          )}
-          {activeTab === "STEP6_DATA_BI" && <Step6DataFoundationBi ctx={stepContext} />}
-        </main>
-      </div>
+      {/* MODAL THỐNG KÊ THƯ VIỆN & HƯỚNG DẪN TRA CỨU */}
+      <VbplStatsModal
+        isOpen={isStatsModalOpen}
+        onClose={() => setIsStatsModalOpen(false)}
+        legalDocs={legalDocs}
+        personalNotesCount={Object.keys(articlePersonalNotes).length}
+        realBatchCount={droppedFilesQueue.length}
+        onSelectIndustry={indId => {
+          setActiveTab('STEP2_VBPL');
+          setVbplSubMode('READER_3PANE');
+          setVbplIndustryGroupFilter(indId);
+          setVbplSubSectorFilter('ALL');
+          setPane2SubTab('DOCS');
+        }}
+        onSelectDocType={docType => {
+          setActiveTab('STEP2_VBPL');
+          setVbplSubMode('READER_3PANE');
+          setFilterDocType(docType);
+          setPane2SubTab('DOCS');
+        }}
+        onOpenFullBiStep={() => setActiveTab('STEP6_DATA_BI')}
+      />
+
+      <VbplGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+      />
 
       {/* ====================================================================
           MODAL XEM TRƯỚC & KÝ SỐ BIỂU MẪU AUTO-FILL (STEP 4 FORM PREVIEW MODAL)
