@@ -89,9 +89,10 @@ import { AiLegalGapAnalysisCard } from "../AiLegalGapAnalysisCard";
 import { ApprovalFlowD3Diagram } from "../ApprovalFlowD3Diagram";
 import { LawGenealogyTreeDiagram } from "../LawGenealogyTreeDiagram";
 import { Step5PortfolioDashboard } from "../Step5PortfolioDashboard";
-import { SecurePdfViewerModal } from "../SecurePdfViewerModal";
+import { SecureDocumentViewerModal } from "../SecureDocumentViewerModal";
 import { SlideOverRefDrawer, SlideOverRefTarget } from "../SlideOverRefDrawer";
 import { getVbplBadgeClass, getVbplBadgeLabel } from "../modals/VbplLibraryModals";
+import { searchDataFoundationClauses } from "../../services/ssotBridgeService";
 
 const PROJECT_ARCHETYPE_ICONS: Record<ProjectArchetypeCode, string> = {
   HTKT: "🛣️",
@@ -335,6 +336,7 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
     handleBreadcrumbToRoot, handleBreadcrumbToIndustry,
     handleBreadcrumbToSubSector, handleBreadcrumbToDocument,
     handleBreadcrumbStepBack, jumpToArticleNode,
+    ensureDocFullClauses,
     selectedGateCode, setSelectedGateCode,
     checkedAuditItems, setCheckedAuditItems,
     projectGateStatusMap, setProjectGateStatusMap,
@@ -365,10 +367,68 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
   } = ctx;
 
   const [isSecurePdfOpen, setIsSecurePdfOpen] = React.useState(false);
-  const [securePdfTarget, setSecurePdfTarget] = React.useState<{ fileName: string; docTitle?: string; docNumber?: string }>({ fileName: '' });
+  const [securePdfTarget, setSecurePdfTarget] = React.useState<{
+    fileName: string;
+    docTitle?: string;
+    docNumber?: string;
+    folderName?: string;
+    viewerMode?: 'AUTO' | 'PDF' | 'WORD' | 'FOLDER_FORMS';
+  }>({ fileName: '' });
   const [slideRefTarget, setSlideRefTarget] = React.useState<SlideOverRefTarget | null>(null);
   const [isPmoFilterOpen, setIsPmoFilterOpen] = React.useState(false);
   const [mobilePane, setMobilePane] = React.useState<'c1' | 'c2' | 'c3'>('c3');
+
+  // FTS5 Full-Text Search (SQLite WAL qua /api/documents/search-fts) cho tab "🔍 Kết quả"
+  const [ftsHits, setFtsHits] = React.useState<Array<Record<string, unknown>>>([]);
+  const [ftsSource, setFtsSource] = React.useState<string>('');
+  const [isFtsSearching, setIsFtsSearching] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    const q = globalSearch.trim();
+    if (pane2SubTab !== 'RESULTS' || q.length < 2) {
+      setFtsHits([]);
+      setFtsSource('');
+      setIsFtsSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setIsFtsSearching(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await searchDataFoundationClauses(q, 20, {
+          domain: vbplDomainFilter !== 'ALL' ? vbplDomainFilter : undefined,
+          docType: filterDocType !== 'ALL' ? filterDocType : undefined,
+        });
+        if (!cancelled) {
+          setFtsHits(res?.hits || []);
+          setFtsSource(res?.source || '');
+          setIsFtsSearching(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setFtsHits([]);
+          setIsFtsSearching(false);
+        }
+      }
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [pane2SubTab, globalSearch, vbplDomainFilter, filterDocType]);
+
+  const renderFtsSnippet = (snippetText: string) => {
+    const parts = String(snippetText || '').split(/(【[^】]*】)/g);
+    return parts.map((part, idx) =>
+      part.startsWith('【') && part.endsWith('】') ? (
+        <mark key={idx} className="vbpl-hit">
+          {part.slice(1, -1)}
+        </mark>
+      ) : (
+        <React.Fragment key={idx}>{part}</React.Fragment>
+      )
+    );
+  };
 
   // Tô sáng từ khóa tìm kiếm trong đoạn văn bản
   const renderHighlightedSpan = (rawText: string, query: string) => {
@@ -1128,6 +1188,88 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
 
                     {/* Danh sách Thẻ Văn bản Accordion chuẩn .vb-node của thuvien-vbpl-26 */}
                     <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                      {pane2SubTab === 'RESULTS' && globalSearch.trim().length >= 2 && (
+                        <div className="vbpl-card p-2.5 space-y-2 border border-sky-500/35 bg-sky-500/5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold text-sky-900 dark:text-sky-300 flex items-center gap-1.5">
+                              <span>⚡ Tìm toàn văn SQLite FTS5</span>
+                              {ftsSource && (
+                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-sky-500/15 border border-sky-500/30">
+                                  {ftsSource}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-[10.5px] font-mono" style={{ color: 'var(--chu-m)' }}>
+                              {isFtsSearching ? 'Đang truy vấn...' : `${ftsHits.length} điều khớp`}
+                            </span>
+                          </div>
+                          {!isFtsSearching && ftsHits.length > 0 && (
+                            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-0.5">
+                              {ftsHits.slice(0, 12).map((hit, hitIdx) => {
+                                const ssotName = String(hit.ssot_file_name || '');
+                                const hitDocKey = String(hit.doc_key || '');
+                                const artNum = String(hit.article_number || '');
+                                const hitTitle = String(hit.title || '');
+                                const hitDocNum = String(hit.doc_number || '');
+                                const hitSnippet = String(hit.snippet || '');
+                                const matchedDoc = legalDocs.find(
+                                  d =>
+                                    d.id === hitDocKey ||
+                                    (ssotName && d.ssotFileName.toLowerCase() === ssotName.toLowerCase()) ||
+                                    (hitDocNum &&
+                                      hitDocNum !== '01' &&
+                                      d.docNumber.toLowerCase() === hitDocNum.toLowerCase())
+                                );
+                                return (
+                                  <button
+                                    key={`${hitDocKey}-${hitIdx}`}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!matchedDoc) {
+                                        showToast(`Đã tìm thấy "${hitDocNum || ssotName}" trong kho SQLite FTS5.`);
+                                        return;
+                                      }
+                                      handleSelectDoc(matchedDoc.id, !isCol2CompactMode);
+                                      void ensureDocFullClauses(matchedDoc.id);
+                                      const targetNode =
+                                        matchedDoc.nodes.find(
+                                          n =>
+                                            (artNum && n.code.toLowerCase().includes(artNum.toLowerCase())) ||
+                                            (hitTitle && n.title.toLowerCase().includes(hitTitle.toLowerCase().slice(0, 16)))
+                                        ) || matchedDoc.nodes[0];
+                                      if (targetNode) {
+                                        jumpToArticleNode(matchedDoc.id, targetNode.id, true);
+                                      }
+                                      setMobilePane('c3');
+                                    }}
+                                    className="w-full text-left p-2 rounded border border-[var(--line)] bg-[var(--panel)] hover:border-sky-500/60 transition cursor-pointer space-y-0.5"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 text-[10.5px]">
+                                      <span className="font-mono font-bold text-sky-800 dark:text-sky-300 truncate">
+                                        {hitDocNum || ssotName} · {artNum || 'Mục lục'}
+                                      </span>
+                                      <span className="text-[9.5px] text-[var(--chu-m)] shrink-0">
+                                        {matchedDoc ? 'Mở ở Cột 3 →' : String(hit.issue_year || '')}
+                                      </span>
+                                    </div>
+                                    {hitTitle && (
+                                      <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--chu)' }}>
+                                        {hitTitle}
+                                      </div>
+                                    )}
+                                    {hitSnippet && (
+                                      <div className="text-[10.5px] leading-snug line-clamp-2" style={{ color: 'var(--chu-m)' }}>
+                                        {renderFtsSnippet(hitSnippet)}
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {pane2SubTab === 'RESULTS' && !globalSearch.trim() ? (
                         <div className="py-12 px-5 text-center space-y-2">
                           <div className="text-sm font-bold flex items-center justify-center gap-1.5" style={{ color: 'var(--navy-ink)' }}>
@@ -1172,9 +1314,10 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                           const isExpandedToc = !isCol2CompactMode && doc.id === expandedInlineDocId;
                           const isExpired =
                             doc.validityPeriod === 'AMENDED' || /hết hiệu lực/i.test(doc.status);
-                          const hasPdfSource = Boolean(
-                            (doc.rawFileName || doc.ssotFileName || '').toLowerCase().endsWith('.pdf')
-                          );
+                          const sourceFile = doc.rawFileName || doc.ssotFileName || '';
+                          const isPdfSource = sourceFile.toLowerCase().endsWith('.pdf');
+                          const isWordSource = /\.(docx?)$/i.test(sourceFile);
+                          const hasViewableSource = isPdfSource || isWordSource;
                           const docNotesCount = doc.nodes.filter(
                             n =>
                               n.level !== 'Chương' &&
@@ -1246,26 +1389,31 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                                       </span>
                                     )}
 
-                                    {hasPdfSource && (
+                                    {hasViewableSource && (
                                       <button
                                         type="button"
                                         onClick={e => {
                                           e.stopPropagation();
                                           setSecurePdfTarget({
-                                            fileName: doc.rawFileName || doc.ssotFileName,
+                                            fileName: sourceFile,
                                             docTitle: doc.title,
                                             docNumber: doc.docNumber,
+                                            viewerMode: isWordSource ? 'WORD' : 'PDF',
                                           });
                                           setIsSecurePdfOpen(true);
                                         }}
-                                        title="Mở bản PDF scan gốc có dấu đỏ (Zero-Trust Proxy)"
+                                        title={
+                                          isWordSource
+                                            ? 'Mở bản Word (.docx/.doc) khổ A4 (Zero-Trust Proxy)'
+                                            : 'Mở bản PDF scan gốc có dấu đỏ (Zero-Trust Proxy)'
+                                        }
                                         className={`px-1.5 py-0.2 rounded text-[10px] border cursor-pointer transition ${
                                           isSelected
                                             ? 'bg-emerald-500/25 border-emerald-300/50 text-emerald-100'
                                             : 'bg-emerald-50 border-emerald-500/40 text-emerald-700 hover:bg-emerald-100'
                                         }`}
                                       >
-                                        🔗
+                                        {isWordSource ? '📝' : '🔗'}
                                       </button>
                                     )}
                                   </div>
@@ -1463,28 +1611,61 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
                             ⚖️ <span className="hidden xl:inline">So sánh</span>
                           </button>
 
-                          {Boolean(
-                            (currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName || '')
-                              .toLowerCase()
-                              .endsWith('.pdf')
-                          ) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSecurePdfTarget({
-                                  fileName: currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName,
-                                  docTitle: currentLegalDoc.title,
-                                  docNumber: currentLegalDoc.docNumber,
-                                });
-                                setIsSecurePdfOpen(true);
-                              }}
-                              title="Xem trực tiếp bản scan PDF gốc có dấu đỏ (Zero-Trust Proxy, không mở Drive)"
-                              className="px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 bg-[#1e7e34] hover:opacity-90 text-white cursor-pointer"
-                            >
-                              <span>🔒</span>
-                              <span className="hidden sm:inline">PDF gốc</span>
-                            </button>
-                          )}
+                          {(() => {
+                            const srcName = currentLegalDoc.rawFileName || currentLegalDoc.ssotFileName || '';
+                            const isPdf = srcName.toLowerCase().endsWith('.pdf');
+                            const isWord = /\.(docx?)$/i.test(srcName);
+                            const isNd14 =
+                              (srcName.includes('14') && srcName.includes('2026')) ||
+                              currentLegalDoc.docNumber.includes('14/2026');
+                            return (
+                              <>
+                                {(isPdf || isWord) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSecurePdfTarget({
+                                        fileName: srcName,
+                                        docTitle: currentLegalDoc.title,
+                                        docNumber: currentLegalDoc.docNumber,
+                                        viewerMode: isWord ? 'WORD' : 'PDF',
+                                      });
+                                      setIsSecurePdfOpen(true);
+                                    }}
+                                    title={
+                                      isWord
+                                        ? 'Xem bản Word (.docx/.doc) khổ A4 & In (Zero-Trust Proxy)'
+                                        : 'Xem trực tiếp bản scan PDF gốc có dấu đỏ (Zero-Trust Proxy, không mở Drive)'
+                                    }
+                                    className="px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 bg-[#1e7e34] hover:opacity-90 text-white cursor-pointer"
+                                  >
+                                    <span>{isWord ? '📝' : '🔒'}</span>
+                                    <span className="hidden sm:inline">{isWord ? 'Xem Word' : 'PDF gốc'}</span>
+                                  </button>
+                                )}
+                                {isNd14 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSecurePdfTarget({
+                                        fileName: '',
+                                        folderName: '[2026]_14-2026_ND_CP_BieumauvaPhuluc',
+                                        viewerMode: 'FOLDER_FORMS',
+                                        docTitle: '29 Biểu mẫu & Phụ lục NĐ 14/2026/NĐ-CP',
+                                        docNumber: '14/2026/NĐ-CP',
+                                      });
+                                      setIsSecurePdfOpen(true);
+                                    }}
+                                    title="Mở 29 Biểu mẫu & Phụ lục Word của Nghị định 14/2026/NĐ-CP"
+                                    className="px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 bg-sky-700 hover:opacity-90 text-white cursor-pointer"
+                                  >
+                                    <span>📂</span>
+                                    <span className="hidden sm:inline">29 Biểu mẫu</span>
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
 
                           {/* 3 Nút biểu tượng góc phải chuẩn mẫu: Đánh dấu (D) · Sao chép (C) · In */}
                           <button
@@ -4440,13 +4621,15 @@ export const Step2LegalMatrix: React.FC<Step2LegalMatrixProps> = ({ ctx }) => {
             </div>
           )}
 
-      {/* MODAL XEM PDF GỐC BẢO MẬT (ZERO-TRUST PROXY) */}
-      <SecurePdfViewerModal
+      {/* MODAL XEM TÀI LIỆU GỐC & 29 BIỂU MẪU BẢO MẬT (ZERO-TRUST PROXY) */}
+      <SecureDocumentViewerModal
         isOpen={isSecurePdfOpen}
         onClose={() => setIsSecurePdfOpen(false)}
         fileName={securePdfTarget.fileName}
         docTitle={securePdfTarget.docTitle}
         docNumber={securePdfTarget.docNumber}
+        folderName={securePdfTarget.folderName}
+        viewerMode={securePdfTarget.viewerMode}
       />
     </>
   );

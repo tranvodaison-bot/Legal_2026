@@ -235,7 +235,7 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export async function computeSha256Short(input: File | string): Promise<string> {
+export async function computeSha256FullHex(input: File | string): Promise<string> {
   try {
     if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
       const buffer =
@@ -244,11 +244,18 @@ export async function computeSha256Short(input: File | string): Promise<string> 
           : await input.arrayBuffer();
       const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fullHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      return fullHex.substring(0, 12).toUpperCase();
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
     }
   } catch {
-    // Fallback hash
+    // Fallback below
+  }
+  return '';
+}
+
+export async function computeSha256Short(input: File | string): Promise<string> {
+  const full = await computeSha256FullHex(input);
+  if (full) {
+    return full.substring(0, 12).toUpperCase();
   }
   const str = typeof input === 'string' ? input : `${input.name}-${input.size}`;
   let h = 2166136261;

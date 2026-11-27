@@ -289,6 +289,11 @@ export interface AnalyzedFileItem {
   originalName: string;
   originalFolderPath?: string;
   proposedFolderPath?: string;
+  sourceFullPath?: string;
+  fullSha256?: string;
+  vaultPath?: string;
+  curatedPath?: string;
+  dataSource?: 'LOCAL_SCAN' | 'BROWSER_DROP' | 'DATA_LEGAL_CATALOG' | 'CSV';
   extractedText: string;
   suggestion: {
     industry: string;
@@ -341,6 +346,12 @@ export interface RenameLogEntry {
   qlvbGroup: QlvbNamingGroupCode;
   cdeStatus?: CdeIsoStatus;
   isReverted: boolean;
+  batchId?: string;
+  opId?: string;
+  operationMode?: 'COPY_TO_SILVER' | 'INPLACE_RENAME' | 'METADATA_ONLY';
+  vaultPath?: string;
+  targetPath?: string;
+  persistedInSqlite?: boolean;
 }
 
 // ============================================================================

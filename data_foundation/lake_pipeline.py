@@ -192,10 +192,11 @@ def _parse_clauses_from_raw_text(
                     buf_len += len(ln) + 1
             if buf:
                 chunks.append("\n".join(buf))
+            chunk_nodes: List[CleanVbplClause] = []
             for idx_c, chunk_txt in enumerate(chunks):
-                clauses_out.append(
+                chunk_nodes.append(
                     CleanVbplClause(
-                        clause_key=f"{doc_key}-N{idx_c:04d}",
+                        clause_key=f"{doc_key}-P{idx_c:04d}",
                         doc_key=doc_key,
                         ssot_file_name=ssot_file_name,
                         order_index=idx_c,
@@ -208,6 +209,7 @@ def _parse_clauses_from_raw_text(
                         word_count=len(chunk_txt.split()),
                     )
                 )
+            clauses_out = chunk_nodes + clauses_out
         else:
             clauses_out.insert(
                 0,
@@ -225,6 +227,11 @@ def _parse_clauses_from_raw_text(
                     word_count=len(pre_txt.split()),
                 ),
             )
+
+    # Bảo đảm order_index & clause_key duy nhất tuyệt đối trên toàn văn bản
+    for final_idx, cl_node in enumerate(clauses_out):
+        cl_node.order_index = final_idx
+        cl_node.clause_key = f"{doc_key}-N{final_idx:04d}"
 
     return clauses_out, max(1, chapter_cnt), article_cnt, clause_cnt
 

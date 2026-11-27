@@ -4,6 +4,7 @@ import re
 import json
 import shutil
 import hashlib
+import threading
 import zipfile
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -1280,6 +1281,137 @@ def local_stream_pdf(
             "Cache-Control": "private, max-age=3600",
         },
     )
+
+
+_WORD_COM_LOCK = threading.Lock()
+
+
+def _find_safe_office_file(file_name: str, folder: Optional[str] = None) -> Optional[str]:
+    if not file_name or ".." in file_name or "/" in file_name or "\\" in file_name:
+        return None
+    safe_name = os.path.basename(file_name)
+    lower_safe = safe_name.lower()
+    if not (lower_safe.endswith(".docx") or lower_safe.endswith(".doc")):
+        return None
+
+    candidate_roots = [
+        r"G:\My Drive\02_KNOWLEDGE_LIBRARY\01_Quan_tri_Doanh_nghiep\Phap_che\Data_Legal_2026",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl", "02_silver", "curated_files"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl", "01_bronze", "raw_files"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local_data", "vbpl"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
+    ]
+    for root in candidate_roots:
+        if not os.path.exists(root):
+            continue
+        if folder:
+            if ".." in folder or "/" in folder or "\\" in folder:
+                return None
+            sub_dir = os.path.join(root, folder)
+            if os.path.isdir(sub_dir):
+                for item in os.listdir(sub_dir):
+                    if item.lower() == lower_safe and os.path.isfile(os.path.join(sub_dir, item)):
+                        return os.path.join(sub_dir, item)
+            continue
+        for walk_root, _, files in os.walk(root):
+            for item in files:
+                if item.lower() == lower_safe or item.lower().endswith(f"_{lower_safe}"):
+                    return os.path.join(walk_root, item)
+    return None
+
+
+def convert_doc_to_cached_docx(source_doc_path: str, cache_dir: str) -> Optional[str]:
+    """Chuyển đổi .doc (Word 97-2003) -> .docx chỉ đọc vào 06_preview_cache/{sha256}.docx qua Word COM."""
+    if not os.path.isfile(source_doc_path):
+        return None
+    sha = compute_sha256(source_doc_path)
+    os.makedirs(cache_dir, exist_ok=True)
+    target_docx = os.path.join(cache_dir, f"{sha}.docx")
+    if os.path.isfile(target_docx):
+        return target_docx
+
+    try:
+        import pythoncom  # type: ignore
+        import win32com.client  # type: ignore
+    except ImportError:
+        return None
+
+    tmp_docx = os.path.join(cache_dir, f".tmp_{sha[:12]}.docx")
+    with _WORD_COM_LOCK:
+        if os.path.isfile(target_docx):
+            return target_docx
+        pythoncom.CoInitialize()
+        word_app = None
+        doc_obj = None
+        try:
+            word_app = win32com.client.DispatchEx("Word.Application")
+            word_app.Visible = False
+            word_app.DisplayAlerts = 0
+            doc_obj = word_app.Documents.Open(
+                os.path.abspath(source_doc_path),
+                ConfirmConversions=False,
+                ReadOnly=True,
+                AddToRecentFiles=False,
+            )
+            doc_obj.SaveAs2(os.path.abspath(tmp_docx), FileFormat=16)  # wdFormatXMLDocument
+        finally:
+            if doc_obj is not None:
+                try:
+                    doc_obj.Close(False)
+                except Exception:
+                    pass
+            if word_app is not None:
+                try:
+                    word_app.Quit()
+                except Exception:
+                    pass
+            pythoncom.CoUninitialize()
+
+        if os.path.isfile(tmp_docx):
+            os.replace(tmp_docx, target_docx)
+            return target_docx
+    return None
+
+
+@app.get("/api/local/convert-doc-cache")
+def local_convert_doc_cache(
+    file: str = Query(..., description="Tên file .doc"),
+    folder: Optional[str] = Query(default=None),
+):
+    src_path = _find_safe_office_file(file, folder)
+    if not src_path:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tệp '{file}'")
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cache_dir = os.path.join(repo_root, ".local_data", "vbpl", "06_preview_cache")
+    if src_path.lower().endswith(".docx"):
+        return {"ok": True, "cache_ready": True, "ext": ".docx"}
+    cached = convert_doc_to_cached_docx(src_path, cache_dir)
+    return {"ok": bool(cached), "cache_ready": bool(cached), "ext": ".doc"}
+
+
+@app.get("/api/local/preview-docx")
+def local_preview_docx(
+    file: str = Query(..., description="Tên file .docx/.doc"),
+    folder: Optional[str] = Query(default=None),
+):
+    src_path = _find_safe_office_file(file, folder)
+    if not src_path:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tệp '{file}'")
+    target_path = src_path
+    if src_path.lower().endswith(".doc"):
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cache_dir = os.path.join(repo_root, ".local_data", "vbpl", "06_preview_cache")
+        cached = convert_doc_to_cached_docx(src_path, cache_dir)
+        if not cached:
+            raise HTTPException(status_code=422, detail="Không thể chuyển đổi tệp .doc trên máy trạm")
+        target_path = cached
+    full_text, total_pages = _extract_docx_full_text(target_path)
+    return {
+        "ok": True,
+        "fileName": os.path.basename(src_path),
+        "totalPages": total_pages,
+        "plainText": full_text,
+    }
 
 
 @app.post("/api/scan-file")

@@ -25,10 +25,10 @@
   - Đã hoàn tất khử trùng 2 pha ưu tiên `sha256` 64-char, ổn định `doc_key` & chống `WEB_APP_SYNC` ghi đè mất full-text trong `lake_pipeline.py`.
   - Đã xây `vault_manager.py` + bảng `fact_rename_operations` trong SQLite WAL (Binary Vault `01_bronze/raw_files/`, chế độ `COPY_TO_SILVER` vs `INPLACE_RENAME` Undo ACID, chặn `403` lên `Data_Legal_2026`).
   - Đã mở API `/commit-batch`, `/documents` (hydrate), `/rename-operations(/undo)`; nâng cấp trích xuất `.docx` đọc trọn vẹn `doc.tables` & `scan-folder` đệ quy (`5/5` Python tests PASS).
-- **Wave 3 (P1 — Xem `.docx`/`.doc` Zero-Trust, Nạp FTS5 & Nối 2 chiều Bước 1):**
-  - Proxy Node thuần `/api/documents/preview-docx` & `/list-forms` (`mammoth` + cache `.doc` + `word-extractor` fallback) + `SecureDocumentViewerModal.tsx` (xem/in A4 cho `.docx`, `.doc`, 29 biểu mẫu NĐ 14/2026, 7 mẫu HĐ QĐ 1040).
-  - Nạp toàn văn `107` tệp gốc + `29` biểu mẫu NĐ 14 (`= 136` tệp bổ sung → `187` tài liệu SQLite FTS5) + API `node:sqlite` `/search-fts` & `/clauses` nối thẳng vào `Step2` & `Step6`.
-  - Nối 2 chiều Bước 1 ↔ SQLite: Auto-Hydrate sau F5, Khung Quét Thư Mục Ổ Cứng & chọn chế độ lưu tại Bước 1.
+- **Wave 3 (P1 — Đã hoàn tất 2026-11-27):**
+  - Proxy Node thuần `/api/documents/preview-docx`, `/list-forms`, `/search-fts`, `/clauses` (`mammoth` + Word COM cache `.doc` + `word-extractor` fallback, `node:sqlite`) & `SecureDocumentViewerModal.tsx` (xem/in A4 cho `.docx`, `.doc`, 29 biểu mẫu NĐ 14/2026, QĐ 1040).
+  - Nạp toàn văn `141` tệp bổ sung → **`192` tài liệu · `4.355` điều khoản SQLite FTS5 · `612` quan hệ · `DQ 93.63`** (`0` `.json` rác) nối thẳng vào `Step2` & `Step6`.
+  - Nối 2 chiều Bước 1 ↔ SQLite: Auto-Hydrate sau F5, Khung Quét Thư Mục Ổ Cứng (`:8008`) & chọn chế độ lưu (`COPY_TO_SILVER` vs `INPLACE_RENAME`) (`tsc 0`, `19/19` smoke tests PASS, `5/5` Python tests PASS).
 - **Wave 4 (P2 — Tra cứu sâu & Code-Splitting `< 500 KB`):**
   - Tự động gắn `.xref` bấm được mở `SlideOverRefDrawer` (chống XSS, O(1) index).
   - Bộ lọc năm hiệu lực `2027..2006` & nút `🗑 Xóa lịch sử` tab `Gần đây`.

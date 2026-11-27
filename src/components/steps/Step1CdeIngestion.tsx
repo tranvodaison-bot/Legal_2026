@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TAXONOMY_3D, LEGAL_CATEGORY_TREE } from "../../data/lexPmoData";
 import { createRealDataLegalBatchItems } from "../../data/realDataLegal2026Batch";
-import { SecurePdfViewerModal } from "../SecurePdfViewerModal";
+import { SecureDocumentViewerModal } from "../SecureDocumentViewerModal";
 import {
   AnalyzedFileItem,
   ApprovalWorkflowItem,
@@ -387,12 +387,25 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
     handleExportBatchRenameArtifact,
     handleDownloadRenamedFile,
     handleSaveToSSOT,
+    hybridHealth,
+    batchOperationMode,
+    setBatchOperationMode,
+    lastPersistenceSource,
+    handleScanLocalFolderToQueue,
   } = ctx;
 
   // Local Progressive Disclosure UI state (Drawer/Accordion mặc định ĐÓNG)
   const [isAdvancedDrawerOpen, setIsAdvancedDrawerOpen] = useState(false);
   const [isSecurePdfOpen, setIsSecurePdfOpen] = useState(false);
-  const [securePdfTarget, setSecurePdfTarget] = useState<{ fileName: string; docTitle?: string; docNumber?: string }>({ fileName: "" });
+  const [securePdfTarget, setSecurePdfTarget] = useState<{
+    fileName: string;
+    docTitle?: string;
+    docNumber?: string;
+    folderName?: string;
+    viewerMode?: "AUTO" | "PDF" | "WORD" | "FOLDER_FORMS";
+  }>({ fileName: "" });
+  const [localFolderInput, setLocalFolderInput] = useState<string>("");
+  const [localScanRecursive, setLocalScanRecursive] = useState<boolean>(true);
   const [advancedTab, setAdvancedTab] = useState<AdvancedDrawerTab>("BATCH_TOOLS");
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
@@ -2052,6 +2065,44 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                 Nạp 8 mẫu demo
               </button>
             </div>
+
+            {/* Quét thư mục ổ cứng trực tiếp qua Local Sidecar :8008 */}
+            <div className="mt-3 pt-3 border-t border-[var(--line)]/70 flex flex-wrap items-center justify-center gap-2 text-left">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  hybridHealth?.localScannerOnline
+                    ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/35"
+                    : "bg-slate-500/10 text-[var(--chu-m)] border-[var(--line-d)]"
+                }`}
+                title="Trạng thái Local Sidecar :8008 (đọc ổ cứng & lưu SQLite ACID)"
+              >
+                {hybridHealth?.localScannerOnline ? "● Sidecar :8008 Online" : "○ Sidecar :8008 Offline"}
+              </span>
+              <input
+                type="text"
+                value={localFolderInput}
+                onChange={e => setLocalFolderInput(e.target.value)}
+                placeholder="Đường dẫn thư mục ổ cứng (VD: E:\\HoSo_DuAn)..."
+                aria-label="Đường dẫn thư mục ổ cứng cần quét"
+                className="flex-1 min-w-[210px] max-w-[340px] bg-[var(--giay)] border border-[var(--line-d)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--chu)] font-mono"
+              />
+              <label className="inline-flex items-center gap-1 text-[11px] text-[var(--chu-m)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={localScanRecursive}
+                  onChange={e => setLocalScanRecursive(e.target.checked)}
+                />
+                <span>Quét thư mục con</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => handleScanLocalFolderToQueue(localFolderInput, localScanRecursive)}
+                disabled={!localFolderInput.trim()}
+                className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 disabled:opacity-50 border border-sky-500/40 text-sky-900 dark:text-sky-200 font-bold text-xs cursor-pointer transition"
+              >
+                🔍 Quét ổ cứng → Hàng đợi
+              </button>
+            </div>
           </div>
 
           {/* Thẻ Phải (30%): Nạp Dữ Liệu Thực Tế (CSV/Excel) */}
@@ -2586,13 +2637,53 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleConfirmAndIngest}
-              className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm transition shadow-lg shadow-emerald-500/20 cursor-pointer whitespace-nowrap"
-            >
-              ✅ Xác Nhận & Nạp Vào Hệ Thống
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Toggle chế độ lưu ACID + chỉ báo SQLite/RAM */}
+              <div className="flex items-center gap-1 bg-[var(--panel)] border border-[var(--line-d)] rounded-xl p-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setBatchOperationMode("COPY_TO_SILVER")}
+                  title="Giữ nguyên file gốc, copy sang Silver Layer + lưu Bronze Vault (An toàn)"
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                    batchOperationMode === "COPY_TO_SILVER"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-[var(--chu-m)] hover:text-[var(--chu)]"
+                  }`}
+                >
+                  🛡️ An toàn (Vault + Silver)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBatchOperationMode("INPLACE_RENAME")}
+                  title="Đổi tên trực tiếp tệp gốc trên ổ cứng (tự động lưu backup SHA-256 ở Bronze Vault để Hoàn tác; chặn G:\\Data_Legal_2026)"
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                    batchOperationMode === "INPLACE_RENAME"
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "text-[var(--chu-m)] hover:text-[var(--chu)]"
+                  }`}
+                >
+                  ⚡ Đổi tên gốc (In-Place)
+                </button>
+              </div>
+              {lastPersistenceSource && (
+                <span
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${
+                    lastPersistenceSource === "SQLITE_VAULT"
+                      ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/35"
+                      : "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/35"
+                  }`}
+                >
+                  {lastPersistenceSource === "SQLITE_VAULT" ? "💾 SQLite ACID" : "🧠 RAM Tạm"}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleConfirmAndIngest}
+                className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm transition shadow-lg shadow-emerald-500/20 cursor-pointer whitespace-nowrap"
+              >
+                ✅ Xác Nhận & Nạp Vào Hệ Thống
+              </button>
+            </div>
           </div>
         </section>
 
@@ -2772,23 +2863,35 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                         <h4 className="text-xs font-bold uppercase text-emerald-800 dark:text-emerald-400">
                           Nội dung văn bản bóc tách ({parsedPreviewNodes.length} Chương/Điều)
                         </h4>
-                        {activeBatchItem?.originalName.toLowerCase().endsWith(".pdf") && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSecurePdfTarget({
-                                fileName: activeBatchItem.originalName,
-                                docTitle: activeBatchItem.suggestion.rawSummary || activeBatchItem.originalName,
-                                docNumber: `${activeBatchItem.suggestion.docType} ${activeBatchItem.suggestion.rawNumber}`,
-                              });
-                              setIsSecurePdfOpen(true);
-                            }}
-                            className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-                            title="Xem trực tiếp bản scan PDF gốc có dấu đỏ an toàn (Zero-Trust Proxy, không mở Drive)"
-                          >
-                            <span>🔒 Xem PDF Gốc</span>
-                          </button>
-                        )}
+                        {activeBatchItem &&
+                          (activeBatchItem.itemKind === "FOLDER" ||
+                            /\.(pdf|docx?)$/i.test(activeBatchItem.originalName)) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const isFolder = activeBatchItem.itemKind === "FOLDER";
+                                const isWord = /\.(docx?)$/i.test(activeBatchItem.originalName);
+                                setSecurePdfTarget({
+                                  fileName: isFolder ? "" : activeBatchItem.originalName,
+                                  folderName: isFolder ? activeBatchItem.originalName : undefined,
+                                  viewerMode: isFolder ? "FOLDER_FORMS" : isWord ? "WORD" : "PDF",
+                                  docTitle: activeBatchItem.suggestion.rawSummary || activeBatchItem.originalName,
+                                  docNumber: `${activeBatchItem.suggestion.docType} ${activeBatchItem.suggestion.rawNumber}`,
+                                });
+                                setIsSecurePdfOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 font-bold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                              title="Xem trực tiếp tài liệu gốc hoặc 29 Biểu mẫu an toàn (Zero-Trust Proxy, không mở Drive)"
+                            >
+                              <span>
+                                {activeBatchItem.itemKind === "FOLDER"
+                                  ? "📂 Mở 29 Biểu mẫu"
+                                  : /\.(docx?)$/i.test(activeBatchItem.originalName)
+                                  ? "📝 Xem Word Gốc"
+                                  : "🔒 Xem PDF Gốc"}
+                              </span>
+                            </button>
+                          )}
                       </div>
                       <input
                         type="text"
@@ -3368,8 +3471,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
-                            <span className="text-amber-800 dark:text-amber-300 font-bold">
-                              {log.logId} · {log.qlvbGroup} · CDE {log.cdeStatus || "S0"}
+                            <span className="text-amber-800 dark:text-amber-300 font-bold flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                {log.logId} · {log.qlvbGroup} · CDE {log.cdeStatus || "S0"}
+                              </span>
+                              {log.persistedInSqlite && (
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 text-[9px]">
+                                  SQLite ACID{log.operationMode ? ` · ${log.operationMode}` : ""}
+                                </span>
+                              )}
                             </span>
                             <span className="text-[var(--chu-m)]">{log.timestamp}</span>
                           </div>
@@ -3406,13 +3516,15 @@ export const Step1CdeIngestion: React.FC<Step1CdeIngestionProps> = ({ ctx }) => 
         </div>
       )}
 
-      {/* MODAL XEM PDF GỐC BẢO MẬT (ZERO-TRUST PROXY) */}
-      <SecurePdfViewerModal
+      {/* MODAL XEM TÀI LIỆU GỐC & 29 BIỂU MẪU BẢO MẬT (ZERO-TRUST PROXY) */}
+      <SecureDocumentViewerModal
         isOpen={isSecurePdfOpen}
         onClose={() => setIsSecurePdfOpen(false)}
         fileName={securePdfTarget.fileName}
         docTitle={securePdfTarget.docTitle}
         docNumber={securePdfTarget.docNumber}
+        folderName={securePdfTarget.folderName}
+        viewerMode={securePdfTarget.viewerMode}
       />
     </div>
   );

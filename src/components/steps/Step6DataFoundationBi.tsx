@@ -157,13 +157,11 @@ export const Step6DataFoundationBi: React.FC<Step6DataFoundationBiProps> = ({ ct
     }
     setIsSearching(true);
     try {
-      if (isSidecarConnected) {
-        const remote = await searchDataFoundationClauses(q, 30);
-        if (remote) {
-          setSearchHits(remote.hits as unknown as VbplFtsSearchHit[]);
-          setSearchSource('SQLITE_FTS5');
-          return;
-        }
+      const remote = await searchDataFoundationClauses(q, 30);
+      if (remote && (remote.hits.length > 0 || remote.source === 'sqlite-fts5' || remote.source === 'sidecar-fts5')) {
+        setSearchHits(remote.hits as unknown as VbplFtsSearchHit[]);
+        setSearchSource('SQLITE_FTS5');
+        return;
       }
       setSearchHits(searchClientVbplClauses(legalDocs, q, 30));
       setSearchSource('CLIENT_MEMORY');

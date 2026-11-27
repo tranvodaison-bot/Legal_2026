@@ -11,6 +11,10 @@ import analyzeHandler from './api/gemini/analyze.js';
 import compareClausesHandler from './api/gemini/compare-clauses.js';
 import verifyRoleHandler from './api/verify-role.js';
 import streamPdfHandler from './api/documents/stream-pdf.js';
+import previewDocxHandler from './api/documents/preview-docx.js';
+import listFormsHandler from './api/documents/list-forms.js';
+import searchFtsHandler from './api/documents/search-fts.js';
+import documentClausesHandler from './api/documents/clauses.js';
 
 export type { CanonicalActorRole } from './api/_lib/validation.js';
 export type { ServerAuditLog } from './api/_lib/auditStore.js';
@@ -59,6 +63,22 @@ app.all('/api/verify-role', (req: Request, res: Response, next: NextFunction) =>
 
 app.all('/api/documents/stream-pdf', (req: Request, res: Response, next: NextFunction) => {
   void streamPdfHandler(req, res).catch(next);
+});
+
+app.all('/api/documents/preview-docx', (req: Request, res: Response, next: NextFunction) => {
+  void previewDocxHandler(req, res).catch(next);
+});
+
+app.all('/api/documents/list-forms', (req: Request, res: Response, next: NextFunction) => {
+  void listFormsHandler(req, res).catch(next);
+});
+
+app.all('/api/documents/search-fts', (req: Request, res: Response, next: NextFunction) => {
+  void searchFtsHandler(req, res).catch(next);
+});
+
+app.all('/api/documents/clauses', (req: Request, res: Response, next: NextFunction) => {
+  void documentClausesHandler(req, res).catch(next);
 });
 
 // Middleware xử lý lỗi tập trung (Ẩn hoàn toàn stack trace nội bộ khỏi phản hồi client)

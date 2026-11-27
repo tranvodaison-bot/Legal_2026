@@ -34,6 +34,7 @@ import {
   LegalCutoffFilterMode,
   LegalDiffCategory,
   LegalDocument,
+  LegalNode,
   NamingFormState,
   PendingDigitalSignoff,
   ProjectArchetypeCode,
@@ -70,12 +71,14 @@ import {
   buildFileNameByRule,
   buildStandardFolderPath,
   cleanDocNumber,
+  computeSha256FullHex,
   computeSha256Short,
   createSampleBatchItems,
   detectQlvbGroup,
   extractOcrZonesFromText,
   extractTextFromFileEnhanced,
   formatFileSize,
+  inferSubSectorFromDomain,
   normalizeSsotDocType,
   parseLegalDocumentStructure,
   parseVietnameseLegalText,
@@ -102,12 +105,19 @@ import { Step5CommandCenter } from './components/steps/Step5CommandCenter';
 import { Step6DataFoundationBi } from './components/steps/Step6DataFoundationBi';
 import {
   analyzeLegalWithHybridAi,
+  commitBatchToDataFoundation,
   compareClausesWithHybridAi,
+  fetchFullDocumentClauses,
+  fetchRenameOperationsFromDataFoundation,
   fetchRoleGuardStatus,
+  hydrateDocumentsFromDataFoundation,
+  HybridServiceHealth,
   probeHybridServices,
   RoleGuardStatus,
+  scanLocalFolderViaSidecar,
   syncAuditLogEntry,
   toCanonicalGuardRole,
+  undoRenameOperationViaDataFoundation,
 } from './services/ssotBridgeService';
 
 const LEX_PMO_UNLOCKED_ROLES_KEY = 'lex_pmo_unlocked_roles_v1';
@@ -676,6 +686,11 @@ export function useLexPmoOrchestrator() {
   >('OCR_READER');
   const [readerKeywordSearch, setReaderKeywordSearch] = useState('');
 
+  const [hybridHealth, setHybridHealth] = useState<HybridServiceHealth | null>(null);
+  const [batchOperationMode, setBatchOperationMode] = useState<'COPY_TO_SILVER' | 'INPLACE_RENAME'>('COPY_TO_SILVER');
+  const [lastPersistenceSource, setLastPersistenceSource] = useState<'SQLITE_VAULT' | 'BROWSER_RAM' | null>(null);
+  const hydratedClauseCacheRef = useRef<Set<string>>(new Set());
+
   const [droppedFilesQueue, setDroppedFilesQueue] = useState<AnalyzedFileItem[]>(() =>
     createRealDataLegalBatchItems('KCN', 'SSOT_9PART', 'STAGE_GATE_ISO')
   );
@@ -956,7 +971,10 @@ export function useLexPmoOrchestrator() {
         linkedGates: suggestion.linkedGates,
       });
 
-      const sha256Hash = await computeSha256Short(file);
+      const fullSha256 = await computeSha256FullHex(file);
+      const sha256Hash = fullSha256
+        ? fullSha256.substring(0, 12).toUpperCase()
+        : await computeSha256Short(file);
       const ocrZones = extractOcrZonesFromText(file.name, extractedText);
       const fileSmartTags = buildAutoSuggestedTags(suggestion, activeProjectArchetype, 'SUGGESTED');
 
@@ -967,6 +985,8 @@ export function useLexPmoOrchestrator() {
         originalName: file.name,
         originalFolderPath: parentFolder,
         proposedFolderPath: proposedFolder,
+        fullSha256: fullSha256 || undefined,
+        dataSource: 'BROWSER_DROP',
         extractedText,
         suggestion,
         smartTags: fileSmartTags,
@@ -1261,7 +1281,243 @@ export function useLexPmoOrchestrator() {
     );
   };
 
-  // Thực thi Đổi tên File/Folder Hàng loạt & Ghi vào Nhật ký Hoàn tác (LOG_DOITEN) + Đẩy vào Kho SSOT
+  const mergeUpsertLegalDocs = (
+    prev: LegalDocument[],
+    incoming: LegalDocument[]
+  ): LegalDocument[] => {
+    const next = [...prev];
+    for (const inc of incoming) {
+      const incSsot = (inc.ssotFileName || '').toLowerCase();
+      const incRaw = (inc.rawFileName || '').toLowerCase();
+      const idx = next.findIndex(
+        d =>
+          d.id === inc.id ||
+          (incSsot && d.ssotFileName.toLowerCase() === incSsot) ||
+          (incRaw && d.rawFileName && d.rawFileName.toLowerCase() === incRaw)
+      );
+      if (idx >= 0) {
+        const existing = next[idx];
+        next[idx] = {
+          ...existing,
+          ...inc,
+          id: existing.id,
+          nodes: inc.nodes && inc.nodes.length >= existing.nodes.length ? inc.nodes : existing.nodes,
+          tags: Array.from(new Set([...(existing.tags || []), ...(inc.tags || [])])),
+          linkedGates: Array.from(new Set([...(existing.linkedGates || []), ...(inc.linkedGates || [])])),
+        };
+      } else {
+        next.unshift(inc);
+      }
+    }
+    return next;
+  };
+
+  const mapHydratedRecordToLegalDoc = (raw: Record<string, unknown>): LegalDocument => {
+    const domain = (String(raw.primaryDomain || 'HDXD') as FunctionalDomainCode) || 'HDXD';
+    const subSector = inferSubSectorFromDomain(domain, 'XD', String(raw.ssotFileName || ''));
+    const nodes = Array.isArray(raw.nodes) ? (raw.nodes as LegalNode[]) : [];
+    const docType = normalizeSsotDocType(String(raw.docType || 'ND'));
+    return {
+      id: String(raw.docKey || raw.id || `DOC-SQL-${Math.random().toString(36).slice(2, 8)}`),
+      ssotFileName: String(raw.ssotFileName || ''),
+      rawFileName: String(raw.rawFileName || raw.ssotFileName || ''),
+      docNumber: String(raw.docNumber || '01'),
+      docType,
+      issuer: String(raw.issuer || 'CP'),
+      year: String(raw.year || '2026'),
+      issueDate: String(raw.issueDate || `01/01/${raw.year || '2026'}`),
+      effectiveDate: String(raw.effectiveDate || `01/01/${raw.year || '2026'}`),
+      industryGroupId: subSector.industryGroupId,
+      subSectorCode: subSector.subSectorCode,
+      subSectorLabel: subSector.subSectorLabel,
+      primaryDomain: domain,
+      title: String(raw.title || raw.ssotFileName || ''),
+      shortSummary: String(raw.title || raw.ssotFileName || '').slice(0, 110),
+      status: String(raw.status || 'Còn hiệu lực'),
+      validityPeriod:
+        raw.effectStatusCode === 'UPCOMING'
+          ? 'Sắp có hiệu lực'
+          : raw.effectStatusCode === 'AMENDED'
+          ? 'AMENDED'
+          : 'Còn hiệu lực',
+      isAmended: Boolean(raw.isAmended),
+      chapterCount: Math.max(1, nodes.filter(n => n.level === 'Chương').length),
+      articleCount: Math.max(1, Number(raw.articleCount || nodes.filter(n => n.level === 'Điều').length || 1)),
+      clauseTotalCount: Math.max(1, Number(raw.clauseCount || nodes.length || 1)),
+      projectAxes:
+        Array.isArray(raw.projectAxes) && raw.projectAxes.length > 0
+          ? (raw.projectAxes as ProjectArchetypeCode[])
+          : ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+      secondaryDomains: [domain],
+      linkedGates:
+        Array.isArray(raw.linkedGates) && raw.linkedGates.length > 0
+          ? (raw.linkedGates as string[])
+          : ['G12'],
+      linkedQAQC: ['QT-01'],
+      tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+      lineage: `Đồng bộ SQLite WAL (SHA256: ${String(raw.sha256 || '').slice(0, 12).toUpperCase()})`,
+      nodes:
+        nodes.length > 0
+          ? nodes
+          : [
+              {
+                id: `${String(raw.docKey || 'DOC')}-N0`,
+                level: 'Điều',
+                code: 'Nội dung chính',
+                title: String(raw.title || ''),
+                clauseCount: 1,
+                content: String(raw.title || ''),
+              },
+            ],
+    };
+  };
+
+  const mapSqlRenameOpToLogEntry = (op: Record<string, unknown>, idx: number): RenameLogEntry => ({
+    logId: String(op.op_id || `OP-SQL-${idx + 1}`),
+    timestamp: String(op.created_at || '').replace('T', ' ').slice(0, 19),
+    itemId: String(op.doc_key || op.op_id || ''),
+    itemKind: (op.item_kind === 'FOLDER' ? 'FOLDER' : 'FILE'),
+    oldFolderPath: String(op.source_path || ''),
+    newFolderPath: String(op.target_path || ''),
+    oldName: String(op.original_name || ''),
+    newName: String(op.new_name || ''),
+    sha256Before: String(op.sha256_before || '').slice(0, 12).toUpperCase(),
+    sha256After: String(op.sha256_after || '').slice(0, 12).toUpperCase(),
+    actorName: String(op.actor_name || currentActor.fullName),
+    qlvbGroup: (String(op.qlvb_group || 'SSOT_9PART') as QlvbNamingGroupCode),
+    cdeStatus: (String(op.cde_status || 'S1') as CdeIsoStatus),
+    isReverted: op.status === 'REVERTED',
+    batchId: String(op.batch_id || ''),
+    opId: String(op.op_id || ''),
+    operationMode: (op.operation_mode as RenameLogEntry['operationMode']) || 'COPY_TO_SILVER',
+    vaultPath: String(op.vault_path || ''),
+    targetPath: String(op.target_path || ''),
+    persistedInSqlite: true,
+  });
+
+  const handleScanLocalFolderToQueue = async (folderPath: string, recursive = true) => {
+    const trimmed = folderPath.trim();
+    if (!trimmed) {
+      showToast('Vui lòng nhập đường dẫn thư mục cục bộ trên máy trạm!');
+      return;
+    }
+    setIsAnalyzingFile(true);
+    try {
+      const scanRes = await scanLocalFolderViaSidecar(trimmed, {
+        recursive,
+        projectCode: activeProjectArchetype,
+      });
+      const scannedItems: AnalyzedFileItem[] = (scanRes.files || []).map((f, idx) => {
+        const origName = String(f.original_name || `file_${idx + 1}.pdf`);
+        const fullSha = String(f.sha256 || '').toLowerCase();
+        const domain = (String(f.domain || 'HDXD') as FunctionalDomainCode) || 'HDXD';
+        const docType = String(f.doc_type || 'ND');
+        const issuer = String(f.issuer || 'CP');
+        const rawNumber = String(f.doc_number || '01');
+        const year = String(f.issue_year || '2026');
+        const ext = origName.split('.').pop()?.toLowerCase() || 'pdf';
+        const rawSummary = String(f.summary_pascal || origName.replace(/\.[^.]+$/, ''));
+        const ssotName = String(f.suggested_ssot_name || origName);
+        const gateCode = String(f.gate_code || 'G12');
+        const projCode = (f.project_code ? [String(f.project_code)] : [activeProjectArchetype]) as ProjectArchetypeCode[];
+        const suggestion = {
+          industry: domain === 'TQT' ? 'TC' : domain === 'DTU' ? 'BDS' : 'XD',
+          docType,
+          issuer,
+          rawNumber,
+          year,
+          primaryDomain: domain,
+          rawSummary,
+          appendixSuffix: '',
+          ext,
+          projectAxes: projCode,
+          secondaryDomains: [domain],
+          linkedGates: [gateCode],
+          linkedQAQC: ['QT-01'],
+        };
+        const tags = buildAutoSuggestedTags(suggestion, activeProjectArchetype, 'SUGGESTED');
+        const relFolder = String(f.relative_folder || '');
+        const fullPath = String(f.full_path || '');
+        const parentFolder = relFolder ? `${trimmed}\\${relFolder}` : trimmed;
+
+        return {
+          id: `LOC-${Math.random().toString(36).slice(2, 8)}-${idx + 1}`,
+          rawFile: null,
+          itemKind: 'FILE',
+          originalName: origName,
+          originalFolderPath: parentFolder,
+          sourceFullPath: fullPath,
+          fullSha256: fullSha,
+          dataSource: 'LOCAL_SCAN',
+          proposedFolderPath: buildStandardFolderPath({
+            preset: folderNamingPreset,
+            originalFolder: relFolder || trimmed.split(/[\\/]/).pop() || 'HoSoDuAn',
+            projectCode: activeProjectArchetype,
+            primaryDomain: domain,
+            gateCode,
+            year,
+            qlvbGroup: batchNamingStandard,
+            industry: suggestion.industry,
+          }),
+          extractedText: String(f.preview_text || ''),
+          suggestion,
+          smartTags: tags,
+          proposedName: ssotName,
+          qlvbGroup: batchNamingStandard,
+          cdeStatus: 'S0',
+          sha256Hash: fullSha ? fullSha.slice(0, 12).toUpperCase() : 'LOCAL000000',
+          readStatsLabel: `${String((f.meta as Record<string, unknown> | undefined)?.source_type || 'LOCAL')} · ${String((f.meta as Record<string, unknown> | undefined)?.total_pages || 1)} trang`,
+          selected: true,
+          isCommitted: false,
+        };
+      });
+
+      if (scannedItems.length === 0) {
+        showToast('Không tìm thấy tệp PDF/DOCX nào trong thư mục đã chọn.');
+        return;
+      }
+      setDroppedFilesQueue(prev => [...scannedItems, ...prev]);
+      setActiveBatchItemId(scannedItems[0].id);
+      showToast(`Đã quét ${scannedItems.length} tệp thật từ máy trạm (kèm full SHA-256 & đường dẫn gốc)!`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không kết nối được Sidecar :8008 để quét thư mục.');
+    } finally {
+      setIsAnalyzingFile(false);
+    }
+  };
+
+  const ensureDocFullClauses = async (docId: string) => {
+    if (hydratedClauseCacheRef.current.has(docId)) return;
+    const targetDoc = legalDocs.find(d => d.id === docId);
+    if (!targetDoc) return;
+    if (targetDoc.nodes.length > 2) {
+      hydratedClauseCacheRef.current.add(docId);
+      return;
+    }
+    const lookupKey = targetDoc.ssotFileName || targetDoc.rawFileName || targetDoc.id;
+    hydratedClauseCacheRef.current.add(docId);
+    const res = await fetchFullDocumentClauses(lookupKey);
+    if (res.found && res.clauses.length > targetDoc.nodes.length) {
+      setLegalDocs(prev =>
+        prev.map(d =>
+          d.id === docId
+            ? {
+                ...d,
+                nodes: res.clauses,
+                chapterCount: Math.max(1, res.clauses.filter(n => n.level === 'Chương').length),
+                articleCount: Math.max(1, res.clauses.filter(n => n.level === 'Điều').length || res.clauses.length),
+                clauseTotalCount: Math.max(
+                  1,
+                  res.clauses.reduce((s, n) => s + (n.clauseCount || 1), 0)
+                ),
+              }
+            : d
+        )
+      );
+    }
+  };
+
+  // Thực thi Đổi tên File/Folder Hàng loạt & Ghi vào Nhật ký Hoàn tác (LOG_DOITEN) + Đẩy vào Kho SSOT / SQLite
   const handleCommitBatchRename = async () => {
     const selectedItems = validatedBatchQueue.filter(i => i.selected !== false);
     if (selectedItems.length === 0) {
@@ -1278,24 +1534,6 @@ export function useLexPmoOrchestrator() {
     }
 
     const nowStr = new Date().toLocaleString('sv-SE');
-    const newLogs: RenameLogEntry[] = selectedItems.map((item, idx) => ({
-      logId: `LOG-2026-${String(renameLogs.length + idx + 1).padStart(4, '0')}`,
-      timestamp: nowStr,
-      itemId: item.id,
-      itemKind: item.itemKind || 'FILE',
-      oldFolderPath: item.originalFolderPath || '01_Nguon',
-      newFolderPath: item.proposedFolderPath || `${activeProjectArchetype}_G12_CDE`,
-      oldName: item.originalName,
-      newName: item.proposedName,
-      sha256Before: item.sha256Hash || '8F4EA12B9C01',
-      sha256After: item.sha256Hash || '8F4EA12B9C01',
-      actorName: currentActor.fullName,
-      qlvbGroup: item.qlvbGroup || batchNamingStandard,
-      cdeStatus: item.cdeStatus || 'S0',
-      isReverted: false,
-    }));
-
-    setRenameLogs(prev => [...newLogs, ...prev]);
     const selectedIds = new Set(selectedItems.map(i => i.id));
     setDroppedFilesQueue(prev =>
       prev.map(item => {
@@ -1315,65 +1553,148 @@ export function useLexPmoOrchestrator() {
       })
     );
 
-    // Đẩy các file hợp lệ vào danh mục văn bản Bước 2 (giữ nguyên 100% cơ chế Step2LegalMatrix)
     const fileItems = selectedItems.filter(i => i.itemKind !== 'FOLDER');
-    if (fileItems.length > 0) {
-      const addedDocs: LegalDocument[] = fileItems.map((item, idx) => {
-        const structured = parseLegalDocumentStructure(
-          item.extractedText || namingForm.rawContentToParse
-        );
-        const nodes = structured.nodes;
-        const confirmedTags = (
-          item.smartTags && item.smartTags.length > 0
-            ? item.smartTags
-            : buildAutoSuggestedTags(item.suggestion, activeProjectArchetype, 'CONFIRMED')
-        ).map(t => ({ ...t, status: 'CONFIRMED' as const }));
-        const syncedSug = syncSuggestionWithSmartTags(item.suggestion, confirmedTags);
-        const taxonomy = resolveDocTaxonomyFromTags(
-          syncedSug.primaryDomain,
-          syncedSug.industry,
-          confirmedTags
-        );
-        const canonicalDocType = normalizeSsotDocType(syncedSug.docType);
-        return {
-          id: `DOC-BATCH-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
-          ssotFileName: item.proposedName,
-          docNumber: syncedSug.rawNumber,
-          docType: canonicalDocType,
-          issuer: syncedSug.issuer,
-          year: syncedSug.year,
-          issueDate: `01/01/${syncedSug.year}`,
-          effectiveDate: `15/02/${syncedSug.year}`,
-          industryGroupId: taxonomy.industryGroupId,
-          subSectorCode: taxonomy.subSectorCode,
-          subSectorLabel: taxonomy.subSectorLabel,
-          primaryDomain: syncedSug.primaryDomain,
-          title: syncedSug.rawSummary,
-          shortSummary: syncedSug.rawSummary,
-          status: 'Còn hiệu lực năm 2026',
-          validityPeriod: 'Còn hiệu lực',
-          isAmended: false,
-          chapterCount: structured.stats.chapters,
-          articleCount: Math.max(1, structured.stats.articles),
-          clauseTotalCount: Math.max(
-            1,
-            structured.stats.clauses || nodes.reduce((acc, n) => acc + (n.clauseCount || 1), 0)
-          ),
-          projectAxes:
-            syncedSug.projectAxes.length > 0
-              ? syncedSug.projectAxes
-              : ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
-          secondaryDomains: syncedSug.secondaryDomains,
-          linkedGates: syncedSug.linkedGates,
-          linkedQAQC: syncedSug.linkedQAQC,
-          tags: taxonomy.tags,
-          lineage: `Chuẩn hóa hàng loạt (${item.qlvbGroup || batchNamingStandard} · CDE ${
-            item.cdeStatus || 'S0'
-          }) · Thư mục: ${item.proposedFolderPath || ''}`,
-          nodes,
-        };
-      });
-      setLegalDocs(prev => [...addedDocs, ...prev]);
+    const addedDocs: LegalDocument[] = fileItems.map((item, idx) => {
+      const structured = parseLegalDocumentStructure(
+        item.extractedText || namingForm.rawContentToParse
+      );
+      const nodes = structured.nodes;
+      const confirmedTags = (
+        item.smartTags && item.smartTags.length > 0
+          ? item.smartTags
+          : buildAutoSuggestedTags(item.suggestion, activeProjectArchetype, 'CONFIRMED')
+      ).map(t => ({ ...t, status: 'CONFIRMED' as const }));
+      const syncedSug = syncSuggestionWithSmartTags(item.suggestion, confirmedTags);
+      const taxonomy = resolveDocTaxonomyFromTags(
+        syncedSug.primaryDomain,
+        syncedSug.industry,
+        confirmedTags
+      );
+      const canonicalDocType = normalizeSsotDocType(syncedSug.docType);
+      return {
+        id: `DOC-BATCH-${Date.now().toString(36).toUpperCase()}-${idx + 1}`,
+        ssotFileName: item.proposedName,
+        rawFileName: item.originalName,
+        docNumber: syncedSug.rawNumber,
+        docType: canonicalDocType,
+        issuer: syncedSug.issuer,
+        year: syncedSug.year,
+        issueDate: `01/01/${syncedSug.year}`,
+        effectiveDate: `15/02/${syncedSug.year}`,
+        industryGroupId: taxonomy.industryGroupId,
+        subSectorCode: taxonomy.subSectorCode,
+        subSectorLabel: taxonomy.subSectorLabel,
+        primaryDomain: syncedSug.primaryDomain,
+        title: syncedSug.rawSummary,
+        shortSummary: syncedSug.rawSummary,
+        status: 'Còn hiệu lực năm 2026',
+        validityPeriod: 'Còn hiệu lực',
+        isAmended: false,
+        chapterCount: structured.stats.chapters,
+        articleCount: Math.max(1, structured.stats.articles),
+        clauseTotalCount: Math.max(
+          1,
+          structured.stats.clauses || nodes.reduce((acc, n) => acc + (n.clauseCount || 1), 0)
+        ),
+        projectAxes:
+          syncedSug.projectAxes.length > 0
+            ? syncedSug.projectAxes
+            : ['HTKT', 'DAN_DUNG', 'KCN', 'CCN', 'FTZ', 'PPP_BT'],
+        secondaryDomains: syncedSug.secondaryDomains,
+        linkedGates: syncedSug.linkedGates,
+        linkedQAQC: syncedSug.linkedQAQC,
+        tags: taxonomy.tags,
+        lineage: `Chuẩn hóa hàng loạt (${item.qlvbGroup || batchNamingStandard} · CDE ${
+          item.cdeStatus || 'S0'
+        }) · Thư mục: ${item.proposedFolderPath || ''}`,
+        nodes,
+      };
+    });
+
+    // Thử ghi bền vững vào SQLite WAL + Binary Vault qua Sidecar :8008
+    let persistedToSqlite = false;
+    const isSidecarUp = hybridHealth?.localScannerOnline ?? (await probeHybridServices()).localScannerOnline;
+    if (isSidecarUp && fileItems.length > 0) {
+      try {
+        const commitRes = await commitBatchToDataFoundation({
+          operation_mode: batchOperationMode,
+          actor_name: currentActor.fullName,
+          project_code: activeProjectArchetype,
+          items: fileItems.map((item, idx) => {
+            const docObj = addedDocs[idx];
+            return {
+              item_id: item.id,
+              item_kind: item.itemKind || 'FILE',
+              source_path: item.sourceFullPath || '',
+              original_name: item.originalName,
+              ssot_file_name: item.proposedName,
+              sha256: item.fullSha256 || '',
+              cde_status: item.cdeStatus || 'S1',
+              qlvb_group: item.qlvbGroup || batchNamingStandard,
+              doc_type: docObj.docType,
+              issuer_code: docObj.issuer,
+              doc_number: docObj.docNumber,
+              issue_year: Number(docObj.year) || 2026,
+              primary_domain: docObj.primaryDomain,
+              title: docObj.title,
+              issue_date: docObj.issueDate,
+              effective_date: docObj.effectiveDate,
+              effect_status: docObj.status,
+              project_axes: docObj.projectAxes,
+              linked_gates: docObj.linkedGates,
+              tags: docObj.tags,
+              raw_text: item.extractedText || '',
+              nodes: docObj.nodes,
+            };
+          }),
+        });
+
+        persistedToSqlite = true;
+        setLastPersistenceSource('SQLITE_VAULT');
+        if (Array.isArray(commitRes.rename_operations) && commitRes.rename_operations.length > 0) {
+          setRenameLogs(commitRes.rename_operations.map(mapSqlRenameOpToLogEntry));
+        }
+        if (Array.isArray(commitRes.hydrated_documents) && commitRes.hydrated_documents.length > 0) {
+          const hydrated = commitRes.hydrated_documents.map(mapHydratedRecordToLegalDoc);
+          setLegalDocs(prev => mergeUpsertLegalDocs(prev, hydrated));
+        } else if (addedDocs.length > 0) {
+          setLegalDocs(prev => mergeUpsertLegalDocs(prev, addedDocs));
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Lỗi commit SQLite';
+        if (errMsg.includes('Lằn ranh đỏ') || errMsg.includes('403') || errMsg.includes('409')) {
+          showToast(`⛔ ${errMsg}`);
+          return;
+        }
+      }
+    }
+
+    if (!persistedToSqlite) {
+      setLastPersistenceSource('BROWSER_RAM');
+      const newLogs: RenameLogEntry[] = selectedItems.map((item, idx) => ({
+        logId: `LOG-2026-${String(renameLogs.length + idx + 1).padStart(4, '0')}`,
+        timestamp: nowStr,
+        itemId: item.id,
+        itemKind: item.itemKind || 'FILE',
+        oldFolderPath: item.originalFolderPath || '01_Nguon',
+        newFolderPath: item.proposedFolderPath || `${activeProjectArchetype}_G12_CDE`,
+        oldName: item.originalName,
+        newName: item.proposedName,
+        sha256Before: item.sha256Hash || '8F4EA12B9C01',
+        sha256After: item.sha256Hash || '8F4EA12B9C01',
+        actorName: currentActor.fullName,
+        qlvbGroup: item.qlvbGroup || batchNamingStandard,
+        cdeStatus: item.cdeStatus || 'S0',
+        isReverted: false,
+        persistedInSqlite: false,
+      }));
+      setRenameLogs(prev => [...newLogs, ...prev]);
+      if (addedDocs.length > 0) {
+        setLegalDocs(prev => mergeUpsertLegalDocs(prev, addedDocs));
+      }
+    }
+
+    if (addedDocs.length > 0) {
       setSelectedDocId(addedDocs[0].id);
       setExpandedInlineDocId(addedDocs[0].id);
       setVbplIndustryGroupFilter('ALL');
@@ -1391,18 +1712,29 @@ export function useLexPmoOrchestrator() {
 
     await recordAuditLog({
       module: 'INGEST_3D',
-      action: `Đổi tên hàng loạt ${selectedItems.length} File/Folder & ghi Nhật ký LOG_DOITEN`,
+      action: `Đổi tên hàng loạt ${selectedItems.length} File/Folder (${persistedToSqlite ? `SQLite ACID · ${batchOperationMode}` : 'RAM trình duyệt'})`,
       entityRef: `${selectedItems.length} mục (${batchNamingStandard})`,
-      newState: 'BATCH_RENAMED_COMMITTED',
+      newState: persistedToSqlite ? 'BATCH_COMMITTED_SQLITE_VAULT' : 'BATCH_RENAMED_COMMITTED',
     });
 
     showToast(
-      `Đã đổi tên hàng loạt ${selectedItems.length} File/Folder, lưu Kho SSOT & ghi Nhật ký LOG_DOITEN!`
+      persistedToSqlite
+        ? `✓ Đã lưu bền vững ${selectedItems.length} mục vào SQLite WAL & Binary Vault (${batchOperationMode})!`
+        : `⚠ Sidecar :8008 chưa bật — mới lưu tạm ${selectedItems.length} mục trên RAM trình duyệt (sẽ mất khi F5)!`
     );
   };
 
-  // Hoàn tác tên cũ từ bảng LOG_DOITEN
-  const handleUndoRenameLog = (logEntry: RenameLogEntry) => {
+  // Hoàn tác tên cũ từ bảng LOG_DOITEN (có hỗ trợ Hoàn tác ACID vật lý qua SQLite)
+  const handleUndoRenameLog = async (logEntry: RenameLogEntry) => {
+    if (logEntry.persistedInSqlite && logEntry.opId) {
+      try {
+        await undoRenameOperationViaDataFoundation({ op_id: logEntry.opId });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Lỗi hoàn tác ACID trên Sidecar');
+        return;
+      }
+    }
+
     setRenameLogs(prev =>
       prev.map(l => (l.logId === logEntry.logId ? { ...l, isReverted: true } : l))
     );
@@ -2331,7 +2663,7 @@ export function useLexPmoOrchestrator() {
       lineage: `Gắn nhãn 3 Trục: [${namingForm.docType}] × Dự án [${namingForm.projectAxes.join(', ')}] × Chức năng [${namingForm.secondaryDomains.join(', ')}].`,
       nodes: parsedNodes,
     };
-    setLegalDocs(prev => [newDoc, ...prev]);
+    setLegalDocs(prev => mergeUpsertLegalDocs(prev, [newDoc]));
     setSelectedDocId(newDocId);
     setExpandedInlineDocId(newDocId);
     setRecentDocIds(prev => [newDocId, ...prev.filter(id => id !== newDocId)]);
@@ -2343,7 +2675,56 @@ export function useLexPmoOrchestrator() {
       newState: 'SSOT_COMMITTED',
     });
 
-    showToast(`Đã nạp "${generatedFileName}" vào Chuỗi Giá Trị SSOT!`);
+    const sha256Full = await computeSha256FullHex(
+      `${generatedFileName}|${namingForm.rawNumber}|${namingForm.rawSummary}|${namingForm.rawContentToParse}`
+    );
+    const isSidecarUp = hybridHealth?.localScannerOnline ?? (await probeHybridServices()).localScannerOnline;
+    let persisted = false;
+    if (isSidecarUp) {
+      try {
+        const dbRes = await commitBatchToDataFoundation({
+          operation_mode: 'METADATA_ONLY',
+          actor_name: currentActor.fullName,
+          project_code: activeProjectArchetype,
+          items: [
+            {
+              doc_key: newDocId,
+              ssot_file_name: generatedFileName,
+              original_name: generatedFileName,
+              sha256: sha256Full,
+              doc_type: normalizeSsotDocType(namingForm.docType),
+              issuer_code: namingForm.issuer,
+              doc_number: namingForm.rawNumber,
+              issue_year: Number(namingForm.year) || 2026,
+              primary_domain: namingForm.primaryDomain,
+              title: namingForm.rawSummary,
+              issue_date: newDoc.issueDate,
+              effective_date: newDoc.effectiveDate,
+              effect_status: namingForm.status,
+              project_axes: newDoc.projectAxes,
+              linked_gates: newDoc.linkedGates,
+              tags: newDoc.tags,
+              raw_text: namingForm.rawContentToParse,
+              nodes: parsedNodes,
+            },
+          ],
+        });
+        persisted = dbRes.status === 'OK';
+        if (Array.isArray(dbRes.hydrated_documents) && dbRes.hydrated_documents.length > 0) {
+          setLegalDocs(prev => mergeUpsertLegalDocs(prev, dbRes.hydrated_documents.map(mapHydratedRecordToLegalDoc)));
+        }
+      } catch {
+        persisted = false;
+      }
+    }
+
+    if (persisted) {
+      setLastPersistenceSource('SQLITE_VAULT');
+      showToast(`Đã nạp "${generatedFileName}" vào Kho SQLite SSOT (${parsedNodes.length} điều khoản)!`);
+    } else {
+      setLastPersistenceSource('BROWSER_RAM');
+      showToast(`Đã nạp "${generatedFileName}" vào phiên làm việc trình duyệt (SQLite Sidecar chưa bật — RAM tạm thời).`);
+    }
   };
 
   const toggleBookmarkDoc = (docId: string, e: React.MouseEvent) => {
@@ -2365,6 +2746,7 @@ export function useLexPmoOrchestrator() {
       setActiveNodeId(targetDoc.nodes[0].id);
     }
     setRecentDocIds(prev => [docId, ...prev.filter(id => id !== docId)].slice(0, 12));
+    void ensureDocFullClauses(docId);
   };
 
   // Khi click vào bất kỳ văn bản nào từ Cột 1 (Danh mục VB ngành hoặc Nhóm dự án), đồng bộ ngay Cột 2 & Cột 3
@@ -2689,6 +3071,7 @@ export function useLexPmoOrchestrator() {
   const jumpToArticleNode = (docId: string, nodeId: string, switchToContent = false) => {
     if (selectedDocId !== docId) {
       setSelectedDocId(docId);
+      void ensureDocFullClauses(docId);
     }
     setActiveNodeId(nodeId);
     if (switchToContent) {
@@ -3894,7 +4277,29 @@ export function useLexPmoOrchestrator() {
 
 
   useEffect(() => {
-    void probeHybridServices();
+    let active = true;
+    (async () => {
+      const health = await probeHybridServices();
+      if (!active) return;
+      setHybridHealth(health);
+      if (health.localScannerOnline) {
+        const [sqlDocs, sqlOps] = await Promise.all([
+          hydrateDocumentsFromDataFoundation(),
+          fetchRenameOperationsFromDataFoundation(100),
+        ]);
+        if (!active) return;
+        if (sqlDocs && sqlDocs.length > 0) {
+          const mapped = sqlDocs.map(mapHydratedRecordToLegalDoc);
+          setLegalDocs(prev => mergeUpsertLegalDocs(prev, mapped));
+        }
+        if (sqlOps && sqlOps.length > 0) {
+          setRenameLogs(sqlOps.map(mapSqlRenameOpToLogEntry));
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return {
@@ -3963,6 +4368,11 @@ export function useLexPmoOrchestrator() {
     readerKeywordSearch, setReaderKeywordSearch,
     droppedFilesQueue, setDroppedFilesQueue,
     renameLogs, setRenameLogs,
+    hybridHealth,
+    batchOperationMode, setBatchOperationMode,
+    lastPersistenceSource,
+    handleScanLocalFolderToQueue,
+    ensureDocFullClauses,
     activeRawFile, setActiveRawFile,
     fileInputRef, folderInputRef,
     namingForm, setNamingForm,

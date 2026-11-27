@@ -68,6 +68,7 @@ export function buildExtraDataLegal2026Docs(existingDocs: LegalDocument[]): Lega
 
   RAW_ITEMS.forEach((s, idx) => {
     if (s.kind !== 'FILE') return;
+    if (!/\.(pdf|docx?|xlsx?)$/i.test(s.originalName)) return;
     if (coveredRawNames.has(s.originalName.toLowerCase())) return;
 
     const suggestion = smartAnalyzeFile3D(s.originalName, s.extractedText);

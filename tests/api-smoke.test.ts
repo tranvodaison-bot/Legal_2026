@@ -13,6 +13,10 @@ import { createAnalyzeLegalHandler } from '../api/gemini/analyze-legal.js';
 import { createCompareClausesHandler } from '../api/gemini/compare-clauses.js';
 import verifyRoleHandler from '../api/verify-role.js';
 import streamPdfHandler from '../api/documents/stream-pdf.js';
+import previewDocxHandler from '../api/documents/preview-docx.js';
+import listFormsHandler from '../api/documents/list-forms.js';
+import searchFtsHandler from '../api/documents/search-fts.js';
+import clausesHandler from '../api/documents/clauses.js';
 import { MAX_AUDIT_LOGS, getAuditLogs, prependAuditLog } from '../api/_lib/auditStore.js';
 import type { GeminiClientLike, GeminiGenerateContentParams } from '../api/_lib/gemini.js';
 import { toCanonicalGuardRole } from '../src/services/ssotBridgeService.js';
@@ -1163,4 +1167,84 @@ test('GET /api/documents/stream-pdf enforces security and streams PDF', async ()
     assert.equal(resReal.headers['content-type'], 'application/pdf');
     assert.ok(String(resReal.headers['content-disposition']).includes('inline'));
   }
+});
+
+test('GET /api/documents/preview-docx enforces Zero-Trust rules & renders A4 HTML', async () => {
+  const resPost = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'POST',
+    path: '/api/documents/preview-docx?file=test.docx',
+  });
+  assert.equal(resPost.status, 405);
+
+  const resTrav = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'GET',
+    path: '/api/documents/preview-docx?file=..%2F..%2Fsecret.docx',
+  });
+  assert.equal(resTrav.status, 400);
+
+  const resExt = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'GET',
+    path: '/api/documents/preview-docx?file=payload.exe',
+  });
+  assert.equal(resExt.status, 400);
+
+  const res404 = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'GET',
+    path: '/api/documents/preview-docx?file=nonexistent_99999.docx',
+  });
+  assert.equal(res404.status, 404);
+
+  const resRealDocx = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'GET',
+    path: '/api/documents/preview-docx?file=%5B2026%5D_17-2026_ND_CP_QDCT-Xaydung.docx',
+  });
+  if (resRealDocx.status === 200) {
+    const body = resRealDocx.json as Record<string, unknown>;
+    assert.equal(body.ok, true);
+    assert.equal(body.ext, '.docx');
+    const html = String(body.html || '');
+    assert.ok(!/<script/i.test(html), 'Preview HTML must not contain script tags');
+    assert.ok(!/G:\\My Drive/i.test(html), 'Preview HTML must not leak host filesystem paths');
+  }
+
+  const resNd14Form = await invokeOverHttp(previewDocxHandler as any, {
+    method: 'GET',
+    path: '/api/documents/preview-docx?folder=%5B2026%5D_14-2026_ND_CP_BieumauvaPhuluc&file=01_M%E1%BA%ABu%20s%E1%BB%91%2001.%20T%E1%BB%9D%20tr%C3%ACnh%20th%E1%BA%A9m%20%C4%91%E1%BB%8Bnh%20B%C3%A1o%20c%C3%A1o%20NCKT%20%C4%90TXD%20v%C3%A0%20TKCS%20(%C4%91%E1%BB%81%20xu%E1%BA%A5t%20Ch%E1%BB%A7%20tr%C6%B0%C6%A1ng%20%C4%91%E1%BA%A7u%20t%C6%B0).docx',
+  });
+  if (resNd14Form.status === 200) {
+    assert.equal((resNd14Form.json as Record<string, unknown>).ok, true);
+  }
+});
+
+test('GET /api/documents/list-forms validates folder & lists 29 ND 14/2026 forms', async () => {
+  const resTrav = await invokeOverHttp(listFormsHandler as any, {
+    method: 'GET',
+    path: '/api/documents/list-forms?folder=..%2Fsecret',
+  });
+  assert.equal(resTrav.status, 400);
+
+  const resForms = await invokeOverHttp(listFormsHandler as any, {
+    method: 'GET',
+    path: '/api/documents/list-forms?folder=%5B2026%5D_14-2026_ND_CP_BieumauvaPhuluc',
+  });
+  if (resForms.status === 200) {
+    const body = resForms.json as { ok: boolean; total: number; files: Array<{ fileName: string }> };
+    assert.equal(body.ok, true);
+    assert.equal(body.total, 29);
+    assert.ok(body.files.every(f => !String(f.fileName).includes('G:\\')));
+  }
+});
+
+test('GET /api/documents/search-fts and /api/documents/clauses validate inputs', async () => {
+  const resMissingQ = await invokeOverHttp(searchFtsHandler as any, {
+    method: 'GET',
+    path: '/api/documents/search-fts',
+  });
+  assert.equal(resMissingQ.status, 400);
+
+  const resMissingDocKey = await invokeOverHttp(clausesHandler as any, {
+    method: 'GET',
+    path: '/api/documents/clauses',
+  });
+  assert.equal(resMissingDocKey.status, 400);
 });

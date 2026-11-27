@@ -42,9 +42,10 @@ export const SlideOverRefDrawer: React.FC<SlideOverRefDrawerProps> = ({
   const orderedNodes = focusedNode
     ? [focusedNode, ...doc.nodes.filter(n => n.id !== focusedNode.id)]
     : doc.nodes;
-  const hasPdf = Boolean(
-    (doc.rawFileName || doc.ssotFileName || '').toLowerCase().endsWith('.pdf')
-  );
+  const sourceFileName = (doc.rawFileName || doc.ssotFileName || '').toLowerCase();
+  const hasPdf = sourceFileName.endsWith('.pdf');
+  const hasWord = sourceFileName.endsWith('.docx') || sourceFileName.endsWith('.doc');
+  const hasViewableFile = hasPdf || hasWord;
 
   return (
     <aside
@@ -72,14 +73,14 @@ export const SlideOverRefDrawer: React.FC<SlideOverRefDrawerProps> = ({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {hasPdf && onOpenSecurePdf && (
+          {hasViewableFile && onOpenSecurePdf && (
             <button
               type="button"
               onClick={() => onOpenSecurePdf(doc)}
-              title="Xem PDF gốc có dấu đỏ của văn bản đối chiếu này"
+              title={hasWord ? 'Xem & in tài liệu Word nội tuyến (A4)' : 'Xem PDF gốc có dấu đỏ của văn bản đối chiếu này'}
               className="px-2 py-1 rounded text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 text-white cursor-pointer"
             >
-              🔒 PDF
+              {hasWord ? '📝 Word' : '🔒 PDF'}
             </button>
           )}
           <button
